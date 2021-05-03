@@ -1,0 +1,24 @@
+#	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
+#
+#	Copyright (C) 2021 Barcelona Supercomputing Center (BSC)
+
+ACLOCAL_AMFLAGS = -I m4
+AM_CFLAGS = -I$(srcdir)/src
+
+# See info page of libtool "Updating version info"
+# https://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
+lib_current = 0
+lib_revision = 0
+lib_age = 0
+
+# Expected shared object numbers
+lib_major = $(shell expr $(lib_current) - $(lib_age))
+lib_suffix = $(lib_major).$(lib_age).$(lib_revision)
+
+lib_LTLIBRARIES = libnosv.la
+
+libnosv_la_SOURCES = \
+    src/test.c
+
+include_HEADERS = \
+    api/nosv.h
