@@ -1,0 +1,43 @@
+#	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
+#
+#	Copyright (C) 2021 Barcelona Supercomputing Center (BSC)
+
+# 	The implementation language of nOS-V is C11
+#	Indentation uses 4-wide tabs and follows K&R breaks (break only after function)
+#	The use of clang-format is strongly encouraged
+
+Language: Cpp
+BasedOnStyle: LLVM
+Standard: Cpp11
+BreakBeforeBinaryOperators: NonAssignment
+ColumnLimit: 0
+UseTab: Always
+TabWidth: 4
+IndentWidth: 4
+IndentCaseLabels: true
+NamespaceIndentation: All
+ContinuationIndentWidth: 4
+ConstructorInitializerIndentWidth: 4
+ConstructorInitializerAllOnOneLineOrOnePerLine: true
+BreakConstructorInitializers: AfterColon
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: false
+  AfterControlStatement: false
+  AfterFunction: true
+  AfterNamespace: false
+  AfterStruct: false
+  AfterUnion: false
+  BeforeCatch: false
+  BeforeElse: false
+AccessModifierOffset: -4
+AllowShortBlocksOnASingleLine: false
+AllowShortIfStatementsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+KeepEmptyLinesAtTheStartOfBlocks: false
+AlignAfterOpenBracket: DontAlign
+IncludeBlocks: Preserve
+SortIncludes: false
+MaxEmptyLinesToKeep: 2
+AlwaysBreakTemplateDeclarations: true
+...

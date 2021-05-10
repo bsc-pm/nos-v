@@ -3,7 +3,8 @@
 #	Copyright (C) 2021 Barcelona Supercomputing Center (BSC)
 
 ACLOCAL_AMFLAGS = -I m4
-AM_CFLAGS = -I$(srcdir)/src
+AM_CFLAGS = -I$(srcdir)/src/include -I$(srcdir)/api
+# AM_LIBS = -lpthread
 
 # See info page of libtool "Updating version info"
 # https://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
@@ -18,7 +19,8 @@ lib_suffix = $(lib_major).$(lib_age).$(lib_revision)
 lib_LTLIBRARIES = libnosv.la
 
 libnosv_la_SOURCES = \
-    src/test.c
+    src/bootstrap.c		\
+	src/memory/sharedmemory.c
 
 include_HEADERS = \
     api/nosv.h

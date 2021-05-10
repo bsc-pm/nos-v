@@ -12,6 +12,9 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+// 4K max metadata
+#define NOSV_MAX_METADATA_SIZE 4096
+
 typedef uint64_t nosv_flags_t;
 
 struct nosv_task;
