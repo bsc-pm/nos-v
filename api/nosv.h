@@ -9,10 +9,10 @@
 
 #define __NOSV__
 
-#pragma GCC visibility push(default)
-
 #include <stdint.h>
 #include <sys/types.h>
+
+#pragma GCC visibility push(default)
 
 /* 	The maximum size for metadata embedded in tasks is 4Kbytes
 	For more, embed a pointer into the structure and allocate metadata separately
@@ -105,7 +105,7 @@ int nosv_submit(
 #define NOSV_PAUSE_NONE __ZEROBITS
 
 /* Blocking, yield operation */
-/* Callable from a task context ONLY */
+/* Restriction: Can only be called from a task context */
 int nosv_pause(
 	nosv_flags_t flags);
 
@@ -122,19 +122,32 @@ int nosv_destroy(
 	nosv_flags_t flags);
 
 /* Events API */
+/* Restriction: Can only be called from a task context */
 int nosv_increase_event_counter(
-	nosv_task_t task,
 	uint64_t increment);
 
+/* Restriction: Can only be called from a nOS-V Worker */
 int nosv_decrease_event_counter(
 	nosv_task_t task,
 	uint64_t decrement);
 
 /* Flags */
-#define NOSV_ADOPT_NONE __ZEROBITS
+#define NOSV_ATTACH_NONE __ZEROBITS
 
-/* Thread Adoption API */
-int nosv_adopt_external_thread(nosv_task_t *task /* out */, nosv_flags_t flags);
+/* Thread Attaching API */
+int nosv_attach(
+	nosv_task_t *task /* out */,
+	nosv_task_type_t type /* must have null callbacks */,
+	size_t metadata_size,
+	nosv_flags_t flags);
+
+/* Flags */
+#define NOSV_DETACH_NONE __ZEROBITS
+
+/* Called from attached thread */
+int nosv_detach(
+	nosv_flags_t flags
+	);
 
 #pragma GCC visibility pop
 
