@@ -10,17 +10,27 @@
 #include "compiler.h"
 #include "mutex.h"
 
-#define SMEM_START_ADDR 0x2000000000000000
-#define SMEM_SIZE (1 << 21)
+#define SMEM_START_ADDR ((void *) 0x2000000000000000)
+// #define SMEM_SIZE (1 << 21)
+#define SMEM_SIZE (1 << 19)
+#define SMEM_NAME "nosv"
 
-__hidden void smem_initialize();
+void smem_initialize();
 
-__hidden void smem_shutdown();
+void smem_shutdown();
 
 typedef struct smem_config {
+	nosv_mutex_t mutex;
 	void *scheduler_ptr;
 	void *alloc_ptr;
-	nosv_mutex_t mutex;
+	int count;
 } smem_config_t;
+
+typedef struct static_smem_config {
+	smem_config_t *config;
+	int smem_fd;
+} static_smem_config_t;
+
+extern static_smem_config_t st_config;
 
 #endif // SHARED_MEMORY_H

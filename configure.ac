@@ -13,7 +13,7 @@ m4_define([nosv_copyright], ["2021 Barcelona Supercomputing Center (BSC)"])
 
 AC_PREREQ([2.69])
 AC_INIT([nOS-V], [nosv_version], [david.alvarez@bsc.es])
-AC_CONFIG_SRCDIR([src/test.c])
+AC_CONFIG_SRCDIR([src/bootstrap.c])
 AC_CONFIG_AUX_DIR([config-aux])
 AC_CONFIG_MACRO_DIR([m4])
 
@@ -31,16 +31,16 @@ AM_PROG_AR
 LT_INIT([shared disable-static pic-only])
 AC_SUBST([LIBTOOL_DEPS])
 
+CFLAGS="-O3 -g -D_GNU_SOURCE -Wall -Wpedantic"
+
+# Set C11 Std
+AC_CHECK_C11
+
 AC_PROG_AWK
 AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_MAKE_SET
-
-# Set C11 Std
-AC_CHECK_C11
-
-CFLAGS+= " -std=c11"
 
 full_top_srcdir=$(readlink -f ${srcdir})
 AC_SUBST([full_top_srcdir])
@@ -65,6 +65,6 @@ _AS_ECHO([])
 _AS_ECHO([])
 _AS_ECHO([Configuration summary:])
 _AS_ECHO([   Compiler version... ${CC_VERSION}])
-_AS_ECHO([   Compiler optimization flags... ${OPT_CFLAGS}])
+_AS_ECHO([   Compiler optimization flags... ${CFLAGS}])
 _AS_ECHO([   Compiler debug flags... ${DEBUG_CFLAGS}])
 _AS_ECHO([])
