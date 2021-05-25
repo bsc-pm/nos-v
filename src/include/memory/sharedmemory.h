@@ -10,9 +10,9 @@
 #include "compiler.h"
 #include "mutex.h"
 
-#define SMEM_START_ADDR ((void *) 0x2000000000000000)
+#define SMEM_START_ADDR ((void *) 0x0000200000000000)
 // #define SMEM_SIZE (1 << 21)
-#define SMEM_SIZE (1 << 19)
+#define SMEM_SIZE (1 << 17)
 #define SMEM_NAME "nosv"
 
 void smem_initialize();
