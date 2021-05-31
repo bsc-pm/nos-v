@@ -21,6 +21,7 @@ lib_LTLIBRARIES = libnosv.la
 libnosv_la_SOURCES = \
     src/bootstrap.c		\
 	src/memory/backbone.c \
+	src/memory/slab.c \
 	src/memory/sharedmemory.c
 
 include_HEADERS = \

@@ -7,7 +7,29 @@
 #ifndef SLAB_H
 #define SLAB_H
 
+#include <stddef.h>
 #include <stdint.h>
 
+#include "list.h"
+#include "spinlock.h"
+
+#define SLAB_ALLOC_MIN 3
+#define SLAB_BUCKETS (20 - SLAB_ALLOC_MIN)
+
+#define NR_CPUS 512
+
+typedef struct cpu_cache_bucket {
+	void *slab;
+	void *freelist;
+} cpu_cache_bucket_t;
+
+typedef struct cache_bucket {
+	size_t obj_size;
+	clist_head_t free;
+	clist_head_t partial;
+	nosv_spinlock_t lock;
+
+	cpu_cache_bucket_t cpubuckets[NR_CPUS];
+} cache_bucket_t;
 
 #endif // SLAB_H
