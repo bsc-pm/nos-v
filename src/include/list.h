@@ -37,6 +37,22 @@ static inline void list_add(list_head_t *head, list_head_t *n)
 		head->prev = n;
 }
 
+static inline list_head_t *list_pop_head(list_head_t *head)
+{
+	list_head_t *first = head->next;
+
+	if (first) {
+		head->next = first->next;
+
+		// Was last element
+		if (!head->next)
+			head->prev = NULL;
+	}
+
+	return first;
+}
+
+
 /*
 	Doubly-linked list with a count (C-List)
 */
@@ -54,6 +70,16 @@ static inline void clist_init(clist_head_t *head)
 	head->prev = NULL;
 }
 
+static inline size_t clist_count(clist_head_t *head)
+{
+	return head->cnt;
+}
+
+static inline int clist_empty(clist_head_t *head)
+{
+	return head->cnt > 0;
+}
+
 // Add in the first position
 static inline void clist_add(clist_head_t *head, list_head_t *n)
 {
@@ -67,5 +93,21 @@ static inline void clist_add(clist_head_t *head, list_head_t *n)
 	head->cnt++;
 }
 
+static inline list_head_t *clist_pop_head(clist_head_t *head)
+{
+	list_head_t *first = head->next;
+
+	if (first) {
+		head->next = first->next;
+
+		// Was last element
+		if (!head->next)
+			head->prev = NULL;
+
+		head->cnt--;
+	}
+
+	return first;
+}
 
 #endif // LIST_H

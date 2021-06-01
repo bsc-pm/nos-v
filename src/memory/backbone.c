@@ -13,7 +13,7 @@ void *backbone_pages_start;
 page_metadata_t *backbone_metadata_start;
 static size_t backbone_size;
 static size_t backbone_pages;
-static backbone_header_t *backbone_header;
+backbone_header_t *backbone_header;
 
 // Type of a whole page, for pointer arithmetic purposes.
 typedef struct meta_page {
@@ -43,24 +43,12 @@ void backbone_alloc_init(void *start, size_t size)
 	page_t *page = (page_t *)pages_start;
 
 	for (size_t i = 0; i < backbone_pages; ++i) {
-		if (i > 0)
-			backbone_metadata_start[i].prev = &backbone_metadata_start[i - 1];
-		else
-			backbone_metadata_start[i].prev = NULL;
-
-		if (i < backbone_pages - 1)
-			backbone_metadata_start[i].next = &backbone_metadata_start[i + 1];
-		else
-			backbone_metadata_start[i].next = NULL;
-
+		list_add(&backbone_header->free_pages, &(backbone_metadata_start[i].list_hook));
 		backbone_metadata_start[i].addr = (void *)page;
-
 		page++;
 	}
 
 	backbone_header = (backbone_header_t *)start;
-
-	backbone_header->free_pages = backbone_metadata_start;
 	nosv_mutex_init(&backbone_header->mutex);
 }
 
@@ -69,12 +57,10 @@ page_metadata_t *balloc()
 	void *ret = NULL;
 	nosv_mutex_lock(&backbone_header->mutex);
 
-	if (backbone_header->free_pages != NULL) {
-		ret = backbone_header->free_pages;
-		backbone_header->free_pages = backbone_header->free_pages->next;
+	list_head_t *first = list_pop_head(&backbone_header->free_pages);
 
-		if (backbone_header->free_pages != NULL)
-			backbone_header->free_pages->prev = NULL;
+	if (first) {
+		ret = list_elem(first, page_metadata_t, list_hook);
 	}
 
 	nosv_mutex_unlock(&backbone_header->mutex);
@@ -86,12 +72,7 @@ void bfree(page_metadata_t *block)
 {
 	nosv_mutex_lock(&backbone_header->mutex);
 
-	page_metadata_t *old = backbone_header->free_pages;
-	backbone_header->free_pages = block;
-	block->next = old;
-
-	if (old)
-		old->prev = block;
+	list_add(&backbone_header->free_pages, &block->list_hook);
 
 	nosv_mutex_unlock(&backbone_header->mutex);
 }

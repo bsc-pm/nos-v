@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 
 static inline void nosv_abort(const char *msg)
 {
@@ -22,6 +23,11 @@ static inline void nosv_abort(const char *msg)
 static inline void nosv_warn(const char *msg)
 {
 	fprintf(stderr, "NOS-V WARNING: %s\n", msg);
+}
+
+static inline size_t next_power_of_two(uint64_t n)
+{
+	return 64 - __builtin_clzll(n - 1);
 }
 
 #endif // COMMON_H

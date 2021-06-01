@@ -18,8 +18,10 @@
 
 #define NR_CPUS 512
 
+struct page_metadata;
+
 typedef struct cpu_cache_bucket {
-	void *slab;
+	struct page_metadata *slab;
 	void *freelist;
 } cpu_cache_bucket_t;
 

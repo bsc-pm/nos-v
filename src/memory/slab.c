@@ -4,263 +4,243 @@
 	Copyright (C) 2021 Barcelona Supercomputing Center (BSC)
 */
 
+#include <assert.h>
+
+#include "common.h"
+#include "compiler.h"
 #include "memory/backbone.h"
 #include "memory/slab.h"
 
-void cpubucket_init(cpu_cache_bucket_t *cpubucket)
+static inline void cpubucket_init(cpu_cache_bucket_t *cpubucket)
 {
-		// _cachedObjs._list = nullptr;
-		// _cachedObjs._n = 0;
-		// _freelist = nullptr;
-
+	cpubucket->slab = NULL;
+	cpubucket->freelist = NULL;
 }
 
-void cpubucket_setpage(cpu_cache_bucket_t *cpubucket, page_metadata_t *page)
+static inline void cpubucket_setpage(cpu_cache_bucket_t *cpubucket, page_metadata_t *page)
 {
-		// _cachedObjs._list = page;
-		// _cachedObjs._n = cnt;
-		// _freelist = page->freelist;
-		// page->freelist = nullptr;
-
+	cpubucket->slab = (void *)page;
+	cpubucket->freelist = page->freelist;
+	page->freelist = NULL;
 }
 
-int cpubucket_alloc(cpu_cache_bucket_t *cpubucket, void **obj)
+static inline int cpubucket_alloc(cpu_cache_bucket_t *cpubucket, void **obj)
 {
-		// // We use the count in the list as the other refers to inUse objects,
-		// // Which are all while the list is in the cpu cache
-		// if (_cachedObjs._n > 0) {
-		// 	obj = _freelist;
+	// The freelist is a linked list of blocks, which are in essence void * to the next block.
+	// Here we advance the freelist and return the first element.
+	if (cpubucket->freelist) {
+		obj = cpubucket->freelist;
+		void *next = *((void **)obj);
+		cpubucket->freelist = next;
 
-		// 	void *next = *((void **)obj);
-		// 	_freelist = next;
-		// 	_cachedObjs._n--;
+		return 1;
+	}
 
-		// 	return true;
-		// }
-
-		// return false;
-
+	return 0;
 }
 
-int cpubucket_isinpage(cpu_cache_bucket_t *cpubucket, void *obj)
+static inline int cpubucket_isinpage(cpu_cache_bucket_t *cpubucket, void *obj)
 {
-		// if (_cachedObjs._list == nullptr) {
-		// 	return false;
-		// } else {
-		// 	uintptr_t uobj = (uintptr_t)obj;
-		// 	uintptr_t base = (uintptr_t)_cachedObjs._list->addr;
+	if (cpubucket->slab) {
+		uintptr_t uobj = (uintptr_t)obj;
+		uintptr_t base = (uintptr_t)cpubucket->slab->addr;
 
-		// 	return (uobj >= base && uobj < (base + LocalAllocator::chunkSize));
-		// }
+		return (uobj >= base && uobj < (base + PAGE_SIZE));
+	}
 
+	return 0;
 }
 
-int cpubucket_localfree(cpu_cache_bucket_t *cpubucket, void *obj)
+static inline void cpubucket_localfree(cpu_cache_bucket_t *cpubucket, void *obj)
 {
-		// assert(isInPage(obj));
+	assert(cpubucket_isinpage(cpubucket, obj));
 
-		// *((void **) obj) = _freelist;
-		// _freelist = obj;
-		// _cachedObjs._n++;
-
+	*((void **)obj) = cpubucket->freelist;
+	cpubucket->freelist = obj;
 }
 
-int bucket_objinpage(cache_bucket_t *bucket)
+static inline size_t bucket_objinpage(cache_bucket_t *bucket)
 {
-		// return LocalAllocator::chunkSize / _objSize;
+	return PAGE_SIZE / bucket->obj_size;
 }
 
-void bucket_initialize_page(cache_bucket_t *bucket, page_metadata_t *page)
+// Initialize a page as a freelist of objects of a certain size.
+static inline void bucket_initialize_page(cache_bucket_t *bucket, page_metadata_t *page)
 {
-		// void **pageData = (void **)page->addr;
-		// size_t stride = _objSize / sizeof(void *);
+	void **base = (void **)page->addr;
+	size_t stride = bucket->obj_size / sizeof(void *);
 
-		// for (size_t i = 0; i < objInPage(); i++) {
-		// 	pageData[i * stride] = &pageData[(i+1) * stride];
-		// }
+	size_t obj_in_page = bucket_objinpage(bucket);
+	for (size_t i = 0; i < obj_in_page; i++) {
+		base[i * stride] = &base[(i + 1) * stride];
+	}
 
-		// // Last
-		// pageData[(objInPage() - 1) * stride] = nullptr;
-		// page->freelist = page->addr;
-		// page->inUse = 0;
-
+	// Last
+	base[(obj_in_page - 1) * stride] = NULL;
+	page->freelist = page->addr;
+	page->inuse_chunks = 0;
 }
 
 // Slow-path for allocation - not implemented
-void *bucket_allocate_slow()
+void *bucket_allocate_slow(cache_bucket_t *bucket)
 {
 	return NULL;
 }
 
-void bucket_refill_cpu_cache(cache_bucket_t *bucket, cpu_cache_bucket_t* cpubucket)
+void bucket_refill_cpu_cache(cache_bucket_t *bucket, cpu_cache_bucket_t *cpubucket)
 {
-		// // Get local allocator
-		// LocalAllocator *alloc = Hive::getSharedMemory().getLocalAllocator();
+	size_t obj_in_page = bucket_objinpage(bucket);
 
-		// // Grab bucket lock
-		// _lock.lock();
+	// Grab bucket lock
+	nosv_spin_lock(&bucket->lock);
 
-		// // Find or allocate a free page
-		// if (_partial._n > 0) {
-		// 	// Fast-path, we have a partial page
-		// 	size_t addedObjects = objInPage() - _partial._list->inUse;
-		// 	_partial._list->inUse = objInPage();
-		// 	assert(addedObjects > 0);
-		// 	bucket.setPage(_partial._list, addedObjects);
+	// Find or allocate a free page
+	if (!clist_empty(&bucket->partial)) {
+		// Fast-path, we have a partial page
+		list_head_t *firstpage = clist_pop_head(&bucket->partial);
+		page_metadata_t *metadata = list_elem(firstpage, page_metadata_t, list_hook);
 
-		// 	// Remove first page from partial list
-		// 	_partial._list = _partial._list->next;
-		// 	_partial._n--;
-		// 	// Non-circular?
-		// 	// _partial._list->prev = nullptr;
-		// 	_lock.unlock();
-		// } else if (_free._n > 0) {
-		// 	// Fast-path as well, we have a cached free page
-		// 	_free._list->inUse = objInPage();
-		// 	bucket.setPage(_free._list, objInPage());
+		size_t added = obj_in_page - metadata->inuse_chunks;
+		metadata->inuse_chunks = obj_in_page;
 
-		// 	// Remove from free list
-		// 	_free._list = _free._list->next;
-		// 	_free._n--;
-		// 	// Non-circular?
-		// 	// _free._list->prev = nullptr;
-		// 	_lock.unlock();
-		// } else {
-		// 	// Slow-path, we need to allocate
-		// 	_lock.unlock();
-		// 	LocalAllocator::PageMetadata *newPage = alloc->getChunk(-1);
-		// 	assert(newPage != nullptr);
+		assert(added > 0);
+		cpubucket_setpage(cpubucket, metadata);
 
-		// 	// Initialize and add to cache
-		// 	initializePage(newPage);
-		// 	newPage->inUse = objInPage();
-		// 	bucket.setPage(newPage, objInPage());
-		// }
+		nosv_spin_unlock(&bucket->lock);
+	} else if (!clist_empty(&bucket->free)) {
+		// Fast-path as well, we have a cached free page
+		list_head_t *firstpage = clist_pop_head(&bucket->free);
+		page_metadata_t *metadata = list_elem(firstpage, page_metadata_t, list_hook);
 
+		metadata->inuse_chunks = obj_in_page;
+		cpubucket_setpage(cpubucket, metadata);
+
+		nosv_spin_unlock(&bucket->lock);
+	} else {
+		// Slow-path, we need to allocate. Release the lock first
+		nosv_spin_unlock(&bucket->lock);
+
+		page_metadata_t *newpage = balloc();
+		assert(newpage);
+
+		// Initialize and add to cache
+		bucket_initialize_page(bucket, newpage);
+		newpage->inuse_chunks = obj_in_page;
+		cpubucket_setpage(cpubucket, newpage);
+	}
 }
 
 void bucket_init(cache_bucket_t *bucket, size_t bucket_index)
 {
-		// _objSize = (1ULL << bucketIndex);
+	bucket->obj_size = (1ULL << bucket_index);
+	nosv_spin_init(&bucket->lock);
+	clist_init(&bucket->partial);
+	clist_init(&bucket->free);
+
+	for (int i = 0; i < NR_CPUS; ++i)
+		cpubucket_init(&bucket->cpubuckets[i]);
 }
 
 void *bucket_alloc(cache_bucket_t *bucket, int cpu)
 {
-		// void *obj = nullptr;
+	void *obj = NULL;
 
-		// if (cpu != -1) {
-		// 	// Fast-path
-		// 	if (_cpuCacheBuckets[cpu].alloc(obj))
-		// 		return obj;
+	assert(cpu < NR_CPUS);
 
-		// 	// There is no space in the CPU cache, re-fill
-		// 	// Slow-path
-		// 	refillCPUCache(_cpuCacheBuckets[cpu]);
+	if (cpu >= 0) {
+		cpu_cache_bucket_t *cpubucket = &bucket->cpubuckets[cpu];
 
-		// 	__attribute__((unused)) bool ret = _cpuCacheBuckets[cpu].alloc(obj);
-		// 	assert(ret);
-		// 	assert(obj != nullptr);
+		// Fast Path
+		if (cpubucket_alloc(cpubucket, &obj))
+			return obj;
 
-		// 	return obj;
-		// }
+		// Slower, there are no available chunks in the CPU cache and we have to refill
+		bucket_refill_cpu_cache(bucket, cpubucket);
 
-		// // Slow-path if CPU is not known
-		// return allocateOne();
+		__maybe_unused int ret = cpubucket_alloc(cpubucket, &obj);
+		assert(ret);
+		assert(obj);
 
+		return obj;
+	}
+
+	// Slow-path
+	return bucket_allocate_slow(bucket);
 }
 
 void bucket_free(cache_bucket_t *bucket, void *obj, int cpu)
 {
-// assert(cpu != -1);
-// 		if (_cpuCacheBuckets[cpu].isInPage(obj)) {
-// 			// Fast path
-// 			_cpuCacheBuckets[cpu].localFree(obj);
-// 		} else {
-// 			// Remote free, slow-path
-// 			// Get local allocator
-// 			LocalAllocator *alloc = Hive::getSharedMemory().getLocalAllocator();
+	cpu_cache_bucket_t *cpubucket = &bucket->cpubuckets[cpu];
+	size_t obj_in_page = bucket_objinpage(bucket);
 
-// 			// Get the page metadata corresponding to this allocation
-// 			LocalAllocator::PageMetadata *page = alloc->getChunkMetadata(obj);
+	assert(cpu >= 0);
+	assert(cpu < NR_CPUS);
+	if (cpubucket_isinpage(cpubucket, obj)) {
+		// Fast path
+		cpubucket_localfree(cpubucket, obj);
+	} else {
+		// Remote free, slow-path
+		page_metadata_t *metadata =	page_metadata_from_block(obj);
 
-// 			// Grab bucket lock
-// 			_lock.lock();
+		// Grab bucket lock
+		nosv_spin_lock(&bucket->lock);
 
-// 			if (page->inUse < objInPage()) {
-// 				// Partial page, already in the partial list
-// 				page->inUse--;
-// 				// Set "next"
-// 				*((void **)obj) = page->freelist;
-// 				page->freelist = obj;
+		// Post-decrement
+		if (metadata->inuse_chunks-- < obj_in_page) {
+			// Partial page, already in the partial list
+			// Set "next"
+			*((void **)obj) = metadata->freelist;
+			metadata->freelist = obj;
 
-// 				if (page->inUse == 0) {
-// 					// Free page now, remove from partial list? For now return
-// 					// alloc->returnChunk(page, cpu);
-// 				}
-// 			} else {
-// 				// Put in partial list
-// 				// Partial page, already in the partial list
-// 				page->inUse--;
-// 				// Set "next"
-// 				*((void **)obj) = nullptr;
-// 				page->freelist = obj;
+			if (metadata->inuse_chunks == 0) {
+				// We can put it in the free list or return it to the underlaying backbone
+				// allocator. Lots of options
+				// For now, we do NOTHING (stays in the partial list even full free)
+			}
+		} else {
+			// Put in partial list
+			// Set "next"
+			*((void **)obj) = NULL;
+			metadata->freelist = obj;
 
-// 				// Add to partial list
-// 				_partial._n++;
-// 				page->next = _partial._list;
-// 				_partial._list = page;
-// 			}
+			// Add to partial list
+			clist_add(&bucket->partial, &metadata->list_hook);
+		}
 
-// 			_lock.unlock();
-// 		}
+		nosv_spin_unlock(&bucket->lock);
+	}
 }
 
 void slab_init()
 {
-		// SharedMemory &shmem = Hive::getSharedMemory();
-		// shmem.lock();
-		// buckets = (CacheBucket *)shmem.getKey("CacheBuckets");
-		// if (!buckets) {
-		// 	buckets = (CacheBucket *)SharedMalloc::interProcessMalloc(sizeof(CacheBucket) * numBuckets);
-
-		// 	for (size_t i = 0; i < numBuckets; ++i) {
-		// 		new (&buckets[i]) CacheBucket(i + minAllocPower);
-		// 	}
-
-		// 	shmem.setKey("CacheBuckets", buckets);
-		// }
-		// shmem.unlock();
+	for (size_t i = 0; i < SLAB_BUCKETS; ++i)
+		bucket_init(&backbone_header->buckets[i], i + SLAB_ALLOC_MIN);
 }
 
-void* salloc(size_t size, int cpu)
+void *salloc(size_t size, int cpu)
 {
-		// size_t nextPO2 = 64 - __builtin_clzll(size - 1);
-		// if (nextPO2 < minAllocPower)
-		// 	nextPO2 = minAllocPower;
+	size_t allocsize = next_power_of_two(size);
 
-		// if (nextPO2 > (numBuckets + minAllocPower)) {
-		// 	return SharedMalloc::malloc(size);
-		// }
+	if (allocsize < SLAB_ALLOC_MIN)
+		allocsize = SLAB_ALLOC_MIN;
+	else if(allocsize >= SLAB_BUCKETS + SLAB_ALLOC_MIN)
+		return NULL;
 
-		// assert(size <= (1ULL << nextPO2));
+	cache_bucket_t *bucket = &backbone_header->buckets[allocsize - SLAB_ALLOC_MIN];
 
-		// CacheBucket &bucket = buckets[nextPO2 - minAllocPower];
-
-		// return bucket.alloc(cpu);
-
+	return bucket_alloc(bucket, cpu);
 }
 
 void sfree(void *ptr, size_t size, int cpu)
 {
-		// size_t nextPO2 = 64 - __builtin_clzll(size - 1);
-		// if (nextPO2 < minAllocPower)
-		// 	nextPO2 = minAllocPower;
+	size_t allocsize = next_power_of_two(size);
 
-		// if (nextPO2 > (numBuckets + minAllocPower)) {
-		// 	return SharedMalloc::free(ptr, size);
-		// }
+	if (allocsize < SLAB_ALLOC_MIN)
+		allocsize = SLAB_ALLOC_MIN;
 
-		// CacheBucket &bucket = buckets[nextPO2 - minAllocPower];
-		// bucket.free(ptr, cpu);
+	assert(allocsize < SLAB_BUCKETS + SLAB_ALLOC_MIN);
 
+	cache_bucket_t *bucket = &backbone_header->buckets[allocsize - SLAB_ALLOC_MIN];
+
+	bucket_free(bucket, ptr, cpu);
 }
