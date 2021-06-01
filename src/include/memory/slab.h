@@ -17,7 +17,7 @@
 #define SLAB_ALLOC_MIN 3
 #define SLAB_BUCKETS (20 - SLAB_ALLOC_MIN)
 
-#define NR_CPUS 512
+#define NR_CPUS 256
 
 struct page_metadata;
 

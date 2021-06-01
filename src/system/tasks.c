@@ -13,6 +13,7 @@ __public int nosv_type_init(
 	nosv_task_type_t *type /* out */,
 	nosv_task_run_callback_t run_callback,
 	nosv_task_end_callback_t end_callback,
+	nosv_task_event_callback_t event_callback,
 	const char *label,
 	void *metadata,
 	nosv_flags_t flags)
@@ -22,6 +23,8 @@ __public int nosv_type_init(
 
 	if (unlikely(!run_callback))
 		return -EINVAL;
+
+	return 0;
 }
 
 /* May return -ENOMEM. 0 on success */
@@ -51,6 +54,8 @@ __public int nosv_submit(
 {
 	if (unlikely(!task))
 		return -EINVAL;
+
+	return 0;
 }
 
 /* Blocking, yield operation */

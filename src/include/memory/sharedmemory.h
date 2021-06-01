@@ -14,6 +14,7 @@
 // #define SMEM_SIZE (1 << 21)
 #define SMEM_SIZE (1 << 27)
 #define SMEM_NAME "nosv"
+#define MAX_PIDS 128
 
 __internal void smem_initialize();
 
@@ -22,8 +23,9 @@ __internal void smem_shutdown();
 typedef struct smem_config {
 	nosv_mutex_t mutex;
 	void *scheduler_ptr;
-	void *alloc_ptr;
+	void *cpumanager_ptr;
 	int count;
+	void *per_pid_structures[MAX_PIDS];
 } smem_config_t;
 
 typedef struct static_smem_config {

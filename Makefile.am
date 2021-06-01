@@ -20,9 +20,12 @@ lib_LTLIBRARIES = libnosv.la
 
 libnosv_la_SOURCES = \
     src/bootstrap.c		\
+	src/hardware/cpus.c \
+	src/hardware/threads.c \
 	src/memory/backbone.c \
 	src/memory/slab.c \
-	src/memory/sharedmemory.c
+	src/memory/sharedmemory.c \
+	src/system/tasks.c
 
 include_HEADERS = \
     api/nosv.h
