@@ -10,6 +10,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "compiler.h"
 #include "list.h"
 #include "spinlock.h"
 
@@ -33,5 +34,9 @@ typedef struct cache_bucket {
 
 	cpu_cache_bucket_t cpubuckets[NR_CPUS];
 } cache_bucket_t;
+
+__internal void *salloc(size_t size, int cpu);
+__internal void sfree(void *ptr, size_t size, int cpu);
+__internal void slab_init();
 
 #endif // SLAB_H

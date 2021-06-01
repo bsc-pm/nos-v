@@ -15,9 +15,9 @@
 #define SMEM_SIZE (1 << 27)
 #define SMEM_NAME "nosv"
 
-void smem_initialize();
+__internal void smem_initialize();
 
-void smem_shutdown();
+__internal void smem_shutdown();
 
 typedef struct smem_config {
 	nosv_mutex_t mutex;
@@ -31,6 +31,6 @@ typedef struct static_smem_config {
 	int smem_fd;
 } static_smem_config_t;
 
-extern static_smem_config_t st_config;
+__internal extern static_smem_config_t st_config;
 
 #endif // SHARED_MEMORY_H

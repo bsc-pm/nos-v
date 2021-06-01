@@ -15,6 +15,6 @@
 #define unlikely(x) __builtin_expect(!!(x), 0)
 
 #define __public __attribute__((visibility("default")))
-#define __hidden __attribute__((visibility("hidden")))
+#define __internal __attribute__((visibility("hidden")))
 
 #endif // COMPILER_H

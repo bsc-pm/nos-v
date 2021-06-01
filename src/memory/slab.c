@@ -29,10 +29,11 @@ static inline int cpubucket_alloc(cpu_cache_bucket_t *cpubucket, void **obj)
 	// The freelist is a linked list of blocks, which are in essence void * to the next block.
 	// Here we advance the freelist and return the first element.
 	if (cpubucket->freelist) {
-		obj = cpubucket->freelist;
-		void *next = *((void **)obj);
+		void *ret = cpubucket->freelist;
+		void *next = *((void **)ret);
 		cpubucket->freelist = next;
 
+		*obj = ret;
 		return 1;
 	}
 
@@ -82,12 +83,12 @@ static inline void bucket_initialize_page(cache_bucket_t *bucket, page_metadata_
 }
 
 // Slow-path for allocation - not implemented
-void *bucket_allocate_slow(cache_bucket_t *bucket)
+static inline void *bucket_allocate_slow(cache_bucket_t *bucket)
 {
 	return NULL;
 }
 
-void bucket_refill_cpu_cache(cache_bucket_t *bucket, cpu_cache_bucket_t *cpubucket)
+static inline void bucket_refill_cpu_cache(cache_bucket_t *bucket, cpu_cache_bucket_t *cpubucket)
 {
 	size_t obj_in_page = bucket_objinpage(bucket);
 
@@ -130,7 +131,7 @@ void bucket_refill_cpu_cache(cache_bucket_t *bucket, cpu_cache_bucket_t *cpubuck
 	}
 }
 
-void bucket_init(cache_bucket_t *bucket, size_t bucket_index)
+static inline void bucket_init(cache_bucket_t *bucket, size_t bucket_index)
 {
 	bucket->obj_size = (1ULL << bucket_index);
 	nosv_spin_init(&bucket->lock);
@@ -141,7 +142,7 @@ void bucket_init(cache_bucket_t *bucket, size_t bucket_index)
 		cpubucket_init(&bucket->cpubuckets[i]);
 }
 
-void *bucket_alloc(cache_bucket_t *bucket, int cpu)
+static inline void *bucket_alloc(cache_bucket_t *bucket, int cpu)
 {
 	void *obj = NULL;
 
@@ -168,7 +169,7 @@ void *bucket_alloc(cache_bucket_t *bucket, int cpu)
 	return bucket_allocate_slow(bucket);
 }
 
-void bucket_free(cache_bucket_t *bucket, void *obj, int cpu)
+static inline void bucket_free(cache_bucket_t *bucket, void *obj, int cpu)
 {
 	cpu_cache_bucket_t *cpubucket = &bucket->cpubuckets[cpu];
 	size_t obj_in_page = bucket_objinpage(bucket);

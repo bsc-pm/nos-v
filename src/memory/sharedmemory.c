@@ -14,6 +14,8 @@
 
 #include "common.h"
 #include "memory/sharedmemory.h"
+#include "memory/backbone.h"
+#include "memory/slab.h"
 
 static_smem_config_t st_config;
 
@@ -65,6 +67,8 @@ static void segment_create()
 		st_config.config = (smem_config_t *)mmap(SMEM_START_ADDR, SMEM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED_NOREPLACE, st_config.smem_fd, 0);
 		if (st_config.config == MAP_FAILED)
 			nosv_abort("Cannot map shared memory");
+
+		backbone_alloc_init(((char *)SMEM_START_ADDR) + sizeof(static_smem_config_t), SMEM_SIZE - sizeof(static_smem_config_t), 0);
 	} else {
 		ftruncate(st_config.smem_fd, SMEM_SIZE);
 		st_config.config = (smem_config_t *)mmap(SMEM_START_ADDR, SMEM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED_NOREPLACE, st_config.smem_fd, 0);
@@ -73,6 +77,8 @@ static void segment_create()
 
 		// Initialize everything
 		smem_config_initialize(st_config.config);
+		backbone_alloc_init(((char *)SMEM_START_ADDR) + sizeof(static_smem_config_t), SMEM_SIZE - sizeof(static_smem_config_t), 1);
+		slab_init();
 	}
 
 	st_config.config->count++;

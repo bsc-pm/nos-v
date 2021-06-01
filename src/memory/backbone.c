@@ -20,7 +20,7 @@ typedef struct meta_page {
 	char x[PAGE_SIZE];
 } page_t;
 
-void backbone_alloc_init(void *start, size_t size)
+void backbone_alloc_init(void *start, size_t size, int initialize)
 {
 	backbone_size = size;
 
@@ -39,6 +39,11 @@ void backbone_alloc_init(void *start, size_t size)
 	uint64_t space_left = (uint64_t)((((char *)start) + backbone_size) - pages_start);
 	assert((space_left % PAGE_SIZE) == 0);
 	backbone_pages = space_left / PAGE_SIZE;
+	backbone_header = (backbone_header_t *)start;
+
+	// If we're not the first process, this is enough.
+	if (!initialize)
+		return;
 
 	page_t *page = (page_t *)pages_start;
 
@@ -48,7 +53,6 @@ void backbone_alloc_init(void *start, size_t size)
 		page++;
 	}
 
-	backbone_header = (backbone_header_t *)start;
 	nosv_mutex_init(&backbone_header->mutex);
 }
 

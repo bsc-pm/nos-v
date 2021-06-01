@@ -12,8 +12,8 @@
 #include <stddef.h>
 
 // Shared Memory allocation API
-__hidden void *smalloc(size_t size, int cpuId);
+__internal void *smalloc(size_t size, int cpuId);
 
-__hidden void sfree(void *ptr, size_t size, int cpuId);
+__internal void sfree(void *ptr, size_t size, int cpuId);
 
 #endif // ALLOC_H

@@ -77,7 +77,7 @@ static inline size_t clist_count(clist_head_t *head)
 
 static inline int clist_empty(clist_head_t *head)
 {
-	return head->cnt > 0;
+	return (head->cnt == 0);
 }
 
 // Add in the first position

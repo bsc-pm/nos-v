@@ -33,14 +33,14 @@ typedef struct backbone_header {
 	cache_bucket_t buckets[SLAB_BUCKETS];
 } backbone_header_t;
 
-extern void *backbone_pages_start;
-extern page_metadata_t *backbone_metadata_start;
-extern backbone_header_t *backbone_header;
+__internal extern void *backbone_pages_start;
+__internal extern page_metadata_t *backbone_metadata_start;
+__internal extern backbone_header_t *backbone_header;
 
-void backbone_alloc_init(void *start, size_t size);
+__internal void backbone_alloc_init(void *start, size_t size, int initialize);
 
-page_metadata_t *balloc();
-void bfree(page_metadata_t *block);
+__internal page_metadata_t *balloc();
+__internal void bfree(page_metadata_t *block);
 
 static inline page_metadata_t *page_metadata_from_block(void *block)
 {
