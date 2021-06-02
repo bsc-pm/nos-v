@@ -18,4 +18,7 @@
 // Maximum number of concurrent nOS-V processes
 #define MAX_PIDS 128
 
+// Cacheline Size
+#define CACHELINE_SIZE 64
+
 #endif // LIMITS_H

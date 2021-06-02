@@ -7,6 +7,8 @@
 #ifndef LIST_H
 #define LIST_H
 
+#include <stddef.h>
+
 /*
 	Vanilla C doubly-linked list.
 	Embed a list_head_t in your structure for use.

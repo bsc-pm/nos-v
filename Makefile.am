@@ -26,6 +26,7 @@ libnosv_la_SOURCES = \
 	src/memory/backbone.c \
 	src/memory/slab.c \
 	src/memory/sharedmemory.c \
+	src/scheduler/scheduler.c \
 	src/system/tasks.c
 
 include_HEADERS = \

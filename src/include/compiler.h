@@ -7,6 +7,10 @@
 #ifndef COMPILER_H
 #define COMPILER_H
 
+#include "climits.h"
+
+#define __cacheline_aligned __attribute__((aligned(CACHELINE_SIZE)))
+
 #define __constructor __attribute__((constructor))
 #define __destructor __attribute__((destructor))
 

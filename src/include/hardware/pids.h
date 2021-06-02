@@ -12,7 +12,6 @@
 #include "hardware/threads.h"
 
 typedef struct pid_structures {
-	// Scheduler ?
 	thread_manager_t threadmanager;
 } pid_structures_t;
 
