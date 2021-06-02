@@ -12,6 +12,8 @@
 #include "memory/sharedmemory.h"
 #include "memory/slab.h"
 
+#define PID_STR(a) st_config.config->per_pid_structures[a]
+
 pid_manager_t *pidmanager;
 
 int logical_pid;
@@ -37,26 +39,39 @@ void pidmanager_register()
 	BIT_SET(MAX_PIDS, logical_pid, &pidmanager->pids);
 
 	// Initialize PID-local structures
-	pid_structures_t *local = salloc(sizeof(pid_structures_t), cpu_get_current());
+	pid_structures_t *local = (pid_structures_t *) salloc(sizeof(pid_structures_t), cpu_get_current());
 	threadmanager_init(&local->threadmanager);
+	PID_STR(logical_pid) = local;
 
 	// While holding this lock, we have to check if there are free CPUs that we have to occupy
 	cpu_t *free_cpu;
 	free_cpu = cpu_pop_free();
 
 	while(free_cpu) {
-		worker_create(free_cpu);
+		worker_create(&local->threadmanager, free_cpu);
 		free_cpu = cpu_pop_free(logical_pid);
 	}
 
-	nosv_mutex_destroy(&pidmanager->lock);
+	nosv_mutex_unlock(&pidmanager->lock);
 }
 
 void pidmanager_shutdown()
 {
+	nosv_mutex_lock(&pidmanager->lock);
 
+	// Unregister this process, and make it available
+	BIT_CLR(MAX_PIDS, logical_pid, &pidmanager->pids);
+
+	pid_structures_t *local = (pid_structures_t *)PID_STR(logical_pid);
+	assert(local);
+	PID_STR(logical_pid) = NULL;
+
+	nosv_mutex_unlock(&pidmanager->lock);
+
+	// Notify all threads they have to shut down and wait until they do
+	// Each thread will pass its CPU during the shutdown process
+	threadmanager_shutdown(&local->threadmanager);
 }
-
 
 void pidmanager_init(int initialize)
 {

@@ -99,6 +99,8 @@ static inline void clist_add(clist_head_t *head, list_head_t *n)
 	head->cnt++;
 }
 
+#define clist_head(h) ((h)->next)
+
 static inline list_head_t *clist_pop_head(clist_head_t *head)
 {
 	list_head_t *first = head->next;

@@ -82,10 +82,62 @@ static inline void bucket_initialize_page(cache_bucket_t *bucket, page_metadata_
 	page->inuse_chunks = 0;
 }
 
-// Slow-path for allocation - not implemented
+// Slow-path for allocation - usable from external threads, and very slow.
 static inline void *bucket_allocate_slow(cache_bucket_t *bucket)
 {
-	return NULL;
+	void *ret;
+	nosv_spin_lock(&bucket->lock);
+
+	// Do we have a partial page?
+	if (!clist_empty(&bucket->partial)) {
+		list_head_t *page = clist_head(&bucket->partial);
+		assert(page);
+		page_metadata_t *metadata = list_elem(page, page_metadata_t, list_hook);
+
+		// Move freelist
+		ret = metadata->freelist;
+		void *next = *((void **)ret);
+		metadata->freelist = next;
+		metadata->inuse_chunks++;
+
+		// If there are no more free pages, remove from partial list
+		if (!next)
+			clist_pop_head(&bucket->partial);
+	} else if (!clist_empty(&bucket->free)) {
+		list_head_t *page = clist_pop_head(&bucket->free);
+		page_metadata_t *metadata = list_elem(page, page_metadata_t, list_hook);
+
+		// Move freelist
+		ret = metadata->freelist;
+		void *next = *((void **)ret);
+		metadata->freelist = next;
+		metadata->inuse_chunks++;
+
+		assert(next);
+		clist_add(&bucket->partial, &metadata->list_hook);
+	} else {
+		nosv_spin_unlock(&bucket->lock);
+
+		page_metadata_t *newpage = balloc();
+		assert(newpage);
+
+		// Initialize and add to cache
+		bucket_initialize_page(bucket, newpage);
+
+		// Move freelist
+		ret = newpage->freelist;
+		void *next = *((void **)ret);
+		newpage->freelist = next;
+		newpage->inuse_chunks++;
+
+		nosv_spin_lock(&bucket->lock);
+		assert(next);
+		clist_add(&bucket->partial, &newpage->list_hook);
+	}
+
+	nosv_spin_unlock(&bucket->lock);
+
+	return ret;
 }
 
 static inline void bucket_refill_cpu_cache(cache_bucket_t *bucket, cpu_cache_bucket_t *cpubucket)
@@ -174,9 +226,8 @@ static inline void bucket_free(cache_bucket_t *bucket, void *obj, int cpu)
 	cpu_cache_bucket_t *cpubucket = &bucket->cpubuckets[cpu];
 	size_t obj_in_page = bucket_objinpage(bucket);
 
-	assert(cpu >= 0);
 	assert(cpu < NR_CPUS);
-	if (cpubucket_isinpage(cpubucket, obj)) {
+	if (cpu >= 0 && cpubucket_isinpage(cpubucket, obj)) {
 		// Fast path
 		cpubucket_localfree(cpubucket, obj);
 	} else {

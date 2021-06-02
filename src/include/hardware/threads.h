@@ -8,6 +8,7 @@
 #define THREADS_H
 
 #include <pthread.h>
+#include <stdatomic.h>
 
 #include "compiler.h"
 #include "climits.h"
@@ -17,12 +18,16 @@
 #include "generic/spinlock.h"
 #include "hardware/cpus.h"
 
+extern atomic_int threads_shutdown_signal;
+
 typedef struct thread_manager {
 	nosv_spinlock_t idle_spinlock;
 	list_head_t idle_threads;
 
 	nosv_spinlock_t shutdown_spinlock;
-	list_head_t shutdown_threads;
+	clist_head_t shutdown_threads;
+
+	atomic_int created;
 } thread_manager_t;
 
 typedef struct nosv_worker {
@@ -32,7 +37,9 @@ typedef struct nosv_worker {
 } nosv_worker_t;
 
 __internal void threadmanager_init(thread_manager_t *threadmanager);
-__internal nosv_worker_t *worker_create(cpu_t *cpu);
+__internal void threadmanager_shutdown(thread_manager_t *threadmanager);
+__internal nosv_worker_t *worker_create(thread_manager_t *threadmanager, cpu_t *cpu);
+__internal void worker_wakeup(nosv_worker_t *worker, cpu_t *cpu);
 __internal void worker_join(nosv_worker_t *worker);
 
 #endif // THREADS_H
