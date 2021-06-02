@@ -6,9 +6,12 @@
 
 #include <assert.h>
 
+#include "compiler.h"
 #include "hardware/cpus.h"
 #include "memory/sharedmemory.h"
 #include "memory/slab.h"
+
+thread_local int __current_cpu = -1;
 
 static cpumanager_t *cpumanager;
 
@@ -42,6 +45,12 @@ void cpus_init(int initialize)
 
 		++curr;
 	}
+
+	cpumanager->pids_cpus = salloc(sizeof(int) * cnt, 0);
+	// Initialize the mapping as empty
+	for (i = 0; i < cnt; ++i) {
+		cpumanager->pids_cpus[i] = -1;
+	}
 }
 
 int cpus_count()
@@ -52,4 +61,16 @@ int cpus_count()
 cpu_t *cpu_get(int cpu)
 {
 	return &cpumanager->cpus[cpu];
+}
+
+cpu_t *cpu_pop_free(int pid)
+{
+	for (int i = 0; i < cpus_count(); ++i) {
+		if (cpumanager->pids_cpus[i] == -1) {
+			cpumanager->pids_cpus[i] = pid;
+			return cpu_get(i);
+		}
+	}
+
+	return NULL;
 }

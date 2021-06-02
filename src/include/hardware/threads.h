@@ -10,8 +10,11 @@
 #include <pthread.h>
 
 #include "compiler.h"
-#include "list.h"
-#include "spinlock.h"
+#include "climits.h"
+#include "generic/bitset.h"
+#include "generic/list.h"
+#include "generic/mutex.h"
+#include "generic/spinlock.h"
 #include "hardware/cpus.h"
 
 typedef struct thread_manager {
@@ -25,9 +28,10 @@ typedef struct thread_manager {
 typedef struct nosv_worker {
 	list_head_t list_hook;
 	pthread_t kthread;
+	cpu_t *cpu;
 } nosv_worker_t;
 
-__internal int threadmanager_init();
+__internal void threadmanager_init(thread_manager_t *threadmanager);
 __internal nosv_worker_t *worker_create(cpu_t *cpu);
 __internal void worker_join(nosv_worker_t *worker);
 

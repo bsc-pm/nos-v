@@ -10,8 +10,8 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "list.h"
-#include "mutex.h"
+#include "generic/mutex.h"
+#include "generic/list.h"
 #include "memory/slab.h"
 
 // 2MB Pages

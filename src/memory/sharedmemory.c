@@ -6,6 +6,8 @@
 
 #include <assert.h>
 #include <fcntl.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/file.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -14,6 +16,7 @@
 
 #include "common.h"
 #include "hardware/cpus.h"
+#include "hardware/pids.h"
 #include "memory/sharedmemory.h"
 #include "memory/backbone.h"
 #include "memory/slab.h"
@@ -24,8 +27,10 @@ static void smem_config_initialize(smem_config_t *config)
 {
 	config->cpumanager_ptr = NULL;
 	config->scheduler_ptr = NULL;
+	config->pidmanager_ptr = NULL;
 	nosv_mutex_init(&config->mutex);
 	config->count = 0;
+	memset(config->per_pid_structures, 0, MAX_PIDS * sizeof(void *));
 }
 
 // Boostrap of the shared memory for the first process
@@ -35,6 +40,7 @@ static void smem_initialize_first()
 	backbone_alloc_init(((char *)SMEM_START_ADDR) + sizeof(static_smem_config_t), SMEM_SIZE - sizeof(static_smem_config_t), 1);
 	slab_init();
 	cpus_init(1);
+	pidmanager_init(1);
 }
 
 // Bootstrap for the rest of processes
@@ -42,6 +48,7 @@ static void smem_initialize_rest()
 {
 	backbone_alloc_init(((char *)SMEM_START_ADDR) + sizeof(static_smem_config_t), SMEM_SIZE - sizeof(static_smem_config_t), 0);
 	cpus_init(0);
+	pidmanager_init(0);
 }
 
 static void segment_create()

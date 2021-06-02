@@ -21,6 +21,7 @@ lib_LTLIBRARIES = libnosv.la
 libnosv_la_SOURCES = \
     src/bootstrap.c		\
 	src/hardware/cpus.c \
+	src/hardware/pids.c \
 	src/hardware/threads.c \
 	src/memory/backbone.c \
 	src/memory/slab.c \

@@ -8,13 +8,13 @@
 #define SHARED_MEMORY_H
 
 #include "compiler.h"
-#include "mutex.h"
+#include "climits.h"
+#include "generic/mutex.h"
 
 #define SMEM_START_ADDR ((void *) 0x0000200000000000)
 // #define SMEM_SIZE (1 << 21)
 #define SMEM_SIZE (1 << 27)
 #define SMEM_NAME "nosv"
-#define MAX_PIDS 128
 
 __internal void smem_initialize();
 
@@ -24,6 +24,7 @@ typedef struct smem_config {
 	nosv_mutex_t mutex;
 	void *scheduler_ptr;
 	void *cpumanager_ptr;
+	void *pidmanager_ptr;
 	int count;
 	void *per_pid_structures[MAX_PIDS];
 } smem_config_t;

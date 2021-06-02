@@ -26,6 +26,12 @@ typedef struct list_head {
 #define list_elem(head, type, name) \
 	((type *) ((void *) head) - offsetof(type, name))
 
+static inline void list_init(list_head_t *head)
+{
+	head->next = NULL;
+	head->prev = NULL;
+}
+
 // Add in the first position
 static inline void list_add(list_head_t *head, list_head_t *n)
 {

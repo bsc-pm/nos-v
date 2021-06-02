@@ -46,3 +46,11 @@ $ make install
 ```
 
 where `INSTALLATION_PREFIX` is the directory into which to install nOS-V.
+
+## Contributing
+
+The development of nOS-V is based on a few simple principles that are maintained throughout the library:
+
+1. No dependencies, aside from libc and pthreads
+1. C11 with K&R C indentation. There is a ".clang-format" file provided
+1. Simple is better. Stablishing compile-time limits is encouraged if it simplifies significantly the code

@@ -11,13 +11,12 @@
 #include <stdint.h>
 
 #include "compiler.h"
-#include "list.h"
-#include "spinlock.h"
+#include "climits.h"
+#include "generic/spinlock.h"
+#include "generic/list.h"
 
 #define SLAB_ALLOC_MIN 3
 #define SLAB_BUCKETS (20 - SLAB_ALLOC_MIN)
-
-#define NR_CPUS 256
 
 struct page_metadata;
 
