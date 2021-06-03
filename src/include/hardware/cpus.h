@@ -27,6 +27,7 @@ __internal void cpus_init(int initialize);
 __internal int cpus_count();
 __internal cpu_t *cpu_get(int cpu);
 __internal cpu_t *cpu_pop_free();
+__internal int cpu_get_pid(int cpu);
 
 __internal extern thread_local int __current_cpu;
 

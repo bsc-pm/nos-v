@@ -28,6 +28,9 @@ typedef struct list_head {
 #define list_elem(head, type, name) \
 	((type *) ((void *) head) - offsetof(type, name))
 
+#define list_next(head) \
+	((head)->next)
+
 static inline void list_init(list_head_t *head)
 {
 	head->next = NULL;
@@ -45,6 +48,17 @@ static inline void list_add(list_head_t *head, list_head_t *n)
 		head->prev = n;
 }
 
+// Add in the last position
+static inline void list_add_tail(list_head_t *head, list_head_t *n)
+{
+	n->next = NULL;
+	n->prev = head->prev;
+	head->prev = n;
+
+	if (!head->next)
+		head->next = n;
+}
+
 static inline list_head_t *list_pop_head(list_head_t *head)
 {
 	list_head_t *first = head->next;
@@ -58,6 +72,11 @@ static inline list_head_t *list_pop_head(list_head_t *head)
 	}
 
 	return first;
+}
+
+static inline list_head_t *list_front(list_head_t *head)
+{
+	return head->next;
 }
 
 

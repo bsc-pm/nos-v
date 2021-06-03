@@ -21,4 +21,7 @@
 // Cacheline Size
 #define CACHELINE_SIZE 64
 
+// Max served tasks by delegation
+#define MAX_SERVED_TASKS 1024
+
 #endif // LIMITS_H

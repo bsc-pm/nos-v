@@ -41,5 +41,6 @@ __internal void threadmanager_shutdown(thread_manager_t *threadmanager);
 __internal nosv_worker_t *worker_create(thread_manager_t *threadmanager, cpu_t *cpu);
 __internal void worker_wakeup(nosv_worker_t *worker, cpu_t *cpu);
 __internal void worker_join(nosv_worker_t *worker);
+__internal int worker_should_shutdown();
 
 #endif // THREADS_H

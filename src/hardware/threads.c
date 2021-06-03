@@ -87,6 +87,11 @@ void *worker_start_routine(void *arg)
 	return NULL;
 }
 
+int worker_should_shutdown()
+{
+	return atomic_load_explicit(&threads_shutdown_signal, memory_order_relaxed);
+}
+
 void worker_wakeup(nosv_worker_t *worker, cpu_t *cpu)
 {
 	// NOP for now

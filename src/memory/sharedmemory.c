@@ -20,6 +20,7 @@
 #include "memory/sharedmemory.h"
 #include "memory/backbone.h"
 #include "memory/slab.h"
+#include "scheduler/scheduler.h"
 
 static_smem_config_t st_config;
 
@@ -37,18 +38,20 @@ static void smem_config_initialize(smem_config_t *config)
 static void smem_initialize_first()
 {
 	smem_config_initialize(st_config.config);
-	backbone_alloc_init(((char *)SMEM_START_ADDR) + sizeof(static_smem_config_t), SMEM_SIZE - sizeof(static_smem_config_t), 1);
+	backbone_alloc_init(((char *)SMEM_START_ADDR) + sizeof(smem_config_t), SMEM_SIZE - sizeof(smem_config_t), 1);
 	slab_init();
 	cpus_init(1);
 	pidmanager_init(1);
+	scheduler_init(1);
 }
 
 // Bootstrap for the rest of processes
 static void smem_initialize_rest()
 {
-	backbone_alloc_init(((char *)SMEM_START_ADDR) + sizeof(static_smem_config_t), SMEM_SIZE - sizeof(static_smem_config_t), 0);
+	backbone_alloc_init(((char *)SMEM_START_ADDR) + sizeof(smem_config_t), SMEM_SIZE - sizeof(smem_config_t), 0);
 	cpus_init(0);
 	pidmanager_init(0);
+	scheduler_init(0);
 }
 
 static void segment_create()

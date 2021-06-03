@@ -74,3 +74,8 @@ cpu_t *cpu_pop_free(int pid)
 
 	return NULL;
 }
+
+int cpu_get_pid(int cpu)
+{
+	return cpumanager->pids_cpus[cpu];
+}
