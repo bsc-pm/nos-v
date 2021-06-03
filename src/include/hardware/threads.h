@@ -16,6 +16,7 @@
 #include "generic/list.h"
 #include "generic/mutex.h"
 #include "generic/spinlock.h"
+#include "generic/condvar.h"
 #include "hardware/cpus.h"
 
 extern atomic_int threads_shutdown_signal;
@@ -34,6 +35,7 @@ typedef struct nosv_worker {
 	list_head_t list_hook;
 	pthread_t kthread;
 	cpu_t *cpu;
+	nosv_condvar_t condvar;
 } nosv_worker_t;
 
 __internal void threadmanager_init(thread_manager_t *threadmanager);

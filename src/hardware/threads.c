@@ -99,7 +99,8 @@ int worker_should_shutdown()
 
 void worker_wakeup(nosv_worker_t *worker, cpu_t *cpu)
 {
-	// NOP for now
+	worker->cpu = cpu;
+	nosv_condvar_signal(&worker->condvar);
 }
 
 nosv_worker_t *worker_create(thread_manager_t *threadmanager, cpu_t *cpu)
@@ -120,6 +121,8 @@ nosv_worker_t *worker_create(thread_manager_t *threadmanager, cpu_t *cpu)
 	ret = pthread_create(&worker->kthread, &attr, worker_start_routine, worker);
 	if (ret)
 		nosv_abort("Cannot create pthread");
+
+	nosv_condvar_init(&worker->condvar);
 
 	return worker;
 }

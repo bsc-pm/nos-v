@@ -110,7 +110,6 @@ nosv_task_t scheduler_get_internal(int cpu)
 	if (queue) {
 		list_head_t *head = list_pop_head(&queue->tasks);
 		if (head) {
-			int a = offsetof(struct nosv_task, list_hook);
 			return list_elem(head, struct nosv_task, list_hook);
 		}
 	}
