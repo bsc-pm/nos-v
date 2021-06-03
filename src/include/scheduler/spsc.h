@@ -62,7 +62,7 @@ static inline int spsc_push(spsc_queue_t *queue, void *value)
 	if (next == tail)
 		return 0;
 
-	queue->entries[next].entry = value;
+	queue->entries[head].entry = value;
 	atomic_store_explicit(&queue->head, next, memory_order_release);
 
 	return 1;

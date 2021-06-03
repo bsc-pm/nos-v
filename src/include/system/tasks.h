@@ -10,4 +10,6 @@
 #include "compiler.h"
 #include "nosv.h"
 
+__internal void task_execute(nosv_task_t task);
+
 #endif // TASKS_H

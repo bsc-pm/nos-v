@@ -45,7 +45,7 @@ void pidmanager_register()
 
 	// While holding this lock, we have to check if there are free CPUs that we have to occupy
 	cpu_t *free_cpu;
-	free_cpu = cpu_pop_free();
+	free_cpu = cpu_pop_free(logical_pid);
 
 	while(free_cpu) {
 		worker_create(&local->threadmanager, free_cpu);

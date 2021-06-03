@@ -59,6 +59,8 @@ static inline void scheduler_process_ready_tasks()
 	// Could creators overflow this?
 	// TODO maybe we want to limit how many tasks we pop
 	while (spsc_pop(scheduler->in_queue, (void **)&task)) {
+		scheduler->tasks++;
+
 		assert(task);
 		int pid = task->type->pid;
 		scheduler_queue_t *pidqueue = scheduler->queues_direct[pid];
@@ -108,6 +110,7 @@ nosv_task_t scheduler_get_internal(int cpu)
 	if (queue) {
 		list_head_t *head = list_pop_head(&queue->tasks);
 		if (head) {
+			int a = offsetof(struct nosv_task, list_hook);
 			return list_elem(head, struct nosv_task, list_hook);
 		}
 	}

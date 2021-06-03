@@ -77,5 +77,6 @@ cpu_t *cpu_pop_free(int pid)
 
 int cpu_get_pid(int cpu)
 {
+	assert(cpumanager->pids_cpus[cpu] < MAX_PIDS);
 	return cpumanager->pids_cpus[cpu];
 }

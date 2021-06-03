@@ -84,11 +84,11 @@ static inline int dtlock_lock_or_delegate(delegation_lock_t *dtlock, const uint6
 	atomic_thread_fence(memory_order_acquire);
 
 	// Lock acquired
-	if (dtlock->items[id].ticket != head)
+	if (dtlock->items[cpu_index].ticket != head)
 		return 1;
 
 	// Delegated and served
-	*item = dtlock->items[id].item;
+	*item = dtlock->items[cpu_index].item;
 
 	return 0;
 }
@@ -110,7 +110,8 @@ static inline int dtlock_try_lock(delegation_lock_t *dtlock)
 static inline void dtlock_popfront(delegation_lock_t *dtlock)
 {
 	const uint64_t id = dtlock->next % dtlock->size;
-	atomic_store_explicit(&dtlock->waitqueue[id].ticket, dtlock->next++, memory_order_release);
+	atomic_store_explicit(&dtlock->waitqueue[id].ticket, dtlock->next, memory_order_release);
+	dtlock->next++;
 }
 
 // Must be called with lock acquired

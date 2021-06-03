@@ -12,6 +12,8 @@
 #include "hardware/threads.h"
 #include "memory/sharedmemory.h"
 #include "memory/slab.h"
+#include "scheduler/scheduler.h"
+#include "system/tasks.h"
 
 thread_local nosv_worker_t *current_worker;
 thread_manager_t *current_process_manager;
@@ -77,7 +79,10 @@ void *worker_start_routine(void *arg)
 	cpu_set_current(current_worker->cpu->logic_id);
 
 	while (!atomic_load_explicit(&threads_shutdown_signal, memory_order_relaxed)) {
-		usleep(1000); // This should be the body?
+		nosv_task_t task = scheduler_get(cpu_get_current());
+
+		if (task)
+			task_execute(task);
 	}
 
 	nosv_spin_lock(&current_process_manager->shutdown_spinlock);

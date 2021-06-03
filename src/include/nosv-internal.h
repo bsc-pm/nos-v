@@ -12,14 +12,21 @@
 
 struct nosv_task_type
 {
+	nosv_task_run_callback_t run_callback;
+	nosv_task_end_callback_t end_callback;
+	nosv_task_event_callback_t event_callback;
+	void *metadata;
+	const char *label;
 	int pid;
 };
 
 
 struct nosv_task
 {
+	size_t metadata;
 	struct nosv_task_type *type;
 	list_head_t list_hook;
+	int priority;
 };
 
 #endif // NOSV_INTERNAL_H
