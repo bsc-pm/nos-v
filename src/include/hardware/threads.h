@@ -52,6 +52,7 @@ __internal nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, c
 __internal void worker_wake(int pid, cpu_t *cpu, nosv_task_t task);
 __internal void worker_join(nosv_worker_t *worker);
 __internal int worker_is_in_task();
+__internal nosv_task_t worker_current_task();
 
 __internal int worker_should_shutdown();
 

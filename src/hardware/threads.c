@@ -262,3 +262,10 @@ int worker_is_in_task() {
 
 	return 1;
 }
+
+nosv_task_t worker_current_task() {
+	if (!current_worker)
+		return NULL;
+
+	return current_worker->task;
+}

@@ -106,6 +106,7 @@ int nosv_create(
 	res->type = type;
 	res->metadata = metadata_size;
 	res->worker = NULL;
+	atomic_init(&res->event_count, 1);
 
 	*task = res;
 
@@ -184,11 +185,56 @@ int nosv_destroy(
 
 void task_execute(nosv_task_t task)
 {
+	atomic_thread_fence(memory_order_acquire);
 	task->type->run_callback(task);
+	atomic_thread_fence(memory_order_release);
 
-	if (task->type->end_callback)
+	if (task->type->end_callback) {
+		atomic_thread_fence(memory_order_acquire);
 		task->type->end_callback(task);
+		atomic_thread_fence(memory_order_release);
+	}
 
-	if (task->type->event_callback)
+	uint64_t res = atomic_fetch_sub_explicit(&task->event_count, 1, memory_order_relaxed) - 1;
+	if (!res && task->type->event_callback) {
 		task->type->event_callback(task);
+	}
+}
+
+/* Events API */
+/* Restriction: Can only be called from a task context */
+int nosv_increase_event_counter(
+	uint64_t increment)
+{
+	if (!increment)
+		return -EINVAL;
+
+	nosv_task_t current = worker_current_task();
+
+	if (!current)
+		return -EINVAL;
+
+	atomic_fetch_add_explicit(&current->event_count, increment, memory_order_relaxed);
+
+	return 0;
+}
+
+/* Restriction: Can only be called from a nOS-V Worker */
+int nosv_decrease_event_counter(
+	nosv_task_t task,
+	uint64_t decrement)
+{
+	if (!task)
+		return -EINVAL;
+
+	if (!decrement)
+		return -EINVAL;
+
+	uint64_t r = atomic_fetch_sub_explicit(&task->event_count, decrement, memory_order_relaxed) - 1;
+
+	if (!r && task->type->event_callback) {
+		task->type->event_callback(task);
+	}
+
+	return 0;
 }
