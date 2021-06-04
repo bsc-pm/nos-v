@@ -6,6 +6,8 @@
 
 #include "nosv-internal.h"
 #include "hardware/cpus.h"
+#include "hardware/threads.h"
+#include "hardware/pids.h"
 #include "memory/slab.h"
 #include "scheduler/scheduler.h"
 #include "system/tasks.h"
@@ -38,6 +40,7 @@ int nosv_type_init(
 	res->event_callback = event_callback;
 	res->label = label;
 	res->metadata = metadata;
+	res->pid = logical_pid;
 
 	*type = res;
 	return 0;
@@ -102,6 +105,7 @@ int nosv_create(
 
 	res->type = type;
 	res->metadata = metadata_size;
+	res->worker = NULL;
 
 	*task = res;
 
@@ -149,7 +153,13 @@ int nosv_submit(
 int nosv_pause(
 	nosv_flags_t flags)
 {
-	return -ENOSYS;
+	// We have to be inside a worker
+	if (!worker_is_in_task())
+		return -EINVAL;
+
+	worker_yield();
+
+	return 0;
 }
 
 /* Deadline tasks */

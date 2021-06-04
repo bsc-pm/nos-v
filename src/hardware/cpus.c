@@ -8,6 +8,7 @@
 
 #include "compiler.h"
 #include "hardware/cpus.h"
+#include "hardware/threads.h"
 #include "memory/sharedmemory.h"
 #include "memory/slab.h"
 
@@ -79,4 +80,15 @@ int cpu_get_pid(int cpu)
 {
 	assert(cpumanager->pids_cpus[cpu] < MAX_PIDS);
 	return cpumanager->pids_cpus[cpu];
+}
+
+void cpu_transfer(int destination_pid, cpu_t *cpu, nosv_task_t task)
+{
+	assert(cpu);
+	cpumanager->pids_cpus[cpu->logic_id] = destination_pid;
+
+	// Wake up a worker from another PID to take over
+	worker_wake(destination_pid, cpu, task);
+	// And sleep on this one
+	worker_block();
 }

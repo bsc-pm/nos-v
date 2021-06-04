@@ -48,7 +48,7 @@ void pidmanager_register()
 	free_cpu = cpu_pop_free(logical_pid);
 
 	while(free_cpu) {
-		worker_create(&local->threadmanager, free_cpu);
+		worker_create_local(&local->threadmanager, free_cpu, NULL);
 		free_cpu = cpu_pop_free(logical_pid);
 	}
 
@@ -85,4 +85,9 @@ void pidmanager_init(int initialize)
 	nosv_mutex_init(&pidmanager->lock);
 	BIT_ZERO(MAX_PIDS, &pidmanager->pids);
 	st_config.config->pidmanager_ptr = pidmanager;
+}
+
+thread_manager_t *pidmanager_get_threadmanager(int pid)
+{
+	return &((pid_structures_t *)PID_STR(pid))->threadmanager;
 }

@@ -68,9 +68,9 @@ static inline void nosv_condvar_signal(nosv_condvar_t *condvar)
 	pthread_mutex_lock(&condvar->mutex);
 	assert(!condvar->signaled);
 	condvar->signaled = 1;
-	pthread_mutex_unlock(&condvar->mutex);
-
 	pthread_cond_signal(&condvar->condvar);
+
+	pthread_mutex_unlock(&condvar->mutex);
 }
 
 #endif // CONDVAR_H

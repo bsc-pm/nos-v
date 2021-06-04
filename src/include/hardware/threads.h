@@ -12,12 +12,14 @@
 
 #include "compiler.h"
 #include "climits.h"
+#include "nosv.h"
 #include "generic/bitset.h"
 #include "generic/list.h"
 #include "generic/mutex.h"
 #include "generic/spinlock.h"
 #include "generic/condvar.h"
 #include "hardware/cpus.h"
+#include "hardware/eventqueue.h"
 
 extern atomic_int threads_shutdown_signal;
 
@@ -29,20 +31,28 @@ typedef struct thread_manager {
 	clist_head_t shutdown_threads;
 
 	atomic_int created;
+	event_queue_t thread_creation_queue;
+	pthread_t delegate_thread;
 } thread_manager_t;
 
 typedef struct nosv_worker {
 	list_head_t list_hook;
 	pthread_t kthread;
 	cpu_t *cpu;
+	nosv_task_t task;
 	nosv_condvar_t condvar;
 } nosv_worker_t;
 
 __internal void threadmanager_init(thread_manager_t *threadmanager);
 __internal void threadmanager_shutdown(thread_manager_t *threadmanager);
-__internal nosv_worker_t *worker_create(thread_manager_t *threadmanager, cpu_t *cpu);
-__internal void worker_wakeup(nosv_worker_t *worker, cpu_t *cpu);
+
+__internal void worker_yield();
+__internal void worker_block();
+__internal nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, nosv_task_t task);
+__internal void worker_wake(int pid, cpu_t *cpu, nosv_task_t task);
 __internal void worker_join(nosv_worker_t *worker);
+__internal int worker_is_in_task();
+
 __internal int worker_should_shutdown();
 
 #endif // THREADS_H

@@ -28,6 +28,7 @@ __internal extern int logical_pid;
 __internal extern pid_t system_pid;
 
 __internal void pidmanager_init(int initialize);
+__internal thread_manager_t *pidmanager_get_threadmanager(int pid);
 
 __internal void pidmanager_register();
 __internal void pidmanager_shutdown();

@@ -74,6 +74,7 @@ static inline int dtlock_lock_or_delegate(delegation_lock_t *dtlock, const uint6
 	const uint64_t id = head % dtlock->size;
 
 	assert(cpu_index < dtlock->size);
+	assert(id < dtlock->size);
 	atomic_store_explicit(&dtlock->waitqueue[id].cpu, head + cpu_index, memory_order_relaxed);
 
 	while (atomic_load_explicit(&dtlock->waitqueue[id].ticket, memory_order_relaxed) < head)
@@ -110,8 +111,8 @@ static inline int dtlock_try_lock(delegation_lock_t *dtlock)
 static inline void dtlock_popfront(delegation_lock_t *dtlock)
 {
 	const uint64_t id = dtlock->next % dtlock->size;
-	atomic_store_explicit(&dtlock->waitqueue[id].ticket, dtlock->next, memory_order_release);
-	dtlock->next++;
+	assert(id < dtlock->size);
+	atomic_store_explicit(&dtlock->waitqueue[id].ticket, dtlock->next++, memory_order_release);
 }
 
 // Must be called with lock acquired
@@ -137,6 +138,7 @@ static inline uint64_t dtlock_front(const delegation_lock_t *dtlock)
 // Must be called with lock acquired
 static inline void dtlock_set_item(delegation_lock_t *dtlock, const uint64_t cpu, void *item)
 {
+	assert(cpu < dtlock->size);
 	dtlock->items[cpu].item = item;
 	dtlock->items[cpu].ticket = dtlock->next;
 }

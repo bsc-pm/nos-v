@@ -41,6 +41,9 @@ static inline void list_init(list_head_t *head)
 static inline void list_add(list_head_t *head, list_head_t *n)
 {
 	n->next = head->next;
+	if(head->next)
+		head->next->prev = n;
+
 	head->next = n;
 	n->prev = NULL;
 
@@ -53,6 +56,9 @@ static inline void list_add_tail(list_head_t *head, list_head_t *n)
 {
 	n->next = NULL;
 	n->prev = head->prev;
+	if (head->prev)
+		head->prev->next = n;
+
 	head->prev = n;
 
 	if (!head->next)
@@ -111,6 +117,9 @@ static inline int clist_empty(clist_head_t *head)
 static inline void clist_add(clist_head_t *head, list_head_t *n)
 {
 	n->next = head->next;
+	if(head->next)
+		head->next->prev = n;
+
 	head->next = n;
 	n->prev = NULL;
 

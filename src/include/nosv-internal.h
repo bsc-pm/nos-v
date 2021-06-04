@@ -10,6 +10,8 @@
 #include "nosv.h"
 #include "generic/list.h"
 
+struct nosv_worker;
+
 struct nosv_task_type
 {
 	nosv_task_run_callback_t run_callback;
@@ -25,6 +27,7 @@ struct nosv_task
 {
 	size_t metadata;
 	struct nosv_task_type *type;
+	struct nosv_worker *worker;
 	list_head_t list_hook;
 	int priority;
 };

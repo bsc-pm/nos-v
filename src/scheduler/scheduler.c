@@ -6,6 +6,7 @@
 
 #include <assert.h>
 #include <stddef.h>
+#include <stdio.h>
 
 #include "climits.h"
 #include "nosv-internal.h"
@@ -155,7 +156,6 @@ nosv_task_t scheduler_get(int cpu)
 			assert(cpu_delegated < cpus_count());
 
 			task = scheduler_get_internal(cpu_delegated);
-
 			dtlock_set_item(&scheduler->dtlock, cpu_delegated, task);
 			dtlock_popfront(&scheduler->dtlock);
 
