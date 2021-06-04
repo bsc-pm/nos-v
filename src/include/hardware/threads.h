@@ -48,6 +48,7 @@ __internal void threadmanager_shutdown(thread_manager_t *threadmanager);
 
 __internal void worker_yield();
 __internal void worker_block();
+__internal void worker_idle();
 __internal nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, nosv_task_t task);
 __internal void worker_wake(int pid, cpu_t *cpu, nosv_task_t task);
 __internal void worker_join(nosv_worker_t *worker);

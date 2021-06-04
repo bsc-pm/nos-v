@@ -30,6 +30,7 @@ __internal cpu_t *cpu_get(int cpu);
 __internal cpu_t *cpu_pop_free();
 __internal int cpu_get_pid(int cpu);
 __internal void cpu_transfer(int destination_pid, cpu_t *cpu, nosv_task_t task);
+__internal void cpu_mark_free(cpu_t *cpu);
 
 __internal extern thread_local int __current_cpu;
 

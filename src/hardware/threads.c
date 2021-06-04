@@ -50,9 +50,13 @@ static inline void delegate_thread_create(thread_manager_t *threadmanager)
 
 static inline void worker_wakeup_internal(nosv_worker_t *worker, cpu_t *cpu)
 {
+	// CPU may be NULL
 	worker->cpu = cpu;
-	// Remotely set thread affinity before waking up
-	pthread_setaffinity_np(worker->kthread, sizeof(cpu->cpuset), &cpu->cpuset);
+
+	if (cpu) {
+		// Remotely set thread affinity before waking up
+		pthread_setaffinity_np(worker->kthread, sizeof(cpu->cpuset), &cpu->cpuset);
+	}
 	// Now wake up the thread
 	nosv_condvar_signal(&worker->condvar);
 }
@@ -130,7 +134,7 @@ void *worker_start_routine(void *arg)
 	while (!atomic_load_explicit(&threads_shutdown_signal, memory_order_relaxed)) {
 		nosv_task_t task = current_worker->task;
 
-		if (!task)
+		if (!task && current_worker->cpu)
 			task = scheduler_get(cpu_get_current());
 
 		if (task) {
@@ -152,11 +156,24 @@ void *worker_start_routine(void *arg)
 		}
 	}
 
+	// Before shutting down, we have to transfer our active CPU if we still have one
+	// We don't have one if we were woken up from the idle thread pool direcly
+	if (current_worker->cpu)
+		pidmanager_transfer_to_idle(current_worker->cpu);
+
 	nosv_spin_lock(&current_process_manager->shutdown_spinlock);
 	clist_add(&current_process_manager->shutdown_threads, &current_worker->list_hook);
 	nosv_spin_unlock(&current_process_manager->shutdown_spinlock);
 
 	return NULL;
+}
+
+void worker_idle()
+{
+	nosv_spin_lock(&current_process_manager->idle_spinlock);
+	list_add(&current_process_manager->idle_threads, &current_worker->list_hook);
+	nosv_spin_unlock(&current_process_manager->idle_spinlock);
+	worker_block();
 }
 
 int worker_should_shutdown()
@@ -172,7 +189,7 @@ void worker_yield()
 	worker_wake(logical_pid, current_worker->cpu, NULL);
 
 	// Then, sleep and return once we have been woken up
-	worker_block();
+	worker_idle();
 }
 
 // Returns new CPU
@@ -182,7 +199,8 @@ void worker_block()
 	// Blocking operation
 	nosv_condvar_wait(&current_worker->condvar);
 	// We are back. Update CPU in case of migration
-	cpu_set_current(current_worker->cpu->logic_id);
+	if (current_worker->cpu)
+		cpu_set_current(current_worker->cpu->logic_id);
 }
 
 static inline void worker_create_remote(thread_manager_t *threadmanager, cpu_t *cpu, nosv_task_t task)
@@ -229,6 +247,7 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 
 	nosv_worker_t *worker = (nosv_worker_t *)salloc(sizeof(nosv_worker_t), cpu_get_current());
 	worker->cpu = cpu;
+	worker->task = task;
 
 	pthread_attr_t attr;
 	ret = pthread_attr_init(&attr);
@@ -253,7 +272,8 @@ void worker_join(nosv_worker_t *worker)
 		nosv_abort("Cannot join pthread");
 }
 
-int worker_is_in_task() {
+int worker_is_in_task()
+{
 	if (!current_worker)
 		return 0;
 
@@ -263,7 +283,8 @@ int worker_is_in_task() {
 	return 1;
 }
 
-nosv_task_t worker_current_task() {
+nosv_task_t worker_current_task()
+{
 	if (!current_worker)
 		return NULL;
 

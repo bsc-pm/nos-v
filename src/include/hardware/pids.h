@@ -9,6 +9,7 @@
 
 #include <unistd.h>
 
+#include "hardware/cpus.h"
 #include "hardware/threads.h"
 
 typedef struct pid_structures {
@@ -29,6 +30,7 @@ __internal extern pid_t system_pid;
 
 __internal void pidmanager_init(int initialize);
 __internal thread_manager_t *pidmanager_get_threadmanager(int pid);
+__internal void pidmanager_transfer_to_idle(cpu_t *cpu);
 
 __internal void pidmanager_register();
 __internal void pidmanager_shutdown();

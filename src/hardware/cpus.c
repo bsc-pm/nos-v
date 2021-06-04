@@ -82,6 +82,11 @@ int cpu_get_pid(int cpu)
 	return cpumanager->pids_cpus[cpu];
 }
 
+void cpu_mark_free(cpu_t *cpu)
+{
+	cpumanager->pids_cpus[cpu->logic_id] = -1;
+}
+
 void cpu_transfer(int destination_pid, cpu_t *cpu, nosv_task_t task)
 {
 	assert(cpu);
@@ -90,5 +95,5 @@ void cpu_transfer(int destination_pid, cpu_t *cpu, nosv_task_t task)
 	// Wake up a worker from another PID to take over
 	worker_wake(destination_pid, cpu, task);
 	// And sleep on this one
-	worker_block();
+	worker_idle();
 }

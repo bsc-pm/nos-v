@@ -91,3 +91,19 @@ thread_manager_t *pidmanager_get_threadmanager(int pid)
 {
 	return &((pid_structures_t *)PID_STR(pid))->threadmanager;
 }
+
+void pidmanager_transfer_to_idle(cpu_t *cpu)
+{
+	// Find an active PID and transfer the CPU there
+	// Called on shutdown of a process
+
+	nosv_mutex_lock(&pidmanager->lock);
+	int pid = BIT_FFS(MAX_PIDS, &pidmanager->pids) - 1;
+
+	if (pid >= 0)
+		cpu_transfer(pid, cpu, NULL);
+	else
+		cpu_mark_free(cpu);
+
+	nosv_mutex_unlock(&pidmanager->lock);
+}
