@@ -21,6 +21,7 @@ static inline void nosv_mutex_init(nosv_mutex_t *mutex)
 	pthread_mutexattr_init(&attr);
 	pthread_mutexattr_setpshared(&attr, PTHREAD_PROCESS_SHARED);
 	pthread_mutex_init(mutex, &attr);
+	pthread_mutexattr_destroy(&attr);
 }
 
 static inline void nosv_mutex_destroy(nosv_mutex_t *mutex)

@@ -260,6 +260,8 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 	if (ret)
 		nosv_abort("Cannot create pthread");
 
+	pthread_attr_destroy(&attr);
+
 	nosv_condvar_init(&worker->condvar);
 
 	return worker;

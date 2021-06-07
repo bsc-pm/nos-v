@@ -39,6 +39,9 @@ static inline void nosv_signal_mutex_init(nosv_signal_mutex_t *smutex)
 	assert(!res);
 	res = pthread_cond_init(&smutex->condvar, &cattr);
 	assert(!res);
+
+	pthread_mutexattr_destroy(&mattr);
+	pthread_condattr_destroy(&cattr);
 }
 
 static inline void nosv_signal_mutex_destroy(nosv_signal_mutex_t *smutex)

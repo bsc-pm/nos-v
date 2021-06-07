@@ -31,7 +31,7 @@ AM_PROG_AR
 LT_INIT([shared disable-static pic-only])
 AC_SUBST([LIBTOOL_DEPS])
 
-CFLAGS="-O0 -g3 -D_GNU_SOURCE -Wall -Wpedantic"
+CFLAGS="-O3 -g -D_GNU_SOURCE -Wall -Wpedantic"
 
 # Set C11 Std
 AC_CHECK_C11

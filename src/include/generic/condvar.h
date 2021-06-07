@@ -41,6 +41,9 @@ static inline void nosv_condvar_init(nosv_condvar_t *condvar)
 	res = pthread_cond_init(&condvar->condvar, &cattr);
 	assert(!res);
 
+	pthread_mutexattr_destroy(&mattr);
+	pthread_condattr_destroy(&cattr);
+
 	condvar->signaled = 0;
 }
 
