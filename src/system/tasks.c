@@ -27,7 +27,7 @@ int nosv_type_init(
 	if (unlikely(!type))
 		return -EINVAL;
 
-	if (unlikely(!run_callback))
+	if (unlikely(!run_callback && !(flags & NOSV_TYPE_INIT_EXTERNAL)))
 		return -EINVAL;
 
 	nosv_task_type_t res = salloc(sizeof(struct nosv_task_type), cpu_get_current());
@@ -81,6 +81,26 @@ int nosv_type_destroy(
 	return 0;
 }
 
+static inline int nosv_create_internal(nosv_task_t *task /* out */,
+	nosv_task_type_t type,
+	size_t metadata_size,
+	nosv_flags_t flags)
+{
+	nosv_task_t res = salloc(sizeof(struct nosv_task) + metadata_size, cpu_get_current());
+
+	if (!res)
+		return -ENOMEM;
+
+	res->type = type;
+	res->metadata = metadata_size;
+	res->worker = NULL;
+	atomic_init(&res->event_count, 1);
+
+	*task = res;
+
+	return 0;
+}
+
 /* May return -ENOMEM. 0 on success */
 /* Callable from everywhere */
 int nosv_create(
@@ -98,19 +118,7 @@ int nosv_create(
 	if (unlikely(metadata_size > NOSV_MAX_METADATA_SIZE))
 		return -EINVAL;
 
-	nosv_task_t res = salloc(sizeof(struct nosv_task) + metadata_size, cpu_get_current());
-
-	if (!res)
-		return -ENOMEM;
-
-	res->type = type;
-	res->metadata = metadata_size;
-	res->worker = NULL;
-	atomic_init(&res->event_count, 1);
-
-	*task = res;
-
-	return 0;
+	return nosv_create_internal(task, type, metadata_size, flags);
 }
 
 /* Getters and setters */
@@ -235,6 +243,84 @@ int nosv_decrease_event_counter(
 	if (!r && task->type->completed_callback) {
 		task->type->completed_callback(task);
 	}
+
+	return 0;
+}
+
+/*
+	Attach "adopts" an external thread. We have to create a nosv_worker to represent this thread,
+	and create an implicit task. Note that the task's callbacks will not be called, and we will
+	consider it an error.
+	The task will be placed with an attached worker into the scheduler, and the worker will be blocked.
+*/
+int nosv_attach(
+	nosv_task_t *task /* out */,
+	nosv_task_type_t type /* must have null callbacks */,
+	size_t metadata_size,
+	nosv_flags_t flags)
+{
+	if (unlikely(!task))
+		return -EINVAL;
+
+	if (unlikely(!type))
+		return -EINVAL;
+
+	if (unlikely(metadata_size > NOSV_MAX_METADATA_SIZE))
+		return -EINVAL;
+
+	if (unlikely(type->run_callback || type->end_callback || type->completed_callback))
+		return -EINVAL;
+
+	nosv_worker_t *worker = worker_create_external(pthread_self());
+	assert(worker);
+
+	int ret = nosv_create_internal(task, type, metadata_size, flags);
+
+	if (ret) {
+		worker_free_external(worker);
+		return ret;
+	}
+
+	// We created the task fine. Now map the task to the worker
+	nosv_task_t t = *task;
+	t->worker = worker;
+	worker->task = t;
+
+	// Submit task for scheduling at an actual CPU
+	scheduler_submit(t);
+
+	// Block the worker
+	worker_block();
+	// Now we have been scheduled, return
+
+	return 0;
+}
+
+/*
+	Detach removes the external thread. We must free the associated worker and task,
+	and restore a different worker in the current CPU.
+*/
+int nosv_detach(
+	nosv_flags_t flags)
+{
+	// First, make sure we are on a worker context
+	nosv_worker_t *worker = worker_current();
+
+	if (!worker)
+		return -EINVAL;
+
+	if (!worker->task)
+		return -EINVAL;
+
+	// First free the task
+	nosv_destroy(worker->task, NOSV_DESTROY_NONE);
+
+	// Then resume a thread on the current cpu
+	assert(worker->cpu);
+	worker_wake(logical_pid, worker->cpu, NULL);
+
+	// Now free the worker
+	worker_free_external(worker);
 
 	return 0;
 }

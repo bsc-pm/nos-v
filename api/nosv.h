@@ -60,7 +60,9 @@ int nosv_shutdown();
 nosv_task_t nosv_self();
 
 /* Flags */
-#define NOSV_TYPE_INIT_NONE __ZEROBITS
+#define NOSV_TYPE_INIT_NONE 		__ZEROBITS
+/* This type represents an external thread, and has no callbacks */
+#define NOSV_TYPE_INIT_EXTERNAL		__BIT(0)
 
 /* Create a task type with certain run/end callbacks and a label */
 int nosv_type_init(
@@ -94,7 +96,12 @@ int nosv_create(
 
 /* Flags */
 #define NOSV_SUBMIT_NONE 		__ZEROBITS
+/* Hint nOS-V that this task has just been unlocked, and give it scheduling priority */
 #define NOSV_SUBMIT_UNLOCKED 	__BIT(0)
+/* Block the current task until the submitted task has completed */
+#define NOSV_SUBMIT_BLOCKING	__BIT(1)
+/* Hint nOS-V to execute this task in the same thread as the one currently executing, immediately after */
+#define NOSV_SUBMIT_IMMEDIATE	__BIT(2)
 
 /* Callable from everywhere */
 int nosv_submit(

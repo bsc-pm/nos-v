@@ -118,6 +118,7 @@ void threadmanager_shutdown(thread_manager_t *threadmanager)
 	while (head) {
 		nosv_worker_t *worker = list_elem(head, nosv_worker_t, list_hook);
 		worker_join(worker);
+		nosv_condvar_destroy(&worker->condvar);
 		sfree(worker, sizeof(nosv_worker_t), cpu_get_current());
 		head = clist_pop_head(&threadmanager->shutdown_threads);
 	}
@@ -142,7 +143,7 @@ void *worker_start_routine(void *arg)
 
 			if (task->worker != NULL) {
 				worker_wakeup_internal(task->worker, current_worker->cpu);
-				worker_block();
+				worker_idle();
 			} else if (task_pid != logical_pid) {
 				cpu_transfer(task_pid, current_worker->cpu, task);
 			} else {
@@ -189,7 +190,7 @@ void worker_yield()
 	worker_wake(logical_pid, current_worker->cpu, NULL);
 
 	// Then, sleep and return once we have been woken up
-	worker_idle();
+	worker_block();
 }
 
 // Returns new CPU
@@ -267,6 +268,27 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 	return worker;
 }
 
+nosv_worker_t *worker_create_external()
+{
+	nosv_worker_t *worker = (nosv_worker_t *)salloc(sizeof(nosv_worker_t), cpu_get_current());
+	worker->cpu = NULL;
+	worker->task = NULL;
+	worker->kthread = pthread_self();
+	nosv_condvar_init(&worker->condvar);
+	current_worker = worker;
+
+	return worker;
+}
+
+void worker_free_external(nosv_worker_t *worker)
+{
+	assert(worker);
+	nosv_condvar_destroy(&worker->condvar);
+	sfree(worker, sizeof(nosv_worker_t), cpu_get_current());
+	assert(worker == current_worker);
+	current_worker = NULL;
+}
+
 void worker_join(nosv_worker_t *worker)
 {
 	int ret = pthread_join(worker->kthread, NULL);
@@ -283,6 +305,11 @@ int worker_is_in_task()
 		return 0;
 
 	return 1;
+}
+
+nosv_worker_t *worker_current()
+{
+	return current_worker;
 }
 
 nosv_task_t worker_current_task()
