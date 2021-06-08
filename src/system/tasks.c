@@ -19,7 +19,7 @@ int nosv_type_init(
 	nosv_task_type_t *type /* out */,
 	nosv_task_run_callback_t run_callback,
 	nosv_task_end_callback_t end_callback,
-	nosv_task_event_callback_t event_callback,
+	nosv_task_completed_callback_t completed_callback,
 	const char *label,
 	void *metadata,
 	nosv_flags_t flags)
@@ -37,7 +37,7 @@ int nosv_type_init(
 
 	res->run_callback = run_callback;
 	res->end_callback = end_callback;
-	res->event_callback = event_callback;
+	res->completed_callback = completed_callback;
 	res->label = label;
 	res->metadata = metadata;
 	res->pid = logical_pid;
@@ -57,9 +57,9 @@ nosv_task_end_callback_t nosv_get_task_type_end_callback(nosv_task_type_t type)
 	return type->end_callback;
 }
 
-nosv_task_event_callback_t nosv_get_task_type_event_callback(nosv_task_type_t type)
+nosv_task_completed_callback_t nosv_get_task_type_completed_callback(nosv_task_type_t type)
 {
-	return type->event_callback;
+	return type->completed_callback;
 }
 
 const char *nosv_get_task_type_label(nosv_task_type_t type)
@@ -196,8 +196,8 @@ void task_execute(nosv_task_t task)
 	}
 
 	uint64_t res = atomic_fetch_sub_explicit(&task->event_count, 1, memory_order_relaxed) - 1;
-	if (!res && task->type->event_callback) {
-		task->type->event_callback(task);
+	if (!res && task->type->completed_callback) {
+		task->type->completed_callback(task);
 	}
 }
 
@@ -232,8 +232,8 @@ int nosv_decrease_event_counter(
 
 	uint64_t r = atomic_fetch_sub_explicit(&task->event_count, decrement, memory_order_relaxed) - 1;
 
-	if (!r && task->type->event_callback) {
-		task->type->event_callback(task);
+	if (!r && task->type->completed_callback) {
+		task->type->completed_callback(task);
 	}
 
 	return 0;

@@ -11,3 +11,4 @@
 1. Configuration files
 1. Affinity API
 1. Thread adoption
+1. Deadline tasks

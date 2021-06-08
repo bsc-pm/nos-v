@@ -19,7 +19,7 @@ struct nosv_task_type
 {
 	nosv_task_run_callback_t run_callback;
 	nosv_task_end_callback_t end_callback;
-	nosv_task_event_callback_t event_callback;
+	nosv_task_completed_callback_t completed_callback;
 	void *metadata;
 	const char *label;
 	int pid;

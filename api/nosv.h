@@ -33,7 +33,7 @@ typedef struct nosv_task *nosv_task_t;
 
 typedef void (*nosv_task_run_callback_t)(nosv_task_t);
 typedef void (*nosv_task_end_callback_t)(nosv_task_t);
-typedef void (*nosv_task_event_callback_t)(nosv_task_t);
+typedef void (*nosv_task_completed_callback_t)(nosv_task_t);
 
 /* Read-only task attributes */
 void *nosv_get_task_metadata(nosv_task_t task);
@@ -46,7 +46,7 @@ void nosv_set_task_priority(nosv_task_t task, int priority);
 /* Read-only task type attributes */
 nosv_task_run_callback_t nosv_get_task_type_run_callback(nosv_task_type_t type);
 nosv_task_end_callback_t nosv_get_task_type_end_callback(nosv_task_type_t type);
-nosv_task_event_callback_t nosv_get_task_type_event_callback(nosv_task_type_t type);
+nosv_task_completed_callback_t nosv_get_task_type_completed_callback(nosv_task_type_t type);
 const char *nosv_get_task_type_label(nosv_task_type_t type);
 void *nosv_get_task_type_metadata(nosv_task_type_t type);
 
@@ -67,7 +67,7 @@ int nosv_type_init(
 	nosv_task_type_t *type /* out */,
 	nosv_task_run_callback_t run_callback,
 	nosv_task_end_callback_t end_callback,
-	nosv_task_event_callback_t event_callback,
+	nosv_task_completed_callback_t completed_callback,
 	const char *label,
 	void *metadata,
 	nosv_flags_t flags);
