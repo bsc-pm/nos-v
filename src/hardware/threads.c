@@ -5,6 +5,8 @@
 */
 
 #include <assert.h>
+#include <sched.h>
+#include <sys/syscall.h>
 #include <unistd.h>
 
 #include "common.h"
@@ -15,6 +17,8 @@
 #include "memory/slab.h"
 #include "scheduler/scheduler.h"
 #include "system/tasks.h"
+
+#define gettid() syscall(SYS_gettid)
 
 thread_local nosv_worker_t *current_worker = NULL;
 thread_manager_t *current_process_manager = NULL;
@@ -53,8 +57,8 @@ static inline void worker_wakeup_internal(nosv_worker_t *worker, cpu_t *cpu)
 	// CPU may be NULL
 	worker->cpu = cpu;
 
-	if (cpu) {
-		// Remotely set thread affinity before waking up
+	if (cpu && worker->pid == logical_pid) {
+		// Remotely set thread affinity before waking up, to prevent disturbing another CPU
 		pthread_setaffinity_np(worker->kthread, sizeof(cpu->cpuset), &cpu->cpuset);
 	}
 	// Now wake up the thread
@@ -131,6 +135,7 @@ void *worker_start_routine(void *arg)
 {
 	current_worker = (nosv_worker_t *)arg;
 	cpu_set_current(current_worker->cpu->logic_id);
+	current_worker->tid = gettid();
 
 	while (!atomic_load_explicit(&threads_shutdown_signal, memory_order_relaxed)) {
 		nosv_task_t task = current_worker->task;
@@ -200,8 +205,11 @@ void worker_block()
 	// Blocking operation
 	nosv_condvar_wait(&current_worker->condvar);
 	// We are back. Update CPU in case of migration
-	if (current_worker->cpu)
-		cpu_set_current(current_worker->cpu->logic_id);
+	cpu_t *cpu = current_worker->cpu;
+	if (cpu) {
+		cpu_set_current(cpu->logic_id);
+		sched_setaffinity(current_worker->tid, sizeof(cpu->cpuset), &cpu->cpuset);
+	}
 }
 
 static inline void worker_create_remote(thread_manager_t *threadmanager, cpu_t *cpu, nosv_task_t task)
@@ -249,6 +257,7 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 	nosv_worker_t *worker = (nosv_worker_t *)salloc(sizeof(nosv_worker_t), cpu_get_current());
 	worker->cpu = cpu;
 	worker->task = task;
+	worker->pid = logical_pid;
 
 	pthread_attr_t attr;
 	ret = pthread_attr_init(&attr);
@@ -274,6 +283,7 @@ nosv_worker_t *worker_create_external()
 	worker->cpu = NULL;
 	worker->task = NULL;
 	worker->kthread = pthread_self();
+	worker->pid = logical_pid;
 	nosv_condvar_init(&worker->condvar);
 	current_worker = worker;
 

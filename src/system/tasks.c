@@ -95,6 +95,7 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	res->metadata = metadata_size;
 	res->worker = NULL;
 	atomic_init(&res->event_count, 1);
+	atomic_init(&res->blocking_count, 1);
 
 	*task = res;
 
@@ -152,7 +153,11 @@ int nosv_submit(
 	if (unlikely(!task))
 		return -EINVAL;
 
-	scheduler_submit(task);
+	// Decrease the blocking count. If it gets to zero, schedule the task
+	uint32_t count = atomic_fetch_sub_explicit(&task->blocking_count, 1, memory_order_relaxed) - 1;
+	// Task was blocked
+	if (count == 0)
+		scheduler_submit(task);
 
 	return 0;
 }
@@ -166,7 +171,14 @@ int nosv_pause(
 	if (!worker_is_in_task())
 		return -EINVAL;
 
-	worker_yield();
+	nosv_task_t task = worker_current_task();
+	assert(task);
+
+	uint32_t count = atomic_fetch_add_explicit(&task->blocking_count, 1, memory_order_relaxed) + 1;
+
+	// If r < 1, we have already been unblocked
+	if (count > 0)
+		worker_yield();
 
 	return 0;
 }
@@ -285,6 +297,8 @@ int nosv_attach(
 	nosv_task_t t = *task;
 	t->worker = worker;
 	worker->task = t;
+
+	atomic_fetch_sub_explicit(&t->blocking_count, 1, memory_order_relaxed);
 
 	// Submit task for scheduling at an actual CPU
 	scheduler_submit(t);

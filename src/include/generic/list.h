@@ -28,8 +28,11 @@ typedef struct list_head {
 #define list_elem(head, type, name) \
 	((type *) (((char *) head) - offsetof(type, name)))
 
-#define list_next(head) \
-	((head)->next)
+#define list_next(p) \
+	((p)->next)
+
+#define list_next_circular(p, h) \
+	(((p)->next) ? ((p)->next) : ((h)->next))
 
 static inline void list_init(list_head_t *head)
 {

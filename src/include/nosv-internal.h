@@ -13,7 +13,7 @@
 #include "generic/list.h"
 
 struct nosv_worker;
-typedef atomic_uint_fast64_t atomic_uint64_t;
+typedef atomic_uint_fast32_t atomic_uint32_t;
 
 struct nosv_task_type
 {
@@ -28,7 +28,8 @@ struct nosv_task_type
 
 struct nosv_task
 {
-	atomic_uint64_t event_count;
+	atomic_uint32_t event_count;
+	atomic_uint32_t blocking_count;
 	size_t metadata;
 	struct nosv_task_type *type;
 	struct nosv_worker *worker;

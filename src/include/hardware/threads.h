@@ -41,6 +41,8 @@ typedef struct nosv_worker {
 	cpu_t *cpu;
 	nosv_task_t task;
 	nosv_condvar_t condvar;
+	pid_t tid;
+	int pid;
 } nosv_worker_t;
 
 __internal void threadmanager_init(thread_manager_t *threadmanager);

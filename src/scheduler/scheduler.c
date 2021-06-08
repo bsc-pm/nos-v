@@ -7,6 +7,8 @@
 #include <assert.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <sys/types.h>
+#include <time.h>
 
 #include "climits.h"
 #include "nosv-internal.h"
@@ -25,11 +27,13 @@ void scheduler_init(int initialize)
 		return;
 	}
 
+	int cpu_count = cpus_count();
+
 	scheduler = (scheduler_t *)salloc(sizeof(scheduler_t), -1);
 	assert(scheduler);
 	st_config.config->scheduler_ptr = scheduler;
 
-	dtlock_init(&scheduler->dtlock, cpus_count() * 2);
+	dtlock_init(&scheduler->dtlock, cpu_count * 2);
 	scheduler->in_queue = spsc_alloc(IN_QUEUE_SIZE);
 	list_init(&scheduler->queues);
 	nosv_spin_init(&scheduler->in_lock);
@@ -37,6 +41,13 @@ void scheduler_init(int initialize)
 
 	for (int i = 0; i < MAX_PIDS; ++i)
 		scheduler->queues_direct[i] = NULL;
+
+	scheduler->timestamps = (timestamp_t *)salloc(sizeof(timestamp_t) * cpu_count, -1);
+
+	for (int i = 0; i < cpu_count; ++i) {
+		scheduler->timestamps[i].pid = -1;
+		scheduler->timestamps[i].ts_ns = 0;
+	}
 }
 
 static inline scheduler_queue_t *scheduler_init_queue(int pid)
@@ -73,6 +84,44 @@ static inline void scheduler_process_ready_tasks()
 	}
 }
 
+/* This function returns 1 if the current PID has spent more time than the quantum */
+static inline int scheduler_should_yield(int pid, int cpu, uint64_t *timestamp)
+{
+	struct timespec tp;
+	clock_gettime(CLK_SRC, &tp);
+	*timestamp = tp.tv_sec * 1000000000 + tp.tv_nsec;
+
+	if (scheduler->timestamps[cpu].pid != pid) {
+		return 0;
+	}
+
+	if ((*timestamp - scheduler->timestamps[cpu].ts_ns) > QUANTUM_NS)
+		return 1;
+
+	return 0;
+}
+
+static inline void scheduler_update_ts(int pid, nosv_task_t task, int cpu, uint64_t timestamp)
+{
+	if (!task) {
+		scheduler->timestamps[cpu].pid = -1;
+		return;
+	}
+
+	int task_pid = task->type->pid;
+	if (task->type->pid != pid) {
+		scheduler->timestamps[cpu].pid = task_pid;
+		scheduler->timestamps[cpu].ts_ns = timestamp;
+		return;
+	}
+
+	if (pid != scheduler->timestamps[cpu].pid) {
+		scheduler->timestamps[cpu].pid = pid;
+		scheduler->timestamps[cpu].ts_ns = timestamp;
+		return;
+	}
+}
+
 void scheduler_submit(nosv_task_t task)
 {
 	assert(task);
@@ -97,36 +146,45 @@ void scheduler_submit(nosv_task_t task)
 // TODO: Priority, quantum
 nosv_task_t scheduler_get_internal(int cpu)
 {
-	if (!scheduler->tasks)
-		return NULL;
+	int pid, yield;
+	uint64_t ts;
 
+	if (!scheduler->tasks) {
+		scheduler_update_ts(0, NULL, cpu, 0);
+		return NULL;
+	}
+
+	// Once we are here, we know for sure there is at least one task in the scheduler
 	scheduler->tasks--;
 
 	// What PID is that CPU running?
-	int pid = cpu_get_pid(cpu);
-
-	// 1. Find the queue of that PID
+	pid = cpu_get_pid(cpu);
 	scheduler_queue_t *queue = scheduler->queues_direct[pid];
 
-	if (queue) {
-		list_head_t *head = list_pop_head(&queue->tasks);
-		if (head) {
-			return list_elem(head, struct nosv_task, list_hook);
-		}
+	// Do we need to yield?
+	yield = scheduler_should_yield(pid, cpu, &ts);
+
+	list_head_t *it = &queue->list_hook;
+
+	if (yield) {
+		// What we do is grab the current queue, that corresponds to our pid, and traverse that forward, to cause a round-robin.
+		// If we get to the end, we start from the beginning. Most importantly, if we arrive at a point where we go back to our queue, it's fine.
+		// Otherwise, we will begin from the current position, which means we will try our process first
+		it = list_next_circular(it, &scheduler->queues);
 	}
 
-	// 2. Iterate the rest of the queues
-	list_head_t *qhead = list_front(&scheduler->queues);
-
-	while (qhead) {
-		queue = list_elem(qhead, scheduler_queue_t, list_hook);
+	while (1) {
+		queue = list_elem(it, scheduler_queue_t, list_hook);
 
 		list_head_t *head = list_pop_head(&queue->tasks);
 		if (head) {
-			return list_elem(head, struct nosv_task, list_hook);
+			nosv_task_t task = list_elem(head, struct nosv_task, list_hook);
+			assert(task);
+			scheduler_update_ts(pid, task, cpu, ts);
+			return task;
 		}
 
-		qhead = list_next(qhead);
+		it = list_next_circular(it, &scheduler->queues);
 	}
 
 	// Cannot happen
