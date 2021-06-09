@@ -18,7 +18,6 @@ Barcelona Supercomputing Center, unless otherwise stated.
 The following software is required to build and install nOS-V:
 
 1. automake, autoconf, libtool, pkg-config, make and a C11 compiler
-1. [hwloc](https://www.open-mpi.org/projects/hwloc/)
 1. [numactl](http://oss.sgi.com/projects/libnuma/)
 
 ### Optional dependencies

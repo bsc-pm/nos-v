@@ -8,6 +8,7 @@
 
 #include "compiler.h"
 #include "nosv.h"
+#include "hardware/locality.h"
 #include "hardware/threads.h"
 #include "hardware/pids.h"
 #include "memory/sharedmemory.h"
@@ -20,6 +21,7 @@ int nosv_init()
 	if (library_initialized != 0)
 		return 1;
 
+	locality_init();
 	smem_initialize();
 	pidmanager_register();
 
@@ -34,6 +36,7 @@ int nosv_shutdown()
 
 	pidmanager_shutdown();
 	smem_shutdown();
+	locality_shutdown();
 
 	library_initialized = 0;
 	return 0;

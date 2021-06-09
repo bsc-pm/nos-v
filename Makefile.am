@@ -16,11 +16,15 @@ lib_age = 0
 lib_major = $(shell expr $(lib_current) - $(lib_age))
 lib_suffix = $(lib_major).$(lib_age).$(lib_revision)
 
+libnosv_la_CFLAGS=$(AM_CFLAGS) $(opt_CFLAGS) $(PTHREAD_CFLAGS) $(libnuma_CFLAGS)
+libnosv_la_LDFLAGS=$(PTHREAD_CFLAGS) $(PTHREAD_LIBS) $(libnuma_LIBS)
+
 lib_LTLIBRARIES = libnosv.la
 
 libnosv_la_SOURCES = \
     src/bootstrap.c		\
 	src/hardware/cpus.c \
+	src/hardware/locality.c \
 	src/hardware/pids.c \
 	src/hardware/threads.c \
 	src/memory/backbone.c \

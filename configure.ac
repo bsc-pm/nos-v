@@ -33,6 +33,10 @@ AC_SUBST([LIBTOOL_DEPS])
 
 CFLAGS="-O3 -g -D_GNU_SOURCE -Wall -Wpedantic"
 
+# Checks for libraries.
+AX_PTHREAD
+AC_CHECK_LIBNUMA
+
 # Set C11 Std
 AC_CHECK_C11
 
@@ -44,9 +48,6 @@ AC_PROG_MAKE_SET
 
 full_top_srcdir=$(readlink -f ${srcdir})
 AC_SUBST([full_top_srcdir])
-
-# Checks for libraries.
-AX_PTHREAD
 
 # Checks for header files.
 AC_CHECK_HEADERS([stdlib.h unistd.h])
@@ -65,6 +66,6 @@ _AS_ECHO([])
 _AS_ECHO([])
 _AS_ECHO([Configuration summary:])
 _AS_ECHO([   Compiler version... ${CC_VERSION}])
-_AS_ECHO([   Compiler optimization flags... ${CFLAGS}])
+_AS_ECHO([   Compiler optimization flags... ${opt_CFLAGS}])
 _AS_ECHO([   Compiler debug flags... ${DEBUG_CFLAGS}])
 _AS_ECHO([])

@@ -8,6 +8,7 @@
 
 #include "compiler.h"
 #include "hardware/cpus.h"
+#include "hardware/locality.h"
 #include "hardware/threads.h"
 #include "memory/sharedmemory.h"
 #include "memory/slab.h"
