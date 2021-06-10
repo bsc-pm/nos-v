@@ -96,6 +96,9 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	res->worker = NULL;
 	atomic_init(&res->event_count, 1);
 	atomic_init(&res->blocking_count, 1);
+	res->affinity.type = 0;
+	res->affinity.index = 0;
+	res->affinity.level = 0;
 
 	*task = res;
 
@@ -337,4 +340,14 @@ int nosv_detach(
 	worker_free_external(worker);
 
 	return 0;
+}
+
+nosv_affinity_t nosv_get_task_affinity(nosv_task_t task)
+{
+	return task->affinity;
+}
+
+void nosv_set_task_affinity(nosv_task_t task, nosv_affinity_t affinity)
+{
+	task->affinity = affinity;
 }

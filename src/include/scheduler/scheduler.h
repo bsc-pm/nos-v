@@ -25,10 +25,19 @@
 #endif
 
 typedef struct scheduler_queue {
-	int pid;
 	list_head_t tasks;
-	list_head_t list_hook;
 } scheduler_queue_t;
+
+typedef struct process_scheduler {
+	int pid;
+	size_t tasks;
+	scheduler_queue_t *per_cpu_queue_strict;
+	scheduler_queue_t *per_cpu_queue_preferred;
+	scheduler_queue_t *per_numa_queue_strict;
+	scheduler_queue_t *per_numa_queue_preferred;
+	scheduler_queue_t queue;
+	list_head_t list_hook;
+} process_scheduler_t;
 
 typedef struct timestamp {
 	uint64_t ts_ns;
@@ -41,7 +50,7 @@ typedef struct scheduler {
 	nosv_spinlock_t in_lock;
 	spsc_queue_t *in_queue;
 	list_head_t queues; // One scheduler_queue per process
-	scheduler_queue_t *queues_direct[MAX_PIDS]; // Support both lists and random-access
+	process_scheduler_t *queues_direct[MAX_PIDS]; // Support both lists and random-access
 	timestamp_t *timestamps;
 } scheduler_t;
 

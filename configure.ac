@@ -31,7 +31,7 @@ AM_PROG_AR
 LT_INIT([shared disable-static pic-only])
 AC_SUBST([LIBTOOL_DEPS])
 
-CFLAGS="-O3 -g -D_GNU_SOURCE -Wall -Wpedantic"
+CFLAGS="-O3 -g -D_GNU_SOURCE -Wall -Wpedantic -Werror-implicit-function-declaration"
 
 # Checks for libraries.
 AX_PTHREAD

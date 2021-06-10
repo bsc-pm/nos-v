@@ -35,3 +35,7 @@ libnosv_la_SOURCES = \
 
 include_HEADERS = \
     api/nosv.h
+
+subincludedir = $(includedir)/nosv
+subinclude_HEADERS = \
+	api/nosv/affinity.h

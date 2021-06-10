@@ -34,7 +34,19 @@ void cpus_init(int initialize)
 	st_config.config->cpumanager_ptr = cpumanager;
 	cpumanager->cpu_cnt = cnt;
 
-	int i = 0;
+	// Find out maximum CPU id
+	int maxcpu = 0;
+	int i = CPU_SETSIZE;
+	while (i >= 0) {
+		if (CPU_ISSET(i, &set)) {
+			maxcpu = i;
+			break;
+		}
+		--i;
+	}
+	cpumanager->system_to_logical = salloc(sizeof(int) * (maxcpu + 1), 0);
+
+	i = 0;
 	int curr = 0;
 	while (i < cnt) {
 		if (CPU_ISSET(curr, &set)) {
@@ -42,7 +54,12 @@ void cpus_init(int initialize)
 			CPU_SET(curr, &cpumanager->cpus[i].cpuset);
 			cpumanager->cpus[i].system_id = curr;
 			cpumanager->cpus[i].logic_id = i;
+			cpumanager->cpus[i].numa_node = locality_get_cpu_numa(curr);
+			cpumanager->system_to_logical[curr] = i;
 			++i;
+			maxcpu = curr;
+		} else {
+			cpumanager->system_to_logical[curr] = -1;
 		}
 
 		++curr;
@@ -53,6 +70,11 @@ void cpus_init(int initialize)
 	for (i = 0; i < cnt; ++i) {
 		cpumanager->pids_cpus[i] = -1;
 	}
+}
+
+int cpu_system_to_logical(int cpu)
+{
+	return cpumanager->system_to_logical[cpu];
 }
 
 int cpus_count()

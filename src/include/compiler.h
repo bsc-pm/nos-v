@@ -30,4 +30,6 @@
 // we may need to support older compilers
 #define thread_local _Thread_local
 
+#define fallthrough __attribute__((fallthrough))
+
 #endif // COMPILER_H

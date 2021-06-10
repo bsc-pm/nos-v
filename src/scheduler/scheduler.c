@@ -14,11 +14,12 @@
 #include "nosv-internal.h"
 #include "hardware/cpus.h"
 #include "hardware/threads.h"
+#include "hardware/locality.h"
 #include "memory/sharedmemory.h"
 #include "scheduler/scheduler.h"
 
 scheduler_t *scheduler;
-thread_local scheduler_queue_t *last;
+thread_local process_scheduler_t *last;
 
 void scheduler_init(int initialize)
 {
@@ -50,17 +51,41 @@ void scheduler_init(int initialize)
 	}
 }
 
-static inline scheduler_queue_t *scheduler_init_queue(int pid)
+static inline void scheduler_init_queue(scheduler_queue_t *queue)
+{
+	list_init(&queue->tasks);
+}
+
+static inline process_scheduler_t *scheduler_init_pid(int pid)
 {
 	assert(!scheduler->queues_direct[pid]);
 
-	scheduler_queue_t *queue = salloc(sizeof(scheduler_queue_t), cpu_get_current());
-	queue->pid = pid;
-	list_init(&queue->tasks);
-	scheduler->queues_direct[pid] = queue;
-	list_add_tail(&scheduler->queues, &queue->list_hook);
+	process_scheduler_t *sched = salloc(sizeof(process_scheduler_t), cpu_get_current());
 
-	return queue;
+	int cpus = cpus_count();
+	sched->per_cpu_queue_preferred = salloc(sizeof(scheduler_queue_t) * cpus, cpu_get_current());
+	sched->per_cpu_queue_strict = salloc(sizeof(scheduler_queue_t) * cpus, cpu_get_current());
+
+	for (int i = 0; i < cpus; ++i) {
+		scheduler_init_queue(&sched->per_cpu_queue_preferred[i]);
+		scheduler_init_queue(&sched->per_cpu_queue_strict[i]);
+	}
+
+	int numas = locality_numa_count();
+	sched->per_numa_queue_preferred = salloc(sizeof(scheduler_queue_t) * numas, cpu_get_current());
+	sched->per_numa_queue_strict = salloc(sizeof(scheduler_queue_t) * numas, cpu_get_current());
+
+	for (int i = 0; i < numas; ++i) {
+		scheduler_init_queue(&sched->per_numa_queue_preferred[i]);
+		scheduler_init_queue(&sched->per_numa_queue_strict[i]);
+	}
+
+	sched->pid = pid;
+	scheduler_init_queue(&sched->queue);
+	scheduler->queues_direct[pid] = sched;
+	list_add_tail(&scheduler->queues, &sched->list_hook);
+
+	return sched;
 }
 
 // Must be called inside the dtlock
@@ -75,12 +100,13 @@ static inline void scheduler_process_ready_tasks()
 
 		assert(task);
 		int pid = task->type->pid;
-		scheduler_queue_t *pidqueue = scheduler->queues_direct[pid];
+		process_scheduler_t *pidqueue = scheduler->queues_direct[pid];
 
 		if (!pidqueue)
-			pidqueue = scheduler_init_queue(pid);
+			pidqueue = scheduler_init_pid(pid);
 
-		list_add_tail(&pidqueue->tasks, &task->list_hook);
+		list_add_tail(&pidqueue->queue.tasks, &task->list_hook);
+		pidqueue->tasks++;
 	}
 }
 
@@ -142,9 +168,112 @@ void scheduler_submit(nosv_task_t task)
 	}
 }
 
-// Very basic
-// TODO: Priority, quantum
-nosv_task_t scheduler_get_internal(int cpu)
+static inline int scheduler_find_task_queue(scheduler_queue_t *queue, nosv_task_t *task /*out*/)
+{
+	list_head_t *head = list_pop_head(&queue->tasks);
+
+	if (head) {
+		*task = list_elem(head, struct nosv_task, list_hook);
+		return 1;
+	}
+
+	return 0;
+}
+
+static inline int task_affine(nosv_task_t task, cpu_t *cpu)
+{
+	switch (task->affinity.level) {
+		case CPU:
+			return task->affinity.index == cpu->system_id;
+		case NUMA:
+			return locality_get_logical_numa(task->affinity.index) == cpu->numa_node;
+		case USER_COMPLEX:
+		default:
+			return 1;
+	}
+}
+
+// Insert the task to the relevant queue
+static inline void scheduler_insert_affine(process_scheduler_t *sched, nosv_task_t task)
+{
+	assert(task->affinity.level != NONE);
+	assert(task->affinity.level != USER_COMPLEX);
+	scheduler_queue_t *queue = NULL;
+	int idx;
+
+	switch (task->affinity.level) {
+		case CPU:
+			idx = cpu_system_to_logical(task->affinity.index);
+			assert(idx >= 0);
+			queue = task->affinity.type ? &sched->per_cpu_queue_strict[idx] : &sched->per_cpu_queue_preferred[idx];
+			break;
+		case NUMA:
+			idx = locality_get_logical_numa(task->affinity.index);
+			queue = task->affinity.type ? &sched->per_numa_queue_strict[idx] : &sched->per_numa_queue_preferred[idx];
+			break;
+		default:
+			break;
+	}
+
+	assert(queue != NULL);
+	list_add_tail(&queue->tasks, &task->list_hook);
+}
+
+static inline nosv_task_t scheduler_find_task_process(process_scheduler_t *sched, cpu_t *cpu)
+{
+	int cpuid = cpu->logic_id;
+	nosv_task_t task = NULL;
+
+	// Are there any tasks?
+	if (!sched->tasks)
+		return NULL;
+
+	// We'll decrease the pointer now, but if we decide to not grab any task we have to increment it back again.
+	// If we obtain a task, we have to decrement the task count and return the pointer
+	if (scheduler_find_task_queue(&sched->per_cpu_queue_strict[cpuid], &task))
+		goto task_obtained;
+
+	if (scheduler_find_task_queue(&sched->per_cpu_queue_preferred[cpuid], &task))
+		goto task_obtained;
+
+	if (scheduler_find_task_queue(&sched->per_numa_queue_strict[cpu->numa_node], &task))
+		goto task_obtained;
+
+	if (scheduler_find_task_queue(&sched->per_numa_queue_preferred[cpu->numa_node], &task))
+		goto task_obtained;
+
+	while (scheduler_find_task_queue(&sched->queue, &task)) {
+		// Check the task is affine with the current cpu
+		if (task_affine(task, cpu))
+			goto task_obtained;
+
+		// Not affine. Insert to an appropiate queue
+		scheduler_insert_affine(sched, task);
+	}
+
+	int cpus = cpus_count();
+	int numas = locality_numa_count();
+	// We can try to steal from somewhere
+	// Note that we don't skip our own cpus, although we know nothing is there, just for simplicity
+	for (int i = 0; i < cpus; ++i) {
+		if (scheduler_find_task_queue(&sched->per_cpu_queue_preferred[i], &task))
+			goto task_obtained;
+	}
+
+	for (int i = 0; i < numas; ++i) {
+		if (scheduler_find_task_queue(&sched->per_numa_queue_preferred[i], &task))
+			goto task_obtained;
+	}
+
+	// If we get here, we didn't find any tasks, otherwise we would've gone to task_obtained
+	return NULL;
+
+task_obtained:
+	sched->tasks--;
+	return task;
+}
+
+static inline nosv_task_t scheduler_get_internal(int cpu)
 {
 	int pid, yield;
 	uint64_t ts;
@@ -154,17 +283,16 @@ nosv_task_t scheduler_get_internal(int cpu)
 		return NULL;
 	}
 
-	// Once we are here, we know for sure there is at least one task in the scheduler
-	scheduler->tasks--;
+	cpu_t *cpu_str = cpu_get(cpu);
 
 	// What PID is that CPU running?
 	pid = cpu_get_pid(cpu);
-	scheduler_queue_t *queue = scheduler->queues_direct[pid];
+	process_scheduler_t *sched = scheduler->queues_direct[pid];
 
 	// Do we need to yield?
 	yield = scheduler_should_yield(pid, cpu, &ts);
 
-	list_head_t *it = &queue->list_hook;
+	list_head_t *it = &sched->list_hook;
 
 	if (yield) {
 		// What we do is grab the current queue, that corresponds to our pid, and traverse that forward, to cause a round-robin.
@@ -173,22 +301,23 @@ nosv_task_t scheduler_get_internal(int cpu)
 		it = list_next_circular(it, &scheduler->queues);
 	}
 
-	while (1) {
-		queue = list_elem(it, scheduler_queue_t, list_hook);
+	list_head_t *stop = it;
 
-		list_head_t *head = list_pop_head(&queue->tasks);
-		if (head) {
-			nosv_task_t task = list_elem(head, struct nosv_task, list_hook);
-			assert(task);
+	do {
+		sched = list_elem(it, process_scheduler_t, list_hook);
+
+		nosv_task_t task = scheduler_find_task_process(sched, cpu_str);
+
+		if (task) {
+			scheduler->tasks--;
 			scheduler_update_ts(pid, task, cpu, ts);
 			return task;
 		}
 
 		it = list_next_circular(it, &scheduler->queues);
-	}
+	} while (it != stop);
 
-	// Cannot happen
-	assert(0);
+	// This may only happen if there are strict bindings that we couldn't steal
 	return NULL;
 }
 

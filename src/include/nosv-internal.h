@@ -10,6 +10,7 @@
 #include <stdatomic.h>
 
 #include "nosv.h"
+#include "nosv/affinity.h"
 #include "generic/list.h"
 
 struct nosv_worker;
@@ -25,7 +26,6 @@ struct nosv_task_type
 	int pid;
 };
 
-
 struct nosv_task
 {
 	atomic_uint32_t event_count;
@@ -34,6 +34,7 @@ struct nosv_task
 	struct nosv_task_type *type;
 	struct nosv_worker *worker;
 	list_head_t list_hook;
+	struct nosv_affinity affinity;
 	int priority;
 };
 

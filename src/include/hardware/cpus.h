@@ -16,11 +16,13 @@ typedef struct cpu {
 	cpu_set_t cpuset;
 	int system_id;
 	int logic_id;
+	int numa_node;
 } cpu_t;
 
 typedef struct cpumanager {
 	int cpu_cnt; // Number of CPUs in the system
 	int *pids_cpus; // Map from "Logical" PIDs to CPUs
+	int *system_to_logical; // Map from system CPU ids to logical cpu ids
 	cpu_t cpus[]; // Flexible array
 } cpumanager_t;
 
@@ -31,6 +33,7 @@ __internal cpu_t *cpu_pop_free();
 __internal int cpu_get_pid(int cpu);
 __internal void cpu_transfer(int destination_pid, cpu_t *cpu, nosv_task_t task);
 __internal void cpu_mark_free(cpu_t *cpu);
+__internal int cpu_system_to_logical(int cpu);
 
 __internal extern thread_local int __current_cpu;
 
