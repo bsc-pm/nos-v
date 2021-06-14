@@ -10,6 +10,8 @@
 #include <assert.h>
 #include <stddef.h>
 
+#include "compiler.h"
+
 /*
 	This is a basic binary heap implementation using intrusive structures and pointers.
 	We use this implementation to create priority queues maps inside the runtime.
@@ -27,6 +29,9 @@ typedef struct head_head {
 	// ...
 } heap_head_t;
 
+#define heap_elem(head, type, name) \
+	((type *) (((char *) head) - offsetof(type, name)))
+
 #define heap_swap(a, b)                \
 	{                                  \
 		typeof(a) aux = (a); \
@@ -39,6 +44,8 @@ typedef struct head_head {
 		> 0 if a > b
 		< 0 if a < b
 		= 0 if a == b
+
+	Invert the comparison function to get a min-heap instead
 */
 typedef int (*heap_node_compare_t)(heap_node_t *a, heap_node_t *b);
 
@@ -200,6 +207,7 @@ static inline heap_node_t *heap_pop_max(heap_head_t *head, heap_node_compare_t c
 	}
 
 	heap_max_heapify(head, change, cmp);
+	return max;
 }
 
 static inline void heap_insert(heap_head_t *head, heap_node_t *node, heap_node_compare_t cmp)

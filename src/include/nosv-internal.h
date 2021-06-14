@@ -12,9 +12,11 @@
 #include "nosv.h"
 #include "nosv/affinity.h"
 #include "generic/list.h"
+#include "generic/heap.h"
 
 struct nosv_worker;
 typedef atomic_uint_fast32_t atomic_uint32_t;
+typedef uint64_t deadline_t;
 
 struct nosv_task_type
 {
@@ -33,9 +35,14 @@ struct nosv_task
 	size_t metadata;
 	struct nosv_task_type *type;
 	struct nosv_worker *worker;
-	list_head_t list_hook;
 	struct nosv_affinity affinity;
+
 	int priority;
+	list_head_t list_hook;
+
+	// Maybe this could be on-demand allocated
+	deadline_t deadline;
+	heap_node_t heap_hook;
 };
 
 #endif // NOSV_INTERNAL_H

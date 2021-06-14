@@ -39,6 +39,7 @@ typedef struct nosv_worker {
 	list_head_t list_hook;
 	pthread_t kthread;
 	cpu_t *cpu;
+	cpu_t *new_cpu;
 	nosv_task_t task;
 	nosv_condvar_t condvar;
 	pid_t tid;

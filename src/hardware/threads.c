@@ -55,7 +55,7 @@ static inline void delegate_thread_create(thread_manager_t *threadmanager)
 static inline void worker_wakeup_internal(nosv_worker_t *worker, cpu_t *cpu)
 {
 	// CPU may be NULL
-	worker->cpu = cpu;
+	worker->new_cpu = cpu;
 
 	if (cpu && worker->pid == logical_pid) {
 		// Remotely set thread affinity before waking up, to prevent disturbing another CPU
@@ -205,8 +205,11 @@ void worker_block()
 	// Blocking operation
 	nosv_condvar_wait(&current_worker->condvar);
 	// We are back. Update CPU in case of migration
+	// We use a different variable to detect cpu changes and prevent races
+	cpu_t *oldcpu = current_worker->cpu;
+	current_worker->cpu = current_worker->new_cpu;
 	cpu_t *cpu = current_worker->cpu;
-	if (cpu) {
+	if (cpu && cpu != oldcpu) {
 		cpu_set_current(cpu->logic_id);
 		sched_setaffinity(current_worker->tid, sizeof(cpu->cpuset), &cpu->cpuset);
 	}

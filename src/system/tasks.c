@@ -5,6 +5,7 @@
 */
 
 #include "nosv-internal.h"
+#include "generic/clock.h"
 #include "hardware/cpus.h"
 #include "hardware/threads.h"
 #include "hardware/pids.h"
@@ -99,6 +100,7 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	res->affinity.type = 0;
 	res->affinity.index = 0;
 	res->affinity.level = 0;
+	res->deadline = 0;
 
 	*task = res;
 
@@ -190,7 +192,25 @@ int nosv_pause(
 int nosv_waitfor(
 	uint64_t ns)
 {
-	return -ENOSYS;
+	// We have to be inside a worker
+	if (!worker_is_in_task())
+		return -EINVAL;
+
+	nosv_task_t task = worker_current_task();
+	assert(task);
+
+	task->deadline = clock_ns() + ns;
+
+	// Submit the task to re-schedule when the deadline is done
+	scheduler_submit(task);
+
+	// Block until the deadline expires
+	worker_yield();
+
+	// Unblocked
+	task->deadline = 0;
+
+	return 0;
 }
 
 /* Callable from everywhere */

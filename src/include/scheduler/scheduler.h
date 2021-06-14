@@ -10,6 +10,7 @@
 #include "climits.h"
 #include "compiler.h"
 #include "nosv-internal.h"
+#include "generic/heap.h"
 #include "generic/list.h"
 #include "generic/spinlock.h"
 #include "scheduler/dtlock.h"
@@ -18,12 +19,6 @@
 #define IN_QUEUE_SIZE 256
 #define QUANTUM_NS (20ULL * 1000ULL * 1000ULL)
 
-#ifdef CLOCK_MONOTONIC_COARSE
-#define CLK_SRC CLOCK_MONOTONIC_COARSE
-#else
-#define CLK_SRC CLOCK_MONOTONIC
-#endif
-
 typedef struct scheduler_queue {
 	list_head_t tasks;
 } scheduler_queue_t;
@@ -31,6 +26,8 @@ typedef struct scheduler_queue {
 typedef struct process_scheduler {
 	int pid;
 	size_t tasks;
+	heap_head_t deadline_tasks;
+	deadline_t now;
 	scheduler_queue_t *per_cpu_queue_strict;
 	scheduler_queue_t *per_cpu_queue_preferred;
 	scheduler_queue_t *per_numa_queue_strict;

@@ -32,4 +32,9 @@
 
 #define fallthrough __attribute__((fallthrough))
 
+// Define some wrappers for GNU extensions in ISO C
+#ifndef typeof
+#define typeof __typeof__
+#endif
+
 #endif // COMPILER_H

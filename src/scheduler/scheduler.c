@@ -7,11 +7,10 @@
 #include <assert.h>
 #include <stddef.h>
 #include <stdio.h>
-#include <sys/types.h>
-#include <time.h>
 
 #include "climits.h"
 #include "nosv-internal.h"
+#include "generic/clock.h"
 #include "hardware/cpus.h"
 #include "hardware/threads.h"
 #include "hardware/locality.h"
@@ -85,7 +84,18 @@ static inline process_scheduler_t *scheduler_init_pid(int pid)
 	scheduler->queues_direct[pid] = sched;
 	list_add_tail(&scheduler->queues, &sched->list_hook);
 
+	heap_init(&sched->deadline_tasks);
+	sched->now = clock_ns();
+
 	return sched;
+}
+
+int deadline_cmp(heap_node_t *a, heap_node_t *b)
+{
+	nosv_task_t task_a = heap_elem(a, struct nosv_task, heap_hook);
+	nosv_task_t task_b = heap_elem(b, struct nosv_task, heap_hook);
+
+	return task_b->deadline - task_a->deadline;
 }
 
 // Must be called inside the dtlock
@@ -105,7 +115,12 @@ static inline void scheduler_process_ready_tasks()
 		if (!pidqueue)
 			pidqueue = scheduler_init_pid(pid);
 
-		list_add_tail(&pidqueue->queue.tasks, &task->list_hook);
+		if (task->deadline) {
+			heap_insert(&pidqueue->deadline_tasks, &task->heap_hook, &deadline_cmp);
+		} else {
+			list_add_tail(&pidqueue->queue.tasks, &task->list_hook);
+		}
+
 		pidqueue->tasks++;
 	}
 }
@@ -113,9 +128,7 @@ static inline void scheduler_process_ready_tasks()
 /* This function returns 1 if the current PID has spent more time than the quantum */
 static inline int scheduler_should_yield(int pid, int cpu, uint64_t *timestamp)
 {
-	struct timespec tp;
-	clock_gettime(CLK_SRC, &tp);
-	*timestamp = tp.tv_sec * 1000000000 + tp.tv_nsec;
+	*timestamp = clock_fast_ns();
 
 	if (scheduler->timestamps[cpu].pid != pid) {
 		return 0;
@@ -219,6 +232,36 @@ static inline void scheduler_insert_affine(process_scheduler_t *sched, nosv_task
 	list_add_tail(&queue->tasks, &task->list_hook);
 }
 
+static inline int scheduler_get_deadline_expired(process_scheduler_t *sched, nosv_task_t *task /*out*/)
+{
+	// In reality we get the minimum, as we inverted the comparison function.
+	heap_node_t *head = heap_max(&sched->deadline_tasks);
+
+	// No deadline tasks
+	if (!head)
+		return 0;
+
+	nosv_task_t res = heap_elem(head, struct nosv_task, heap_hook);
+
+	if (res->deadline < sched->now) {
+		goto deadline_expired;
+	} else {
+		// Update timestamp just in case
+		sched->now = clock_ns();
+
+		if (res->deadline < sched->now) {
+			goto deadline_expired;
+		}
+	}
+
+	return 0;
+
+deadline_expired:
+	heap_pop_max(&sched->deadline_tasks, &deadline_cmp);
+	*task = res;
+	return 1;
+}
+
 static inline nosv_task_t scheduler_find_task_process(process_scheduler_t *sched, cpu_t *cpu)
 {
 	int cpuid = cpu->logic_id;
@@ -227,6 +270,16 @@ static inline nosv_task_t scheduler_find_task_process(process_scheduler_t *sched
 	// Are there any tasks?
 	if (!sched->tasks)
 		return NULL;
+
+	// Check deadlines
+	while (scheduler_get_deadline_expired(sched, &task)) {
+		// Check the task is affine with the current cpu
+		if (task_affine(task, cpu))
+			goto task_obtained;
+
+		// Not affine. Insert to an appropiate queue
+		scheduler_insert_affine(sched, task);
+	}
 
 	// We'll decrease the pointer now, but if we decide to not grab any task we have to increment it back again.
 	// If we obtain a task, we have to decrement the task count and return the pointer
