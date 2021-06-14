@@ -101,6 +101,7 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	res->affinity.index = 0;
 	res->affinity.level = 0;
 	res->deadline = 0;
+	res->wakeup = NULL;
 
 	*task = res;
 
@@ -158,11 +159,46 @@ int nosv_submit(
 	if (unlikely(!task))
 		return -EINVAL;
 
-	// Decrease the blocking count. If it gets to zero, schedule the task
-	uint32_t count = atomic_fetch_sub_explicit(&task->blocking_count, 1, memory_order_relaxed) - 1;
-	// Task was blocked
-	if (count == 0)
-		scheduler_submit(task);
+	if (flags & NOSV_SUBMIT_BLOCKING) {
+		// For now we don't support blocking submits outside a task context
+		if (!worker_is_in_task())
+			return -EINVAL;
+
+		// Not compatible
+		if (unlikely(flags & NOSV_SUBMIT_IMMEDIATE))
+			return -EINVAL;
+
+		task->wakeup = worker_current_task();
+	}
+
+	uint32_t count;
+
+	// If we have an immediate successor we don't place the task into the scheduler
+	if (flags & NOSV_SUBMIT_IMMEDIATE) {
+		// Must be from a worker
+		if (!worker_is_in_task())
+			return -EINVAL;
+
+		if (worker_get_immediate()) {
+			// Setting a new immediate successor, but there was already one.
+			// Place the new one and send the old one to the scheduler
+
+			scheduler_submit(worker_get_immediate());
+		}
+
+		worker_set_immediate(task);
+
+		count = atomic_fetch_sub_explicit(&task->blocking_count, 1, memory_order_relaxed) - 1;
+		assert(count == 0);
+	} else {
+		count = atomic_fetch_sub_explicit(&task->blocking_count, 1, memory_order_relaxed) - 1;
+
+		if (count == 0)
+			scheduler_submit(task);
+	}
+
+	if (flags & NOSV_SUBMIT_BLOCKING)
+		nosv_pause(NOSV_PAUSE_NONE);
 
 	return 0;
 }
@@ -226,6 +262,17 @@ int nosv_destroy(
 	return 0;
 }
 
+static inline void task_complete(nosv_task_t task)
+{
+	if (task->wakeup) {
+		nosv_submit(task->wakeup, NOSV_SUBMIT_UNLOCKED);
+		task->wakeup = NULL;
+	}
+
+	if (task->type->completed_callback)
+		task->type->completed_callback(task);
+}
+
 void task_execute(nosv_task_t task)
 {
 	atomic_thread_fence(memory_order_acquire);
@@ -239,8 +286,8 @@ void task_execute(nosv_task_t task)
 	}
 
 	uint64_t res = atomic_fetch_sub_explicit(&task->event_count, 1, memory_order_relaxed) - 1;
-	if (!res && task->type->completed_callback) {
-		task->type->completed_callback(task);
+	if (!res) {
+		task_complete(task);
 	}
 }
 
@@ -275,8 +322,8 @@ int nosv_decrease_event_counter(
 
 	uint64_t r = atomic_fetch_sub_explicit(&task->event_count, decrement, memory_order_relaxed) - 1;
 
-	if (!r && task->type->completed_callback) {
-		task->type->completed_callback(task);
+	if (!r) {
+		task_complete(task);
 	}
 
 	return 0;

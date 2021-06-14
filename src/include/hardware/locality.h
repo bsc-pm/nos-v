@@ -8,11 +8,12 @@
 #define LOCALITY_H
 
 #include "climits.h"
+#include "compiler.h"
 
-void locality_init();
-int locality_numa_count();
-int locality_get_cpu_numa(int system_cpu_id);
-int locality_get_logical_numa(int system_numa_id);
-void locality_shutdown();
+__internal void locality_init();
+__internal int locality_numa_count();
+__internal int locality_get_cpu_numa(int system_cpu_id);
+__internal int locality_get_logical_numa(int system_numa_id);
+__internal void locality_shutdown();
 
 #endif // LOCALITY_H

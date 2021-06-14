@@ -7,6 +7,7 @@
 #include <assert.h>
 
 #include "common.h"
+#include "compiler.h"
 #include "hardware/pids.h"
 #include "hardware/cpus.h"
 #include "memory/sharedmemory.h"
@@ -14,10 +15,10 @@
 
 #define PID_STR(a) st_config.config->per_pid_structures[a]
 
-pid_manager_t *pidmanager;
+__internal pid_manager_t *pidmanager;
 
-int logical_pid;
-pid_t system_pid;
+__internal int logical_pid;
+__internal pid_t system_pid;
 
 void pidmanager_register()
 {

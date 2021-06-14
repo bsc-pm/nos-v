@@ -11,6 +11,6 @@
 
 1. ~~Thread adoption~~
 1. ~~Affinity API~~
-1. Deadline tasks
-1. Immediate Successor (NOSV_SUBMIT_BLOCKING/IMMEDIATE)
+1. ~~Deadline tasks~~
+1. ~~Immediate Successor (NOSV_SUBMIT_BLOCKING/IMMEDIATE)~~
 1. Configuration files

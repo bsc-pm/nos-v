@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "common.h"
+#include "compiler.h"
 #include "hardware/cpus.h"
 #include "hardware/threads.h"
 #include "hardware/pids.h"
@@ -20,12 +21,12 @@
 
 #define gettid() syscall(SYS_gettid)
 
-thread_local nosv_worker_t *current_worker = NULL;
-thread_manager_t *current_process_manager = NULL;
-atomic_int threads_shutdown_signal;
+__internal thread_local nosv_worker_t *current_worker = NULL;
+__internal thread_manager_t *current_process_manager = NULL;
+__internal atomic_int threads_shutdown_signal;
 
 // The delegate thread is used to create remote workers
-void *delegate_routine(void *args)
+static inline void *delegate_routine(void *args)
 {
 	thread_manager_t *threadmanager = (thread_manager_t *)args;
 	event_queue_t *queue = &threadmanager->thread_creation_queue;
@@ -131,7 +132,7 @@ void threadmanager_shutdown(thread_manager_t *threadmanager)
 	pthread_join(threadmanager->delegate_thread, NULL);
 }
 
-void *worker_start_routine(void *arg)
+static inline void *worker_start_routine(void *arg)
 {
 	current_worker = (nosv_worker_t *)arg;
 	cpu_set_current(current_worker->cpu->logic_id);
@@ -139,6 +140,11 @@ void *worker_start_routine(void *arg)
 
 	while (!atomic_load_explicit(&threads_shutdown_signal, memory_order_relaxed)) {
 		nosv_task_t task = current_worker->task;
+
+		if (!task && current_worker->immediate_successor) {
+			task = current_worker->immediate_successor;
+			worker_set_immediate(NULL);
+		}
 
 		if (!task && current_worker->cpu)
 			task = scheduler_get(cpu_get_current());
@@ -161,6 +167,8 @@ void *worker_start_routine(void *arg)
 			}
 		}
 	}
+
+	assert(!worker_get_immediate());
 
 	// Before shutting down, we have to transfer our active CPU if we still have one
 	// We don't have one if we were woken up from the idle thread pool direcly
@@ -261,6 +269,7 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 	worker->cpu = cpu;
 	worker->task = task;
 	worker->pid = logical_pid;
+	worker->immediate_successor = NULL;
 
 	pthread_attr_t attr;
 	ret = pthread_attr_init(&attr);
@@ -289,6 +298,7 @@ nosv_worker_t *worker_create_external()
 	worker->pid = logical_pid;
 	nosv_condvar_init(&worker->condvar);
 	current_worker = worker;
+	worker->immediate_successor = NULL;
 
 	return worker;
 }
@@ -331,4 +341,17 @@ nosv_task_t worker_current_task()
 		return NULL;
 
 	return current_worker->task;
+}
+
+nosv_task_t worker_get_immediate()
+{
+	if (!current_worker)
+		return NULL;
+
+	return current_worker->immediate_successor;
+}
+
+void worker_set_immediate(nosv_task_t task)
+{
+	current_worker->immediate_successor = task;
 }

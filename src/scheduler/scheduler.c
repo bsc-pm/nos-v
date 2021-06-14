@@ -9,6 +9,7 @@
 #include <stdio.h>
 
 #include "climits.h"
+#include "compiler.h"
 #include "nosv-internal.h"
 #include "generic/clock.h"
 #include "hardware/cpus.h"
@@ -17,8 +18,8 @@
 #include "memory/sharedmemory.h"
 #include "scheduler/scheduler.h"
 
-scheduler_t *scheduler;
-thread_local process_scheduler_t *last;
+__internal scheduler_t *scheduler;
+__internal thread_local process_scheduler_t *last;
 
 void scheduler_init(int initialize)
 {
@@ -90,7 +91,7 @@ static inline process_scheduler_t *scheduler_init_pid(int pid)
 	return sched;
 }
 
-int deadline_cmp(heap_node_t *a, heap_node_t *b)
+static inline int deadline_cmp(heap_node_t *a, heap_node_t *b)
 {
 	nosv_task_t task_a = heap_elem(a, struct nosv_task, heap_hook);
 	nosv_task_t task_b = heap_elem(b, struct nosv_task, heap_hook);

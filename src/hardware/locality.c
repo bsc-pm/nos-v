@@ -8,11 +8,12 @@
 #include <numa.h>
 #include <stdlib.h>
 
+#include "compiler.h"
 #include "hardware/locality.h"
 
-int *numa_logical_to_system;
-int *numa_system_to_logical;
-int numa_count;
+__internal int *numa_logical_to_system;
+__internal int *numa_system_to_logical;
+__internal int numa_count;
 
 static inline void locality_numa_disabled()
 {

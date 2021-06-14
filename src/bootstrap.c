@@ -14,7 +14,7 @@
 #include "memory/sharedmemory.h"
 #include "memory/slab.h"
 
-int library_initialized = 0;
+__internal int library_initialized = 0;
 
 int nosv_init()
 {

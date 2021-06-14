@@ -43,6 +43,8 @@ struct nosv_task
 	// Maybe this could be on-demand allocated
 	deadline_t deadline;
 	heap_node_t heap_hook;
+
+	nosv_task_t wakeup;
 };
 
 #endif // NOSV_INTERNAL_H
