@@ -399,12 +399,16 @@ int nosv_detach(
 	// First free the task
 	nosv_destroy(worker->task, NOSV_DESTROY_NONE);
 
-	// Then resume a thread on the current cpu
-	assert(worker->cpu);
-	worker_wake(logical_pid, worker->cpu, NULL);
+	cpu_t *cpu = worker->cpu;
+	assert(cpu);
 
 	// Now free the worker
+	// We have to free before waking up another worker on the current CPU
+	// Otherwise the sfree inside worker_free_external does not have exclusive access to the cpu buckets
 	worker_free_external(worker);
+
+	// Then resume a thread on the current cpu
+	worker_wake(logical_pid, cpu, NULL);
 
 	return 0;
 }
