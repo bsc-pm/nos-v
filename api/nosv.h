@@ -125,6 +125,10 @@ int nosv_pause(
 int nosv_waitfor(
 	uint64_t ns);
 
+/* Yield operation */
+/* Restriction: Can only be called from a task context */
+int nosv_yield();
+
 /* Flags */
 #define NOSV_DESTROY_NONE __ZEROBITS
 

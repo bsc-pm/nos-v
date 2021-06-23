@@ -249,6 +249,20 @@ int nosv_waitfor(
 	return 0;
 }
 
+/* Yield operation */
+/* Restriction: Can only be called from a task context */
+int nosv_yield()
+{
+	if (!worker_is_in_task())
+		return -EINVAL;
+
+	nosv_task_t task = worker_current_task();
+	scheduler_submit(task);
+	worker_yield();
+
+	return 0;
+}
+
 /* Callable from everywhere */
 int nosv_destroy(
 	nosv_task_t task,
