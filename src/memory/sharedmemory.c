@@ -22,6 +22,11 @@
 #include "memory/slab.h"
 #include "scheduler/scheduler.h"
 
+// Fix for older kernels
+#ifndef MAP_FIXED_NOREPLACE
+#define MAP_FIXED_NOREPLACE MAP_FIXED
+#endif
+
 static_smem_config_t st_config;
 
 static void smem_config_initialize(smem_config_t *config)
