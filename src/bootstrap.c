@@ -18,6 +18,7 @@
 #include "memory/sharedmemory.h"
 #include "memory/slab.h"
 #include "scheduler/scheduler.h"
+#include "system/tasks.h"
 
 __internal int library_initialized = 0;
 
@@ -38,6 +39,7 @@ int nosv_init(void)
 	smem_initialize();
 	hwcounters_initialize();
 	pidmanager_register();
+	task_type_manager_init();
 
 	library_initialized = 1;
 	return 0;
@@ -51,6 +53,7 @@ int nosv_shutdown(void)
 	pidmanager_shutdown();
 	scheduler_shutdown();
 	hwcounters_shutdown();
+	task_type_manager_shutdown();
 	smem_shutdown();
 	locality_shutdown();
 	config_free();

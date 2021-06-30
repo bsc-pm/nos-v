@@ -20,12 +20,49 @@
 #include <string.h>
 #include <sys/errno.h>
 
+__internal task_type_manager_t *task_type_manager;
+
 // Start the taskid and typeid counters at 1 so we have the same
 // identifiers in Paraver. It is also used to check for overflows.
 static atomic_uint64_t taskid_counter = 1;
 static atomic_uint32_t typeid_counter = 1;
 
 #define LABEL_MAX_CHAR 128
+
+//! \brief Initialize the manager of task types
+void task_type_manager_init()
+{
+	task_type_manager = (task_type_manager_t *) malloc(sizeof(task_type_manager_t));
+	assert(task_type_manager != NULL);
+
+	// Initialize the list of tasktypes and the spinlock
+	list_init(&task_type_manager->types);
+	nosv_spin_init(&task_type_manager->lock);
+}
+
+//! \brief Shutdown the manager of task types
+void task_type_manager_shutdown()
+{
+	/* NOTE: Commented out for now
+	// Iterate all the tasktypes
+	nosv_spin_lock(&task_type_manager->lock);
+	list_head_t *head = list_front(&task_type_manager->types);
+	list_head_t *stop = head;
+	do {
+		nosv_task_type_t type = list_elem(head, struct nosv_task_type, list_hook);
+		if (type != NULL) {
+			// Process the tasktype before it is deleted
+		}
+
+		head = list_next_circular(head, &task_type_manager->types);
+	} while (head != stop);
+	nosv_spin_unlock(&task_type_manager->lock);
+	*/
+
+	// Destroy the spinlock and the manager
+	nosv_spin_destroy(&task_type_manager->lock);
+	free(task_type_manager);
+}
 
 /* Create a task type with certain run/end callbacks and a label */
 int nosv_type_init(
@@ -65,6 +102,12 @@ int nosv_type_init(
 	instr_type_create(res->typeid, res->label);
 
 	*type = res;
+
+	// Add the task type to the list of registered task types
+	nosv_spin_lock(&task_type_manager->lock);
+	list_add_tail(&task_type_manager->types, &(res->list_hook));
+	nosv_spin_unlock(&task_type_manager->lock);
+
 	return 0;
 }
 

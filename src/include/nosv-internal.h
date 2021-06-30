@@ -28,6 +28,7 @@ struct nosv_task_type {
 	const char *label;
 	int pid;
 	uint32_t typeid;
+	list_head_t list_hook;
 };
 
 struct nosv_task {
