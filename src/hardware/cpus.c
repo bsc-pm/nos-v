@@ -15,6 +15,7 @@
 #include "instr.h"
 #include "memory/sharedmemory.h"
 #include "memory/slab.h"
+#include "monitoring/monitoring.h"
 
 thread_local int __current_cpu = -1;
 __internal cpumanager_t *cpumanager;
@@ -103,6 +104,10 @@ cpu_t *cpu_pop_free(int pid)
 	for (int i = 0; i < cpus_count(); ++i) {
 		if (cpumanager->pids_cpus[i] == -1) {
 			cpumanager->pids_cpus[i] = pid;
+
+			// A CPU is going to become active
+			monitoring_cpu_active(i);
+
 			return cpu_get(i);
 		}
 	}
@@ -119,6 +124,9 @@ void cpu_set_pid(cpu_t *cpu, int pid)
 void cpu_mark_free(cpu_t *cpu)
 {
 	cpumanager->pids_cpus[cpu->logic_id] = -1;
+
+	// A CPU just went idle
+	monitoring_cpu_idle(cpu->logic_id);
 }
 
 void cpu_transfer(int destination_pid, cpu_t *cpu, nosv_task_t task)

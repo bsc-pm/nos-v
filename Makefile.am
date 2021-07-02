@@ -48,6 +48,9 @@ libnosv_la_SOURCES = \
 	src/memory/backbone.c \
 	src/memory/slab.c \
 	src/memory/sharedmemory.c \
+	src/monitoring/cpumonitor.c \
+	src/monitoring/cpustatistics.c \
+	src/monitoring/monitoring.c \
 	src/scheduler/scheduler.c \
 	src/system/tasks.c
 

@@ -23,6 +23,7 @@ typedef struct smem_config {
 	void *scheduler_ptr;
 	void *cpumanager_ptr;
 	void *pidmanager_ptr;
+	void *monitoring_ptr;
 	int count;
 	void *per_pid_structures[MAX_PIDS];
 } smem_config_t;
