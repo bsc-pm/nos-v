@@ -56,6 +56,10 @@ AC_SUBST([full_top_srcdir])
 # Checks for header files.
 AC_CHECK_HEADERS([stdlib.h unistd.h])
 
+# Checks for shared memory functions in librt
+AC_CHECK_LIB([rt], [shm_open], [shm_LIBS="${shm_LIBS} -lrt"], [AC_MSG_ERROR([shm functions not found])])
+AC_SUBST(shm_LIBS)
+
 # Checks for typedefs, structures, and compiler characteristics.
 AC_CHECK_HEADER_STDBOOL
 AC_TYPE_SIZE_T
