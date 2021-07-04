@@ -16,7 +16,7 @@
 
 __internal int library_initialized = 0;
 
-int nosv_init()
+int nosv_init(void)
 {
 	if (library_initialized != 0)
 		return 1;
@@ -29,7 +29,7 @@ int nosv_init()
 	return 0;
 }
 
-int nosv_shutdown()
+int nosv_shutdown(void)
 {
 	if (library_initialized != 1)
 		return 1;

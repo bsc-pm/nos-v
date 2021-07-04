@@ -12,6 +12,10 @@
 #include <sched.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum nosv_affinity_type {
 	PREFERRED,
 	STRICT
@@ -41,5 +45,9 @@ static inline nosv_affinity_t nosv_affinity_get(uint32_t index, nosv_affinity_le
 
 nosv_affinity_t nosv_get_task_affinity(nosv_task_t task);
 void nosv_set_task_affinity(nosv_task_t task, nosv_affinity_t affinity);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // NOSV_AFFINITY_H
