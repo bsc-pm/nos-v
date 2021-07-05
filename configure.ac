@@ -16,22 +16,32 @@ AC_INIT([nOS-V], [nosv_version], [david.alvarez@bsc.es])
 AC_CONFIG_SRCDIR([src/bootstrap.c])
 AC_CONFIG_AUX_DIR([config-aux])
 AC_CONFIG_MACRO_DIR([m4])
+AC_CONFIG_HEADERS([config.h])
 
 AC_CANONICAL_BUILD
 AC_CANONICAL_HOST
+
+# Prepare compilation flags before AC_PROG_CC
+AX_PREPARE_CC_FLAGS
+
+# Look for a valid C compiler
+AC_PROG_CC
+
+# Retrieve compiler version
+AX_CHECK_CC_VERSION
+
+# Set C11 standard
+AX_CHECK_C11
+
+AM_PROG_AR
 
 AM_INIT_AUTOMAKE([foreign dist-bzip2 no-dist-gzip subdir-objects -Wall tar-pax -Wno-portability])
 AM_SILENT_RULES([yes])
 
 AC_CHECK_CACHE
 
-AC_CONFIG_HEADERS([config.h])
-
-AM_PROG_AR
 LT_INIT([shared disable-static pic-only])
 AC_SUBST([LIBTOOL_DEPS])
-
-CFLAGS="-O3 -g -D_GNU_SOURCE -Wall -Wpedantic -Werror-implicit-function-declaration"
 
 # Dependencies
 PKG_PROG_PKG_CONFIG
@@ -41,11 +51,7 @@ PKG_INSTALLDIR
 AX_PTHREAD
 AC_CHECK_LIBNUMA
 
-# Set C11 Std
-AC_CHECK_C11
-
 AC_PROG_AWK
-AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_LN_S
 AC_PROG_MAKE_SET
@@ -72,6 +78,6 @@ _AS_ECHO([])
 _AS_ECHO([])
 _AS_ECHO([Configuration summary:])
 _AS_ECHO([   Compiler version... ${CC_VERSION}])
-_AS_ECHO([   Compiler optimization flags... ${opt_CFLAGS}])
-_AS_ECHO([   Compiler debug flags... ${DEBUG_CFLAGS}])
+_AS_ECHO([   Compiler CPPFLAGS... ${nosv_CPPFLAGS} ${CPPFLAGS}])
+_AS_ECHO([   Compiler CFLAGS... ${nosv_CFLAGS} ${CFLAGS}])
 _AS_ECHO([])
