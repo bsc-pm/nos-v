@@ -105,6 +105,12 @@ int cpu_get_pid(int cpu)
 	return cpumanager->pids_cpus[cpu];
 }
 
+void cpu_set_pid(cpu_t *cpu, int pid)
+{
+	assert(cpumanager->pids_cpus[cpu->logic_id] < MAX_PIDS);
+	cpumanager->pids_cpus[cpu->logic_id] = pid;
+}
+
 void cpu_mark_free(cpu_t *cpu)
 {
 	cpumanager->pids_cpus[cpu->logic_id] = -1;

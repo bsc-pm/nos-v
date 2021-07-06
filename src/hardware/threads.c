@@ -61,6 +61,8 @@ static inline void worker_wakeup_internal(nosv_worker_t *worker, cpu_t *cpu)
 	if (cpu && worker->pid == logical_pid) {
 		// Remotely set thread affinity before waking up, to prevent disturbing another CPU
 		pthread_setaffinity_np(worker->kthread, sizeof(cpu->cpuset), &cpu->cpuset);
+	} else if (cpu && worker->pid != logical_pid) {
+		cpu_set_pid(cpu, worker->pid);
 	}
 	// Now wake up the thread
 	nosv_condvar_signal(&worker->condvar);
@@ -83,6 +85,8 @@ void threadmanager_init(thread_manager_t *threadmanager)
 void threadmanager_shutdown(thread_manager_t *threadmanager)
 {
 	assert(threadmanager);
+	// This should happen outside of a worker
+	assert(worker_current() == NULL);
 
 	// Threads should shutdown at this moment
 	atomic_store_explicit(&threads_shutdown_signal, 1, memory_order_relaxed);
@@ -124,7 +128,7 @@ void threadmanager_shutdown(thread_manager_t *threadmanager)
 		nosv_worker_t *worker = list_elem(head, nosv_worker_t, list_hook);
 		worker_join(worker);
 		nosv_condvar_destroy(&worker->condvar);
-		sfree(worker, sizeof(nosv_worker_t), cpu_get_current());
+		sfree(worker, sizeof(nosv_worker_t), -1);
 		head = clist_pop_head(&threadmanager->shutdown_threads);
 	}
 
