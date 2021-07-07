@@ -101,6 +101,15 @@ void monitoring_task_finished(nosv_task_t task)
 {
 }
 
+size_t monitoring_get_allocation_size()
+{
+	if (monitoring_enabled) {
+		return sizeof(taskstatistics_t);
+	} else {
+		return 0;
+	}
+}
+
 void monitoring_cpu_idle(int cpu_id)
 {
 	if (monitoring_enabled) {

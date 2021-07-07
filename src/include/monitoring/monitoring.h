@@ -8,22 +8,21 @@
 #define MONITORING_H
 
 #include "compiler.h"
+#include "nosv.h"
+
 #include "cpumonitor.h"
 #include "monitoringsupport.h"
-#include "nosv.h"
 //TODO #include "taskmonitor.h"
+#include "taskstatistics.h"
 
 
 typedef struct monitoring_manager {
 	//! The lock of the manager
 	nosv_spinlock_t lock;
-
 	//! Whether verbosity for monitoring enabled
 	short verbose;
-
 	//! A monitor that handles CPU statistics
 	cpumonitor_t *cpumonitor;
-
 	//! A monitor that handles task statistics
 	//TODO taskmonitor_t *taskmonitor;
 } monitoring_manager_t;
@@ -65,6 +64,9 @@ __internal void monitoring_task_completed(nosv_task_t task);
 //! \brief Aggregate statistics after a task has finished
 //! \param[in,out] task The task that has finished
 __internal void monitoring_task_finished(nosv_task_t task);
+
+//! \brief Retreive the size necessary to allocate task statistics
+__internal size_t monitoring_get_allocation_size();
 
 
 //    CPUS    //

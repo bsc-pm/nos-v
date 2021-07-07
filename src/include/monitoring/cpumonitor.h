@@ -10,8 +10,9 @@
 #include <stddef.h>
 
 #include "compiler.h"
+
+#include "cpustatistics.h"
 #include "memory/slab.h"
-#include "monitoring/cpustatistics.h"
 
 
 typedef struct cpumonitor {

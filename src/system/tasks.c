@@ -11,6 +11,7 @@
 #include "hwcounters/hwcounters.h"
 #include "instr.h"
 #include "memory/slab.h"
+#include "monitoring/monitoring.h"
 #include "nosv-internal.h"
 #include "scheduler/scheduler.h"
 #include "system/tasks.h"
@@ -155,9 +156,10 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	nosv_flags_t flags)
 {
 	nosv_task_t res = salloc(
-		sizeof(struct nosv_task) +  /* Size of the struct itself */
-		metadata_size +             /* The size needed to allocate the task's metadata */
-		hwcounters_get_task_size(), /* Size needed to allocate hardware counter for the task */
+		sizeof(struct nosv_task) +        /* Size of the struct itself */
+		metadata_size +                   /* The size needed to allocate the task's metadata */
+		hwcounters_get_task_size() +      /* Size needed to allocate hardware counter for the task */
+		monitoring_get_allocation_size(), /* Size needed to allocate monitoring stats for the task */
 		cpu_get_current()
 	);
 
@@ -177,9 +179,11 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	res->wakeup = NULL;
 	res->taskid = atomic_fetch_add_explicit(&taskid_counter, 1, memory_order_relaxed);
 	res->counters = (void *) (((char *) res) + sizeof(struct nosv_task) + metadata_size);
+	res->stats = (taskstatistics_t *) (((char *) res) + sizeof(struct nosv_task) + metadata_size + hwcounters_get_task_size());
 
 	// Initialize hardware counters for the task
 	hwcounters_task_created(res, /* enabled */ 1);
+	monitoring_task_created(res);
 
 	*task = res;
 
@@ -494,7 +498,7 @@ int nosv_destroy(
 	if (unlikely(!task))
 		return -EINVAL;
 
-	sfree(task, sizeof(struct nosv_task) + task->metadata + hwcounters_get_task_size(), cpu_get_current());
+	sfree(task, sizeof(struct nosv_task) + task->metadata + hwcounters_get_task_size() + monitoring_get_allocation_size(), cpu_get_current());
 
 	return 0;
 }

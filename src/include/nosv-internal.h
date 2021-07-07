@@ -13,6 +13,7 @@
 #include "nosv/affinity.h"
 #include "generic/list.h"
 #include "generic/heap.h"
+#include "monitoring/monitoring.h"
 
 struct nosv_worker;
 typedef atomic_uint_fast32_t atomic_uint32_t;
@@ -55,6 +56,9 @@ struct nosv_task {
 
 	// Hardware counters
 	task_hwcounters_t *counters;
+
+	// Monitoring statistics
+	taskstatistics_t *stats;
 };
 
 #endif // NOSV_INTERNAL_H
