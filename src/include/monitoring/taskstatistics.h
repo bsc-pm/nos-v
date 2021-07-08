@@ -15,7 +15,7 @@
 
 typedef struct taskstatistics {
 	//! A pointer to the accumulated statistics of this task's tasktype
-	//TODO tasktypestatistics_t *tasktypestats;
+	void *tasktypestats;
 	//! The task's cost
 	size_t cost;
 
@@ -33,34 +33,13 @@ typedef struct taskstatistics {
 //! \brief Initialize task statistics
 static inline void taskstatistics_init(taskstatistics_t *stats)
 {
-	//TODO stats->tasktypestats = NULL;
+	stats->tasktypestats = NULL;
 	stats->cost = DEFAULT_COST;
 	stats->current_chrono = null_status;
 	stats->time_prediction = PREDICTION_UNAVAILABLE;
 	for (size_t i = 0; i < num_status; ++i) {
 		chrono_init(&(stats->chronos[i]));
 	}
-}
-
-//TODO
-// __internal void taskstatistics_set_tasktypestatistics(
-// 	taskstatistics_t *stats,
-// 	tasktypestatistics_t *tasktype_stats
-// );
-//__internal tasktypestatistics_t *taskstatistics_get_tasktypestatistics(
-// 	taskstatistics_t *stats
-// );
-
-//! \brief Get a representation of the elapsed ticks of a timer
-//! \param[in] id The timer's timing status id
-//! \return The elapsed ticks of the timer
-static inline size_t taskstatistics_get_chrono_ticks(
-	taskstatistics_t *stats, enum monitoring_status_t id
-) {
-	assert(stats != NULL);
-	assert(id < num_status);
-
-	return chrono_get_accumulated(&(stats->chronos[id]));
 }
 
 static inline short taskstatistics_has_time_prediction(taskstatistics_t *stats)
