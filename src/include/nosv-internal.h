@@ -13,9 +13,10 @@
 #include "nosv/affinity.h"
 #include "generic/list.h"
 #include "generic/heap.h"
-#include "monitoring/monitoring.h"
 
 struct nosv_worker;
+struct tasktypestatistics;
+struct taskstatistics;
 typedef atomic_uint_fast32_t atomic_uint32_t;
 typedef uint64_t deadline_t;
 typedef size_t yield_t;
@@ -30,6 +31,9 @@ struct nosv_task_type {
 	int pid;
 	uint32_t typeid;
 	list_head_t list_hook;
+
+	// Monitoring statistics
+	struct tasktypestatistics *stats;
 };
 
 struct nosv_task {
@@ -58,7 +62,7 @@ struct nosv_task {
 	task_hwcounters_t *counters;
 
 	// Monitoring statistics
-	taskstatistics_t *stats;
+	struct taskstatistics *stats;
 };
 
 #endif // NOSV_INTERNAL_H

@@ -12,7 +12,7 @@
 
 #include "cpumonitor.h"
 #include "monitoringsupport.h"
-//TODO #include "taskmonitor.h"
+#include "taskmonitor.h"
 #include "taskstatistics.h"
 
 
@@ -23,8 +23,6 @@ typedef struct monitoring_manager {
 	short verbose;
 	//! A monitor that handles CPU statistics
 	cpumonitor_t *cpumonitor;
-	//! A monitor that handles task statistics
-	//TODO taskmonitor_t *taskmonitor;
 } monitoring_manager_t;
 
 //! \brief Initialize monitoring structures
@@ -47,10 +45,9 @@ __internal void monitoring_display_stats();
 //! \param[in,out] task The task
 __internal void monitoring_task_created(nosv_task_t task);
 
-// NOTE: Taskfor not yet supported
-////! \brief Reset monitoring statistics for a task that will be re-used
-////! \param[in,out] task The task
-//__internal void monitoring_task_reinitialized(nosv_task_t task);
+//! \brief Initialize monitoring statistics for a newly created task type
+//! \param[in,out] type The type
+__internal void monitoring_type_created(nosv_task_type_t type);
 
 //! \brief Change a task statistics after it changes its execution status
 //! \param[in,out] task The task changing its status

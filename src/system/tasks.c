@@ -41,25 +41,14 @@ void task_type_manager_init()
 	nosv_spin_init(&task_type_manager->lock);
 }
 
+list_head_t *task_type_manager_get_list()
+{
+	return &(task_type_manager->types);
+}
+
 //! \brief Shutdown the manager of task types
 void task_type_manager_shutdown()
 {
-	/* NOTE: Commented out for now
-	// Iterate all the tasktypes
-	nosv_spin_lock(&task_type_manager->lock);
-	list_head_t *head = list_front(&task_type_manager->types);
-	list_head_t *stop = head;
-	do {
-		nosv_task_type_t type = list_elem(head, struct nosv_task_type, list_hook);
-		if (type != NULL) {
-			// Process the tasktype before it is deleted
-		}
-
-		head = list_next_circular(head, &task_type_manager->types);
-	} while (head != stop);
-	nosv_spin_unlock(&task_type_manager->lock);
-	*/
-
 	// Destroy the spinlock and the manager
 	nosv_spin_destroy(&task_type_manager->lock);
 	free(task_type_manager);
@@ -81,7 +70,7 @@ int nosv_type_init(
 	if (unlikely(!run_callback && !(flags & NOSV_TYPE_INIT_EXTERNAL)))
 		return -EINVAL;
 
-	nosv_task_type_t res = salloc(sizeof(struct nosv_task_type), cpu_get_current());
+	nosv_task_type_t res = salloc(sizeof(struct nosv_task_type) + sizeof(struct tasktypestatistics), cpu_get_current());
 
 	if (!res)
 		return -ENOMEM;
@@ -93,6 +82,9 @@ int nosv_type_init(
 	res->pid = logic_pid;
 	res->typeid = atomic_fetch_add_explicit(&typeid_counter, 1, memory_order_relaxed);
 
+	// Monitoring type statistics are right after the type's memory
+	res->stats = (tasktypestatistics_t *) (((char *) res) + sizeof(struct nosv_task_type));
+
 	if (label) {
 		res->label = strndup(label, LABEL_MAX_CHAR - 1);
 		assert(res->label);
@@ -102,12 +94,15 @@ int nosv_type_init(
 
 	instr_type_create(res->typeid, res->label);
 
-	*type = res;
+	// Entry point - A type has just been created
+	monitoring_type_created(res);
 
 	// Add the task type to the list of registered task types
 	nosv_spin_lock(&task_type_manager->lock);
 	list_add_tail(&task_type_manager->types, &(res->list_hook));
 	nosv_spin_unlock(&task_type_manager->lock);
+
+	*type = res;
 
 	return 0;
 }
@@ -146,7 +141,7 @@ int nosv_type_destroy(
 	if (type->label)
 		free((void *)type->label);
 
-	sfree(type, sizeof(struct nosv_task_type), cpu_get_current());
+	sfree(type, sizeof(struct nosv_task_type) + sizeof(struct tasktypestatistics), cpu_get_current());
 	return 0;
 }
 

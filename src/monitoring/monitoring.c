@@ -36,18 +36,15 @@ void monitoring_init(short initialize)
 	st_config.config->monitoring_ptr = monitor;
 	assert(monitor != NULL);
 
-	// Allocate the CPU and Task monitors
+	// Allocate the CPU monitor
 	monitor->cpumonitor = (cpumonitor_t *) salloc(sizeof(cpumonitor_t), -1);
-	//TODO monitor->taskmonitor = (taskmonitor_t *) salloc(sizeof(taskmonitor_t), -1);
 	assert(monitor->cpumonitor != NULL);
-	//TODO assert(monitor->taskmonitor != NULL);
+
+	// Initialize the CPU monitor
+	cpumonitor_initialize(monitor->cpumonitor);
 
 	// Initialize the spinlock
 	nosv_spin_init(&monitor->lock);
-
-	// Initialize the CPU and Task monitors
-	cpumonitor_initialize(monitor->cpumonitor);
-	//TODO taskmonitor_initialize(monitor->cpumonitor);
 
 	// Check if verbosity is enabled
 	monitor->verbose = 0;
@@ -76,16 +73,19 @@ void monitoring_display_stats()
 	assert(monitoring_enabled);
 	assert(monitor != NULL);
 	assert(monitor->cpumonitor != NULL);
-	//TODO assert(monitor->taskmonitor != NULL);
 
 	// Retrieve statistics from every monitor
 	if (monitor->verbose) {
 		cpumonitor_statistics(monitor->cpumonitor);
-		//TODO taskmonitor_statistics(monitor->taskmonitor);
+		taskmonitor_statistics();
 	}
 }
 
 void monitoring_task_created(nosv_task_t task)
+{
+}
+
+void monitoring_type_created(nosv_task_type_t type)
 {
 }
 

@@ -20,7 +20,7 @@ typedef struct task_type_manager {
 __internal void task_execute(nosv_task_t task);
 
 __internal void task_type_manager_init();
-
+__internal list_head_t *task_type_manager_get_list();
 __internal void task_type_manager_shutdown();
 
 #endif // TASKS_H
