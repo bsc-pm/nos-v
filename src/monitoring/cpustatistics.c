@@ -9,6 +9,8 @@
 
 void cpustatistics_init(cpustatistics_t *cpu_stats)
 {
+	assert(cpu_stats != NULL);
+
 	// Start this CPU as currently idle
 	cpu_stats->current_status = idle_status;
 	chrono_start(&(cpu_stats->chronos[idle_status]));
@@ -16,6 +18,8 @@ void cpustatistics_init(cpustatistics_t *cpu_stats)
 
 void cpustatistics_active(cpustatistics_t *cpu_stats)
 {
+	assert(cpu_stats != NULL);
+
 	chrono_stop(&(cpu_stats->chronos[cpu_stats->current_status]));
 	cpu_stats->current_status = active_status;
 	chrono_start(&(cpu_stats->chronos[cpu_stats->current_status]));
@@ -23,6 +27,8 @@ void cpustatistics_active(cpustatistics_t *cpu_stats)
 
 void cpustatistics_idle(cpustatistics_t *cpu_stats)
 {
+	assert(cpu_stats != NULL);
+
 	chrono_stop(&(cpu_stats->chronos[cpu_stats->current_status]));
 	cpu_stats->current_status = idle_status;
 	chrono_start(&(cpu_stats->chronos[cpu_stats->current_status]));
@@ -30,6 +36,8 @@ void cpustatistics_idle(cpustatistics_t *cpu_stats)
 
 float cpustatistics_get_activeness(cpustatistics_t *cpu_stats)
 {
+	assert(cpu_stats != NULL);
+
 	chrono_t *chrono = &(cpu_stats->chronos[cpu_stats->current_status]);
 	assert(chrono != NULL);
 

@@ -117,7 +117,7 @@ static inline void taskmonitor_statistics()
 
 				// Make sure there was at least one prediction to report accuracy
 				char accuracy_label[80];
-				if (!isnan(accuracy)) {
+				if (!isnan(accuracy) && accuracy != 0.0) {
 					snprintf(accuracy_label, 80, "%lf%%", accuracy);
 				} else {
 					snprintf(accuracy_label, 80, "%s", "NA");
@@ -134,7 +134,7 @@ static inline void taskmonitor_statistics()
 		head = list_next_circular(head, list);
 	} while (head != stop);
 
-	printf("+-----------------------------+\n\n");
+	printf("\n");
 }
 
 #endif // TASKMONITOR_H

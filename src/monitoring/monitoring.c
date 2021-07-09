@@ -43,9 +43,6 @@ void monitoring_init(short initialize)
 	// Initialize the CPU monitor
 	cpumonitor_initialize(monitor->cpumonitor);
 
-	// Initialize the spinlock
-	nosv_spin_init(&monitor->lock);
-
 	// Check if verbosity is enabled
 	monitor->verbose = 0;
 	if (monitoring_enabled) {
@@ -72,7 +69,6 @@ void monitoring_display_stats()
 {
 	assert(monitoring_enabled);
 	assert(monitor != NULL);
-	assert(monitor->cpumonitor != NULL);
 
 	// Retrieve statistics from every monitor
 	if (monitor->verbose) {
@@ -83,22 +79,34 @@ void monitoring_display_stats()
 
 void monitoring_task_created(nosv_task_t task)
 {
+	if (monitoring_enabled) {
+		taskmonitor_task_created(task);
+	}
 }
 
 void monitoring_type_created(nosv_task_type_t type)
 {
+	if (monitoring_enabled) {
+		assert(type != NULL);
+
+		tasktypestatistics_init(type->stats);
+	}
 }
 
 void monitoring_task_changed_status(nosv_task_t task, enum monitoring_status_t status)
 {
-}
-
-void monitoring_task_completed(nosv_task_t task)
-{
+	if (monitoring_enabled) {
+		// Start timing for the appropriate stopwatch
+		taskmonitor_task_started(task, status);
+	}
 }
 
 void monitoring_task_finished(nosv_task_t task)
 {
+	if (monitoring_enabled) {
+		// Mark task as completely executed
+		taskmonitor_task_finished(task);
+	}
 }
 
 size_t monitoring_get_allocation_size()

@@ -190,7 +190,7 @@ static inline void tasktypestatistics_accumulate(
 	if (prediction_available) {
 		double predicted = taskstatistics_get_time_prediction(task_stats);
 		double max_value = (elapsed > predicted) ? elapsed : predicted;
-		double error = 100.0 * (abs(predicted - elapsed) / max_value);
+		double error = 100.0 * (fabs(predicted - elapsed) / max_value);
 		accuracy = 100.0 - error;
 	}
 

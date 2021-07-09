@@ -94,13 +94,13 @@ int nosv_type_init(
 
 	instr_type_create(res->typeid, res->label);
 
-	// Entry point - A type has just been created
-	monitoring_type_created(res);
-
 	// Add the task type to the list of registered task types
 	nosv_spin_lock(&task_type_manager->lock);
 	list_add_tail(&task_type_manager->types, &(res->list_hook));
 	nosv_spin_unlock(&task_type_manager->lock);
+
+	// Entry point - A type has just been created
+	monitoring_type_created(res);
 
 	*type = res;
 
@@ -281,6 +281,9 @@ int nosv_submit(
 
 	uint32_t count;
 
+	// Entry point - The task became ready
+	monitoring_task_changed_status(task, ready_status);
+
 	// If we have an immediate successor we don't place the task into the scheduler
 	// However, if we're not in a worker context, or we are currently executing a task,
 	// we will ignore the request, as it would hang the program.
@@ -352,8 +355,12 @@ int nosv_pause(
 	uint32_t count = atomic_fetch_add_explicit(&task->blocking_count, 1, memory_order_relaxed) + 1;
 
 	// If r < 1, we have already been unblocked
-	if (count > 0)
+	if (count > 0) {
+		// Entry point - A task becomes blocked
+		monitoring_task_changed_status(task, paused_status);
+
 		worker_yield();
+	}
 
 	// Thread might have been resumed here, read and accumulate hardware counters for the CPU
 	hwcounters_update_runtime_counters();
@@ -375,6 +382,9 @@ int nosv_waitfor(
 
 	nosv_task_t task = worker_current_task();
 	assert(task);
+
+	// Entry point - A task becomes ready
+	monitoring_task_changed_status(task, ready_status);
 
 	// Thread is gonna yield, read and accumulate hardware counters for the task
 	hwcounters_update_task_counters(task);
@@ -500,6 +510,9 @@ int nosv_destroy(
 
 static inline void task_complete(nosv_task_t task)
 {
+	// Entry point - A task has just completed its execution
+	monitoring_task_finished(task);
+
 	nosv_task_t wakeup = task->wakeup;
 	task->wakeup = NULL;
 
@@ -515,6 +528,9 @@ void task_execute(nosv_task_t task)
 {
 	// Task is about to execute, update runtime counters
 	hwcounters_update_runtime_counters();
+
+	// Entry point - A task begins executing
+	monitoring_task_changed_status(task, executing_status);
 
 	const uint32_t taskid = (uint32_t) task->taskid;
 	instr_task_execute(taskid);
@@ -635,6 +651,9 @@ int nosv_attach(
 
 	atomic_fetch_sub_explicit(&t->blocking_count, 1, memory_order_relaxed);
 
+	// Entry point - A task becomes ready
+	monitoring_task_changed_status(t, ready_status);
+
 	// Submit task for scheduling at an actual CPU
 	scheduler_submit(t);
 
@@ -670,6 +689,9 @@ int nosv_detach(
 
 	// Task just completed, read and accumulate hardware counters for the task
 	hwcounters_update_task_counters(worker->task);
+
+	// Entry point - A task has just completed its execution
+	monitoring_task_finished(worker->task);
 
 	instr_task_end((uint32_t)worker->task->taskid);
 

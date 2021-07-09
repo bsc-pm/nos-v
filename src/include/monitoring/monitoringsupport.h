@@ -15,7 +15,7 @@ enum monitoring_status_t {
 	ready_status = 0,
 	// The task is being executed
 	executing_status,
-	// An aggregation of runtime + pending + blocked
+	// The task is blocked
 	paused_status,
 	num_status,
 	null_status = -1

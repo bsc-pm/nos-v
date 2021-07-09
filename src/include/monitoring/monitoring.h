@@ -17,8 +17,6 @@
 
 
 typedef struct monitoring_manager {
-	//! The lock of the manager
-	nosv_spinlock_t lock;
 	//! Whether verbosity for monitoring enabled
 	short verbose;
 	//! A monitor that handles CPU statistics
@@ -53,10 +51,6 @@ __internal void monitoring_type_created(nosv_task_type_t type);
 //! \param[in,out] task The task changing its status
 //! \param[in] status The new execution status of the task
 __internal void monitoring_task_changed_status(nosv_task_t task, enum monitoring_status_t status);
-
-//! \brief Monitoring when a task completes user code execution
-//! \param[in,out] task The task that has completed the execution
-__internal void monitoring_task_completed(nosv_task_t task);
 
 //! \brief Aggregate statistics after a task has finished
 //! \param[in,out] task The task that has finished

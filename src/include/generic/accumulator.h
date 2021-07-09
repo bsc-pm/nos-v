@@ -57,7 +57,9 @@ static inline void accumulator_add(accumulator_t *acc, double val)
 	double value_oldest = (is_full) ? acc->values[acc->oldest] : 0.0;
 
 	if (is_full) {
-		++acc->oldest;
+		if ((++acc->oldest) == acc->num) {
+			acc->oldest = 0;
+		}
 	}
 	acc->values[index_newest] = val;
 	acc->num += !(is_full);
