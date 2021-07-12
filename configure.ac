@@ -33,6 +33,10 @@ AC_SUBST([LIBTOOL_DEPS])
 
 CFLAGS="-O3 -g -D_GNU_SOURCE -Wall -Wpedantic -Werror-implicit-function-declaration"
 
+# Dependencies
+PKG_PROG_PKG_CONFIG
+PKG_INSTALLDIR
+
 # Checks for libraries.
 AX_PTHREAD
 AC_CHECK_LIBNUMA
@@ -59,7 +63,7 @@ AC_C_RESTRICT
 
 PKG_CHECK_MODULES([hwloc], [hwloc])
 
-AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([Makefile nos-v.pc])
 AC_OUTPUT
 
 _AS_ECHO([])
