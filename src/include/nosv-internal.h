@@ -63,6 +63,8 @@ struct nosv_task {
 
 	// Monitoring statistics
 	struct taskstatistics *stats;
+
+	size_t (*get_cost)(void);
 };
 
 #endif // NOSV_INTERNAL_H

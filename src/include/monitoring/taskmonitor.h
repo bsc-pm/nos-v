@@ -28,7 +28,7 @@ static inline void taskmonitor_task_created(nosv_task_t task)
 
 	// Initialize attributes of the new task
 	taskstatistics_init(task_stats);
-	size_t cost = 1; //TODO: task_get_cost(task
+	size_t cost = task->get_cost();
 	task_stats->cost = cost;
 
 	// Predict metrics using past data

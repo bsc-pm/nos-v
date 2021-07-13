@@ -148,7 +148,8 @@ int nosv_type_destroy(
 static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	nosv_task_type_t type,
 	size_t metadata_size,
-	nosv_flags_t flags)
+	nosv_flags_t flags,
+	size_t (*cost_function)(void))
 {
 	nosv_task_t res = salloc(
 		sizeof(struct nosv_task) +        /* Size of the struct itself */
@@ -172,6 +173,7 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	res->deadline = 0;
 	res->yield = 0;
 	res->wakeup = NULL;
+	res->get_cost = cost_function;
 	res->taskid = atomic_fetch_add_explicit(&taskid_counter, 1, memory_order_relaxed);
 	res->counters = (void *) (((char *) res) + sizeof(struct nosv_task) + metadata_size);
 	res->stats = (taskstatistics_t *) (((char *) res) + sizeof(struct nosv_task) + metadata_size + hwcounters_get_task_size());
@@ -193,7 +195,8 @@ int nosv_create(
 	nosv_task_t *task /* out */,
 	nosv_task_type_t type,
 	size_t metadata_size,
-	nosv_flags_t flags)
+	nosv_flags_t flags,
+	size_t (*cost_function)(void))
 {
 	if (unlikely(!task))
 		return -EINVAL;
@@ -210,7 +213,7 @@ int nosv_create(
 	if (current_task)
 		hwcounters_update_task_counters(current_task);
 
-	int ret = nosv_create_internal(task, type, metadata_size, flags);
+	int ret = nosv_create_internal(task, type, metadata_size, flags, cost_function);
 
 	if (current_task)
 		hwcounters_update_runtime_counters();
@@ -632,7 +635,7 @@ int nosv_attach(
 	nosv_worker_t *worker = worker_create_external();
 	assert(worker);
 
-	int ret = nosv_create_internal(task, type, metadata_size, flags);
+	int ret = nosv_create_internal(task, type, metadata_size, flags, NULL);
 
 	if (ret) {
 		worker_free_external(worker);
