@@ -12,10 +12,15 @@
 #include "memory/slab.h"
 #include "scheduler/scheduler.h"
 #include "system/tasks.h"
+#include "instr.h"
 
 #include <stdlib.h>
 #include <string.h>
 #include <sys/errno.h>
+#include <stdio.h>
+
+__internal atomic_uint32_t task_count = 0;
+__internal atomic_uint32_t task_type_count = 0;
 
 #define LABEL_MAX_CHAR 128
 
@@ -45,6 +50,9 @@ int nosv_type_init(
 	res->completed_callback = completed_callback;
 	res->metadata = metadata;
 	res->pid = logical_pid;
+	res->typeid = atomic_fetch_add_explicit(&task_type_count, 1, memory_order_relaxed);
+
+	instr_type_create(res->typeid, res->label);
 
 	if (label) {
 		res->label = strndup(label, LABEL_MAX_CHAR - 1);
@@ -116,8 +124,11 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	res->deadline = 0;
 	res->yield = 0;
 	res->wakeup = NULL;
+	res->taskid = atomic_fetch_add_explicit(&task_count, 1, memory_order_relaxed);
 
 	*task = res;
+
+	instr_task_create(res->taskid, res->type->typeid);
 
 	return 0;
 }
@@ -262,7 +273,11 @@ int nosv_pause(
 
 	// If r < 1, we have already been unblocked
 	if (count > 0)
+	{
+		instr_task_pause(task->taskid);
 		worker_yield();
+		instr_task_resume(task->taskid);
+	}
 
 	return 0;
 }
@@ -286,7 +301,9 @@ int nosv_waitfor(
 	scheduler_submit(task);
 
 	// Block until the deadline expires
+	instr_task_pause(task->taskid);
 	worker_yield();
+	instr_task_resume(task->taskid);
 
 	// Unblocked
 	task->deadline = 0;
@@ -373,9 +390,13 @@ static inline void task_complete(nosv_task_t task)
 
 void task_execute(nosv_task_t task)
 {
+	instr_task_execute(task->taskid);
+
 	atomic_thread_fence(memory_order_acquire);
 	task->type->run_callback(task);
 	atomic_thread_fence(memory_order_release);
+
+	instr_task_end(task->taskid);
 
 	if (task->type->end_callback) {
 		atomic_thread_fence(memory_order_acquire);
@@ -480,6 +501,10 @@ int nosv_attach(
 	// Block the worker
 	worker_block();
 	// Now we have been scheduled, return
+
+	// Inform the instrumentation about the new task being in
+	// execution, as it won't pass via task_execute()
+	instr_task_execute(t->taskid);
 
 	return 0;
 }

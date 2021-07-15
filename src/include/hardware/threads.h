@@ -33,6 +33,8 @@ typedef struct thread_manager {
 	atomic_int created;
 	event_queue_t thread_creation_queue;
 	pthread_t delegate_thread;
+	// Linux Thread ID of the creator thread (-1 if unknown)
+	pid_t creator_tid;
 } thread_manager_t;
 
 typedef struct nosv_worker {
@@ -52,6 +54,8 @@ typedef struct nosv_worker {
 	nosv_condvar_t condvar;
 	// Linux Thread ID
 	pid_t tid;
+	// Linux Thread ID of the creator thread (-1 if unknown)
+	pid_t creator_tid;
 	// Process ID parent of this thread
 	int pid;
 	// Original CPU Set (used for external workers)

@@ -18,6 +18,7 @@
 #include "hardware/locality.h"
 #include "memory/sharedmemory.h"
 #include "scheduler/scheduler.h"
+#include "instr.h"
 
 __internal scheduler_t *scheduler;
 __internal thread_local process_scheduler_t *last;
@@ -207,6 +208,8 @@ void scheduler_submit(nosv_task_t task)
 
 	int success = 0;
 
+	instr_sched_submit_enter();
+
 	while (!success) {
 		success = mpsc_push(scheduler->in_queue, (void *)task, cpu_get_current());
 
@@ -218,6 +221,8 @@ void scheduler_submit(nosv_task_t task)
 			}
 		}
 	}
+
+	instr_sched_submit_exit();
 }
 
 static inline int scheduler_find_task_queue(scheduler_queue_t *queue, nosv_task_t *task /*out*/)
@@ -524,14 +529,18 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
 {
 	assert(cpu >= 0);
 
-	void *item;
-	if (!dtlock_lock_or_delegate(&scheduler->dtlock, (uint64_t)cpu, &item)) {
+	nosv_task_t task;
+
+	if (!dtlock_lock_or_delegate(&scheduler->dtlock, (uint64_t)cpu, (void *)&task)) {
 		// Served item
-		return (nosv_task_t)item;
+		if(task)
+			instr_sched_recv(task);
+
+		return task;
 	}
 
 	// Lock acquired
-	nosv_task_t task = NULL;
+	task = NULL;
 
 	// Whether the thread can block serving tasks
 	const int blocking = !(flags & SCHED_GET_NONBLOCKING);
@@ -548,6 +557,8 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
 			dtlock_set_item(&scheduler->dtlock, cpu_delegated, task);
 			dtlock_popfront(&scheduler->dtlock);
 
+			if(task)
+				instr_sched_send(task);
 			served++;
 			if (!task)
 				break;
@@ -558,6 +569,9 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
 	} while (!task && blocking && !worker_should_shutdown());
 
 	dtlock_unlock(&scheduler->dtlock);
+
+	if(task)
+		instr_sched_self_assign(task);
 
 	return task;
 }

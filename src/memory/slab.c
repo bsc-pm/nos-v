@@ -12,6 +12,7 @@
 #include "generic/arch.h"
 #include "memory/backbone.h"
 #include "memory/slab.h"
+#include "instr.h"
 
 #define __SLAB_MAX_FREE_PAGES 16
 
@@ -280,16 +281,27 @@ void slab_init(void)
 
 void *salloc(size_t size, int cpu)
 {
+	void *ret;
+
+	instr_salloc_enter();
+
 	size_t allocsize = next_power_of_two(size);
 
-	if (allocsize < SLAB_ALLOC_MIN)
+	if (allocsize < SLAB_ALLOC_MIN) {
 		allocsize = SLAB_ALLOC_MIN;
-	else if (allocsize >= SLAB_BUCKETS + SLAB_ALLOC_MIN)
-		return NULL;
+	} else if (allocsize >= SLAB_BUCKETS + SLAB_ALLOC_MIN) {
+		ret = NULL;
+		goto end;
+	}
 
 	cache_bucket_t *bucket = &backbone_header->buckets[allocsize - SLAB_ALLOC_MIN];
 
-	return bucket_alloc(bucket, cpu);
+	ret = bucket_alloc(bucket, cpu);
+
+end:
+	instr_salloc_exit();
+
+	return ret;
 }
 
 void sfree(void *ptr, size_t size, int cpu)

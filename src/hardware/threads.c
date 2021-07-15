@@ -18,6 +18,7 @@
 #include "memory/slab.h"
 #include "scheduler/scheduler.h"
 #include "system/tasks.h"
+#include "instr.h"
 
 #define gettid() syscall(SYS_gettid)
 
@@ -28,7 +29,12 @@ __internal atomic_int threads_shutdown_signal;
 // The delegate thread is used to create remote workers
 static inline void *delegate_routine(void *args)
 {
+
 	thread_manager_t *threadmanager = (thread_manager_t *)args;
+
+	instr_thread_init();
+	instr_thread_execute(-1, threadmanager->creator_tid, args);
+
 	event_queue_t *queue = &threadmanager->thread_creation_queue;
 	creation_event_t event;
 
@@ -42,12 +48,15 @@ static inline void *delegate_routine(void *args)
 		worker_create_local(threadmanager, event.cpu, event.task);
 	}
 
+	instr_thread_end();
+
 	return NULL;
 }
 
 static inline void delegate_thread_create(thread_manager_t *threadmanager)
 {
 	// TODO Standalone should have affinity here?
+	instr_thread_create(-1, threadmanager);
 	int ret = pthread_create(&threadmanager->delegate_thread, NULL, delegate_routine, threadmanager);
 	if (ret)
 		nosv_abort("Cannot create pthread");
@@ -60,6 +69,7 @@ static inline void worker_wake_internal(nosv_worker_t *worker, cpu_t *cpu)
 
 	if (cpu && worker->pid == logical_pid) {
 		// Remotely set thread affinity before waking up, to prevent disturbing another CPU
+		instr_affinity_remote(cpu->logic_id, worker->tid);
 		pthread_setaffinity_np(worker->kthread, sizeof(cpu->cpuset), &cpu->cpuset);
 	} else if (cpu && worker->pid != logical_pid) {
 		cpu_set_pid(cpu, worker->pid);
@@ -77,6 +87,7 @@ void threadmanager_init(thread_manager_t *threadmanager)
 	nosv_spin_init(&threadmanager->idle_spinlock);
 	nosv_spin_init(&threadmanager->shutdown_spinlock);
 	event_queue_init(&threadmanager->thread_creation_queue);
+	threadmanager->creator_tid = gettid();
 
 	current_process_manager = threadmanager;
 
@@ -187,6 +198,9 @@ static inline void *worker_start_routine(void *arg)
 	cpu_set_current(current_worker->cpu->logic_id);
 	current_worker->tid = gettid();
 
+	instr_thread_init();
+	instr_thread_execute(current_worker->cpu->logic_id, current_worker->creator_tid, arg);
+
 	while (!atomic_load_explicit(&threads_shutdown_signal, memory_order_relaxed)) {
 		nosv_task_t task = current_worker->task;
 
@@ -212,6 +226,8 @@ static inline void *worker_start_routine(void *arg)
 	nosv_spin_lock(&current_process_manager->shutdown_spinlock);
 	clist_add(&current_process_manager->shutdown_threads, &current_worker->list_hook);
 	nosv_spin_unlock(&current_process_manager->shutdown_spinlock);
+
+	instr_thread_end();
 
 	return NULL;
 }
@@ -267,16 +283,27 @@ int worker_yield_if_needed(nosv_task_t current_task)
 void worker_block(void)
 {
 	assert(current_worker);
+
+	instr_thread_pause();
+
 	// Blocking operation
 	nosv_condvar_wait(&current_worker->condvar);
+
+	instr_thread_resume();
+
 	// We are back. Update CPU in case of migration
 	// We use a different variable to detect cpu changes and prevent races
 	cpu_t *oldcpu = current_worker->cpu;
 	current_worker->cpu = current_worker->new_cpu;
 	cpu_t *cpu = current_worker->cpu;
-	if (cpu && cpu != oldcpu) {
+
+	if(!cpu) {
+		instr_affinity_set(-1);
+		cpu_set_current(-1);
+	} else if (cpu != oldcpu) {
 		cpu_set_current(cpu->logic_id);
 		sched_setaffinity(current_worker->tid, sizeof(cpu->cpuset), &cpu->cpuset);
+		instr_affinity_set(cpu->logic_id);
 	}
 }
 
@@ -328,6 +355,7 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 	worker->task = task;
 	worker->pid = logical_pid;
 	worker->immediate_successor = NULL;
+	worker->creator_tid = gettid();
 	nosv_condvar_init(&worker->condvar);
 
 	pthread_attr_t attr;
@@ -336,6 +364,8 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 		nosv_abort("Cannot create pthread attributes");
 
 	pthread_attr_setaffinity_np(&attr, sizeof(cpu->cpuset), &cpu->cpuset);
+
+	instr_thread_create(cpu->logic_id, worker);
 
 	ret = pthread_create(&worker->kthread, &attr, worker_start_routine, worker);
 	if (ret)
@@ -358,6 +388,9 @@ nosv_worker_t *worker_create_external(void)
 	current_worker = worker;
 	worker->immediate_successor = NULL;
 	sched_getaffinity(0, sizeof(worker->original_affinity), &worker->original_affinity);
+
+	/* The thread may be already initialized */
+	instr_thread_init();
 
 	return worker;
 }
