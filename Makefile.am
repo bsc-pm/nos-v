@@ -35,6 +35,7 @@ libnosv_la_SOURCES = \
 	src/hardware/locality.c \
 	src/hardware/pids.c \
 	src/hardware/threads.c \
+	src/hardware-counters/hardwarecounters.c \
 	src/memory/backbone.c \
 	src/memory/slab.c \
 	src/memory/sharedmemory.c \
