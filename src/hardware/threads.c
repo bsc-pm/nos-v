@@ -299,6 +299,7 @@ nosv_worker_t *worker_create_external()
 	worker->cpu = NULL;
 	worker->task = NULL;
 	worker->kthread = pthread_self();
+	worker->tid = gettid();
 	worker->pid = logical_pid;
 	nosv_condvar_init(&worker->condvar);
 	current_worker = worker;
