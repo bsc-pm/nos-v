@@ -4,8 +4,8 @@
 	Copyright (C) 2021 Barcelona Supercomputing Center (BSC)
 */
 
-#ifndef SUPPORTEDHARDWARECOUNTERS_H
-#define SUPPORTEDHARDWARECOUNTERS_H
+#ifndef SUPPORTEDHWCOUNTERS_H
+#define SUPPORTEDHWCOUNTERS_H
 
 enum backends_t {
 	PAPI_BACKEND = 0,
@@ -246,4 +246,4 @@ static const event_id_descr_t counter_descriptions[HWC_TOTAL_NUM_EVENTS] = {
 	{HWC_PAPI_REF_CYC                 , "PAPI_REF_CYC"}
 };
 
-#endif // SUPPORTEDHARDWARECOUNTERS_H
+#endif // SUPPORTEDHWCOUNTERS_H

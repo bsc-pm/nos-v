@@ -64,6 +64,8 @@ typedef struct nosv_worker {
 	cpu_set_t original_affinity;
 	// Worker is in task body
 	int in_task_body;
+	// The hardware counters of the thread
+	thread_hwcounters_t *counters;
 } nosv_worker_t;
 
 __internal void threadmanager_init(thread_manager_t *threadmanager);

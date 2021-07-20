@@ -13,7 +13,7 @@
 #include "hardware/locality.h"
 #include "hardware/pids.h"
 #include "hardware/threads.h"
-#include "hardware-counters/hardwarecounters.h"
+#include "hwcounters/hwcounters.h"
 #include "instr.h"
 #include "memory/sharedmemory.h"
 #include "memory/slab.h"

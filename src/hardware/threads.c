@@ -15,6 +15,7 @@
 #include "hardware/cpus.h"
 #include "hardware/pids.h"
 #include "hardware/threads.h"
+#include "hwcounters/hwcounters.h"
 #include "instr.h"
 #include "memory/sharedmemory.h"
 #include "memory/slab.h"
@@ -88,6 +89,11 @@ static inline void worker_wake_internal(nosv_worker_t *worker, cpu_t *cpu)
 			if (unlikely(sched_setaffinity(worker->tid, sizeof(cpu->cpuset), &cpu->cpuset)))
 				nosv_abort("Cannot change thread affinity");
 		}
+	}
+
+	// Before resuming execution of a task, update runtime counters
+	if (worker->task != NULL) {
+		hwcounters_update_runtime_counters();
 	}
 	// Now wake up the thread
 	nosv_condvar_signal(&worker->condvar);
@@ -262,6 +268,10 @@ static inline void *worker_start_routine(void *arg)
 
 	assert(!worker_get_immediate());
 
+	// Before transfering the active CPU, shutdown hardware counters for this thread
+	hwcounters_update_runtime_counters();
+	hwcounters_thread_shutdown();
+
 	// Before shutting down, we have to transfer our active CPU if we still have one
 	// We don't have one if we were woken up from the idle thread pool direcly
 	if (current_worker->cpu)
@@ -282,6 +292,9 @@ void worker_add_to_idle_list(void)
 	nosv_spin_lock(&current_process_manager->idle_spinlock);
 	list_add(&current_process_manager->idle_threads, &current_worker->list_hook);
 	nosv_spin_unlock(&current_process_manager->idle_spinlock);
+
+	// Before a thread blocks (idles), update runtime counters
+	hwcounters_update_runtime_counters();
 }
 
 int worker_should_shutdown(void)
@@ -430,6 +443,9 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 		nosv_abort("Cannot create pthread");
 
 	pthread_attr_destroy(&attr);
+
+	// Initialize hardware counters for the thread
+	hwcounters_thread_initialized();
 
 	return worker;
 }

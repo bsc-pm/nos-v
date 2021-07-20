@@ -4,15 +4,15 @@
 	Copyright (C) 2021 Barcelona Supercomputing Center (BSC)
 */
 
-#ifndef HARDWARECOUNTERS_H
-#define HARDWARECOUNTERS_H
+#ifndef HWCOUNTERS_H
+#define HWCOUNTERS_H
 
 #include <stddef.h>
 
 #include "compiler.h"
 #include "nosv.h"
 
-#include "supportedhardwarecounters.h"
+#include "supportedhwcounters.h"
 
 
 //! \brief Load backends and counter configuration
@@ -65,4 +65,7 @@ __internal void hwcounters_update_task_counters(nosv_task_t task);
 //! executing runtime code and they are not accumulated into the executing task
 __internal void hwcounters_update_runtime_counters();
 
-#endif // HARDWARECOUNTERS_H
+//! \brief Get the size needed to allocate task hardware counters
+__internal size_t hwcounters_get_task_size();
+
+#endif // HWCOUNTERS_H

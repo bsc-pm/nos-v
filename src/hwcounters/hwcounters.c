@@ -10,7 +10,7 @@
 
 #include "common.h"
 
-#include "hardware-counters/hardwarecounters.h"
+#include "hwcounters/hwcounters.h"
 
 
 // Whether the verbose mode is enabled
@@ -233,5 +233,13 @@ void hwcounters_update_runtime_counters()
 // 				threadCounters.getPAPICounters()
 // 			);
 // 		}
+	}
+}
+
+size_t hwcounters_get_task_size()
+{
+	if (any_backend_enabled) {
+	} else {
+		return 0;
 	}
 }
