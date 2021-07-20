@@ -21,6 +21,12 @@ libnosv_la_CPPFLAGS=$(AM_CPPFLAGS) $(ovni_CPPFLAGS) -DINSTALLED_CONFIG_DIR=\"$(d
 libnosv_la_CFLAGS=$(PTHREAD_CFLAGS) $(libnuma_CFLAGS) $(nosv_CFLAGS)
 libnosv_la_LDFLAGS=$(PTHREAD_CFLAGS) $(PTHREAD_LIBS) $(libnuma_LIBS) $(ovni_LIBS) $(shm_LIBS)
 
+# Hardware counters
+if HAVE_PAPI
+libnosv_la_CFLAGS += $(papi_CFLAGS) -DHAVE_PAPI
+libnosv_la_LDFLAGS += $(papi_LIBS)
+endif
+
 lib_LTLIBRARIES = libnosv.la
 
 # Install the pkg-config file; the directory is set using
