@@ -274,6 +274,7 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 	worker->task = task;
 	worker->pid = logical_pid;
 	worker->immediate_successor = NULL;
+	nosv_condvar_init(&worker->condvar);
 
 	pthread_attr_t attr;
 	ret = pthread_attr_init(&attr);
@@ -287,8 +288,6 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 		nosv_abort("Cannot create pthread");
 
 	pthread_attr_destroy(&attr);
-
-	nosv_condvar_init(&worker->condvar);
 
 	return worker;
 }
