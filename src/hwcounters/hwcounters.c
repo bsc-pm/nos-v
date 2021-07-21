@@ -178,9 +178,8 @@ void hwcounters_task_created(nosv_task_t task, short enabled)
 	if (any_backend_enabled) {
 		assert(task != NULL);
 
-// 		// After the task is created, initialize (construct) hardware counters
-// 		TaskHardwareCounters &taskCounters = task->getHardwareCounters();
-// 		taskCounters.initialize(enabled);
+		task_hwcounters_t *counters = (task_hwcounters_t *) task->counters;
+		taskhwcounters_initialize(counters, enabled);
 	}
 }
 
@@ -228,8 +227,5 @@ void hwcounters_update_runtime_counters()
 
 size_t hwcounters_get_task_size()
 {
-	if (any_backend_enabled) {
-	} else {
-		return 0;
-	}
+	return (any_backend_enabled) ? taskhwcounters_get_alloc_size() : 0;
 }

@@ -51,7 +51,8 @@ struct nosv_task {
 	nosv_task_t wakeup;
 	uint64_t taskid;
 
-	task_hwcounters_t *counters;
+	// Hardware counters
+	void *counters;
 };
 
 #endif // NOSV_INTERNAL_H
