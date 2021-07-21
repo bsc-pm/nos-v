@@ -10,7 +10,9 @@
 
 #include "common.h"
 
+#include "hardware/threads.h"
 #include "hwcounters/hwcounters.h"
+#include "hwcounters/threadhwcounters.h"
 
 
 // Whether the verbose mode is enabled
@@ -157,30 +159,18 @@ size_t hwcounters_get_num_enabled_counters()
 
 void hwcounters_thread_initialized()
 {
-// 	WorkerThread *thread = WorkerThread::getCurrentWorkerThread();
-// 	assert(thread != nullptr);
-//
-// 	// After the thread is created, initialize (construct) hardware counters
-// 	ThreadHardwareCounters &threadCounters = thread->getHardwareCounters();
-// 	threadCounters.initialize();
-// 	if (_enabled[HWCounters::PAPI_BACKEND]) {
-// 		assert(_papiBackend != nullptr);
-//
-// 		_papiBackend->threadInitialized(threadCounters.getPAPICounters());
-// 	}
+	nosv_worker_t *thread = worker_current();
+	assert(thread != NULL);
+
+	threadhwcounters_initialize(&(thread->counters));
 }
 
 void hwcounters_thread_shutdown()
 {
-// 	WorkerThread *thread = WorkerThread::getCurrentWorkerThread();
-// 	assert(thread != nullptr);
-//
-// 	ThreadHardwareCounters &threadCounters = thread->getHardwareCounters();
-// 	if (_enabled[HWCounters::PAPI_BACKEND]) {
-// 		assert(_papiBackend != nullptr);
-//
-// 		_papiBackend->threadShutdown(threadCounters.getPAPICounters());
-// 	}
+	nosv_worker_t *thread = worker_current();
+	assert(thread != NULL);
+
+	threadhwcounters_initialize(&(thread->counters));
 }
 
 void hwcounters_task_created(nosv_task_t task, short enabled)

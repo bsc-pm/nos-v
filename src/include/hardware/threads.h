@@ -20,6 +20,7 @@
 #include "generic/condvar.h"
 #include "hardware/cpus.h"
 #include "hardware/eventqueue.h"
+#include "hwcounters/threadhwcounters.h"
 
 extern atomic_int threads_shutdown_signal;
 
@@ -65,7 +66,7 @@ typedef struct nosv_worker {
 	// Worker is in task body
 	int in_task_body;
 	// The hardware counters of the thread
-	thread_hwcounters_t *counters;
+	thread_hwcounters_t counters;
 } nosv_worker_t;
 
 __internal void threadmanager_init(thread_manager_t *threadmanager);
