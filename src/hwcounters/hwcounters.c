@@ -23,8 +23,8 @@ __internal short verbose;
 __internal short any_backend_enabled;
 //! Whether each backend is enabled
 __internal short enabled[NUM_BACKENDS];
-//! Enabled counters by the user
-__internal enum counters_t enabled_counters[HWC_TOTAL_NUM_EVENTS];
+//! An array in which each position tells whether the 'i-th' event is enabled
+__internal enum counters_t enabled_counters[HWC_MAX_EVENT_ID];
 //! The number of enabled counters
 __internal size_t num_enabled_counters;
 
@@ -55,7 +55,7 @@ void load_configuration()
 			for (short i = HWC_PAPI_MIN_EVENT; i <= HWC_PAPI_MAX_EVENT; ++i) {
 				if (!strcmp(counter_descriptions[i - HWC_PAPI_MIN_EVENT].descr, counter_label)) {
 					counter_added = 1;
-					enabled_counters[i - HWC_PAPI_MIN_EVENT] = 1;
+					enabled_counters[i] = 1;
 				}
 			}
 
