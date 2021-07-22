@@ -7,14 +7,18 @@
 #ifndef THREADHWCOUNTERS_H
 #define THREADHWCOUNTERS_H
 
-struct papi_threadhwcounters;
+#include "compiler.h"
 
-typedef struct papi_threadhwcounters papi_threadhwcounters_t;
+#if HAVE_PAPI
+#include "hwcounters/papi/papithreadhwcounters.h"
+#endif
 
-typedef struct thread_hwcounters
-{
+
+typedef struct thread_hwcounters {
+#if HAVE_PAPI
 	//! Thread-related hardware counters for the PAPI backend
 	papi_threadhwcounters_t *papi_counters;
+#endif
 } thread_hwcounters_t;
 
 

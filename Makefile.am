@@ -41,12 +41,23 @@ libnosv_la_SOURCES = \
 	src/hardware/locality.c \
 	src/hardware/pids.c \
 	src/hardware/threads.c \
+	src/hwcounters/cpuhwcounters.c \
 	src/hwcounters/hwcounters.c \
+	src/hwcounters/taskhwcounters.c \
+	src/hwcounters/threadhwcounters.c \
 	src/memory/backbone.c \
 	src/memory/slab.c \
 	src/memory/sharedmemory.c \
 	src/scheduler/scheduler.c \
 	src/system/tasks.c
+
+if HAVE_PAPI
+libnosv_la_SOURCES += \
+	src/hwcounters/papi/papicpuhwcounters.c \
+	src/hwcounters/papi/papihwcounters.c \
+	src/hwcounters/papi/papitaskhwcounters.c \
+	src/hwcounters/papi/papithreadhwcounters.c
+endif
 
 include_HEADERS = \
     api/nosv.h

@@ -9,10 +9,13 @@
 #include <pthread.h>
 #include <stdlib.h>
 
-#include "hwcounters/papi/cpuhwcounters.h"
+#include "hwcounters/cpuhwcounters.h"
+#include "hwcounters/taskhwcounters.h"
+#include "hwcounters/threadhwcounters.h"
+#include "hwcounters/papi/papicpuhwcounters.h"
 #include "hwcounters/papi/papihwcounters.h"
-#include "hwcounters/papi/taskhwcounters.h"
-#include "hwcounters/papi/threadhwcounters.h"
+#include "hwcounters/papi/papitaskhwcounters.h"
+#include "hwcounters/papi/papithreadhwcounters.h"
 
 
 __internal papi_backend_t backend;
@@ -85,8 +88,8 @@ void test_maximum_number_of_events()
 }
 
 void papi_hwcounters_initialize(
-	short verbose, short num_enabled_counters,
-	enum counters_t *enabled_events[HWC_PAPI_NUM_EVENTS]
+	short verbose, short *num_enabled_counters,
+	enum counters_t enabled_events[HWC_PAPI_NUM_EVENTS]
 ) {
 	backend.enabled = 1;
 	backend.verbose = verbose;
@@ -118,10 +121,8 @@ void papi_hwcounters_initialize(
 		// TODO: print: "------------------------------------------------\n",
 		// TODO: print: "- Testing requested PAPI events availabilities"
 	}
-
-	size_t next_event = 0;
 	for (size_t id = HWC_PAPI_MIN_EVENT; id <= HWC_PAPI_MAX_EVENT; ++id) {
-		short id_enabled = enabled_events[id];
+		short id_enabled = (short) enabled_events[id];
 		if (id_enabled) {
 			int code;
 			ret = PAPI_event_name_to_code(counter_descriptions[id].descr, &code);
@@ -155,7 +156,7 @@ void papi_hwcounters_initialize(
 		// TODO: warn: ("No PAPI events enabled, disabling this backend");
 		backend.enabled = 0;
 	} else {
-		num_enabled_counters += backend.num_enabled_counters;
+		*(num_enabled_counters) += backend.num_enabled_counters;
 		backend.enabled = 1;
 
 		// Test incompatibilities between PAPI events
@@ -164,7 +165,7 @@ void papi_hwcounters_initialize(
 
 	if (verbose) {
 		// TODO: print: "\n- Finished testing PAPI events availabilities\n",
-		// TODO: print: "- Number of PAPI events enabled: ", _numEnabledCounters, "\n",
+		// TODO: print: "- Number of PAPI events enabled: ", backend.num_enabled_counters, "\n",
 		// TODO: print: "------------------------------------------------"
 	}
 }
@@ -210,9 +211,7 @@ void papi_hwcounters_thread_initialize(papi_threadhwcounters_t *thread_counters)
 		}
 
 		// Set the EventSet to the thread and start counting
-		assert(thread_counters != NULL);
-
-		papi_threadhwcounters_set_eventset(event_set);
+		papi_threadhwcounters_set_eventset(thread_counters, event_set);
 		ret = PAPI_start(event_set);
 		if (ret != PAPI_OK) {
 			// TODO: Fail: (ret, " when starting a PAPI event set - ", PAPI_strerror(ret));
@@ -220,7 +219,7 @@ void papi_hwcounters_thread_initialize(papi_threadhwcounters_t *thread_counters)
 	}
 }
 
-void papi_hwcounters_thread_shutdown(papi_threadhwcounters_t *)
+void papi_hwcounters_thread_shutdown(__maybe_unused papi_threadhwcounters_t *counters)
 {
 	if (backend.enabled) {
 		int ret = PAPI_unregister_thread();
@@ -238,7 +237,7 @@ void papi_hwcounters_update_task_counters(
 		assert(thread_counters != NULL);
 		assert(task_counters != NULL);
 
-		int event_set = papi_threadhwcounters_get_eventset();
+		int event_set = papi_threadhwcounters_get_eventset(thread_counters);
 		papi_taskhwcounters_read_counters(task_counters, event_set);
 	}
 }
@@ -251,7 +250,7 @@ void papi_hwcounters_update_runtime_counters(
 		assert(cpu_counters != NULL);
 		assert(thread_counters != NULL);
 
-		int event_set = papi_threadhwcounters_get_eventset();
+		int event_set = papi_threadhwcounters_get_eventset(thread_counters);
 		papi_cpuhwcounters_read_counters(cpu_counters, event_set);
 	}
 }

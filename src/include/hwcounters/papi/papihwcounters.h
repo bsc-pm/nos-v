@@ -7,19 +7,30 @@
 #ifndef PAPIHWCOUNTERS_H
 #define PAPIHWCOUNTERS_H
 
+#include <stddef.h>
+
+#include "compiler.h"
 #include "hwcounters/supportedhwcounters.h"
 
 
-// Forward declaration to avoid including
-struct papi_cpuhwcounters;
-struct papi_taskhwcounters;
-struct papi_threadhwcounters;
-typedef papi_cpuhwcounters papi_cpuhwcounters_t;
-typedef papi_taskhwcounters papi_taskhwcounters_t;
-typedef papi_threadhwcounters papi_threadhwcounters_t;
+typedef struct papi_threadhwcounters {
+	//! The PAPI event set that must be read
+	int event_set;
+} papi_threadhwcounters_t;
+
+typedef struct papi_taskhwcounters {
+	//! Arrays of regular HW counter deltas and accumulations
+	long long *delta;
+	long long *accumulated;
+} papi_taskhwcounters_t;
+
+typedef struct papi_cpu_hwcounters {
+	//! Arrays of regular HW counter deltas
+	long long delta[HWC_PAPI_NUM_EVENTS];
+} papi_cpuhwcounters_t;
 
 
-typedef papi_backend {
+typedef struct papi_backend {
 	//! Whether the PAPI HW Counter backend is enabled
 	short enabled;
 	//! Whether the verbose mode is enabled
@@ -50,8 +61,8 @@ typedef papi_backend {
 //! \param[in,out] enabled_events An array with all the events enabled by the
 //! user, which will be modified to disable those that are unavailable
 __internal void papi_hwcounters_initialize(
-	short verbose, short num_enabled_counters,
-	enum counters_t *enabled_events[HWC_PAPI_NUM_EVENTS]
+	short verbose, short *num_enabled_counters,
+	enum counters_t enabled_events[HWC_PAPI_NUM_EVENTS]
 );
 
 //! \brief Retreive the mapping from a counters_t identifier to the inner

@@ -4,16 +4,15 @@
 	Copyright (C) 2021 Barcelona Supercomputing Center (BSC)
 */
 
+#include <assert.h>
+#include <stdlib.h>
+
 #include "hwcounters/hwcounters.h"
 #include "hwcounters/supportedhwcounters.h"
 #include "hwcounters/threadhwcounters.h"
 
-#if HAVE_PAPI
-#include "hwcounters/papi/papithreadhwcounters.h"
-#endif
 
-
-void threadhwcounters_initialize(thread_hwcounters_t *counters);
+void threadhwcounters_initialize(thread_hwcounters_t *counters)
 {
 #if HAVE_PAPI
 	if (hwcounters_backend_enabled(PAPI_BACKEND)) {
@@ -27,14 +26,12 @@ void threadhwcounters_initialize(thread_hwcounters_t *counters);
 #endif
 }
 
-void threadhwcounters_shutdown(thread_hwcounters_t *counters);
+void threadhwcounters_shutdown(thread_hwcounters_t *counters)
 {
 #if HAVE_PAPI
 	if (hwcounters_backend_enabled(PAPI_BACKEND)) {
 		assert(counters != NULL);
 		assert(counters->papi_counters != NULL);
-
-		papi_threadhwcounters_shutdown(counters->papi_counters);
 
 		free(counters->papi_counters);
 	}

@@ -445,7 +445,7 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 	pthread_attr_destroy(&attr);
 
 	// Initialize hardware counters for the thread
-	hwcounters_thread_initialized();
+	hwcounters_thread_initialized(worker);
 
 	return worker;
 }

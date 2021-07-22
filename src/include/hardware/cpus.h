@@ -13,7 +13,7 @@
 #include "compiler.h"
 #include "nosv.h"
 
-#include "hcounters/cpuhwcounters.h"
+#include "hwcounters/cpuhwcounters.h"
 
 typedef struct cpu {
 	cpu_set_t cpuset;

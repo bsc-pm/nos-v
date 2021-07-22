@@ -9,24 +9,20 @@
 #include <string.h>
 
 #include "common.h"
-
+#include "compiler.h"
+#include "nosv-internal.h"
 #include "hardware/threads.h"
+#include "hwcounters/cpuhwcounters.h"
 #include "hwcounters/hwcounters.h"
+#include "hwcounters/taskhwcounters.h"
 #include "hwcounters/threadhwcounters.h"
 
+#if HAVE_PAPI
+#include "hwcounters/papi/papihwcounters.h"
+#endif
 
-// Whether the verbose mode is enabled
-__internal short verbose;
-// The underlying PAPI backend
-// __internal something_t papi_backend;
-// Whether there is at least one enabled backend
-__internal short any_backend_enabled;
-//! Whether each backend is enabled
-__internal short enabled[NUM_BACKENDS];
-//! An array in which each position tells whether the 'i-th' event is enabled
-__internal enum counters_t enabled_counters[HWC_MAX_EVENT_ID];
-//! The number of enabled counters
-__internal size_t num_enabled_counters;
+
+__internal hwcounters_backend_t hwcbackend;
 
 
 void load_configuration()
@@ -35,15 +31,15 @@ void load_configuration()
 	char *hwcounters_envvar = getenv("HWCOUNTERS_BACKEND");
 	if (hwcounters_envvar) {
 		if (!strcmp(hwcounters_envvar, "papi")) {
-			enabled[PAPI_BACKEND] = 1;
-			any_backend_enabled = 1;
+			hwcbackend.enabled[PAPI_BACKEND] = 1;
+			hwcbackend.any_backend_enabled = 1;
 		}
 	}
 
 	// Check if verbose is enabled
 	hwcounters_envvar = getenv("HWCOUNTERS_VERBOSE");
 	if (hwcounters_envvar) {
-		verbose = (atoi(hwcounters_envvar) == 1);
+		hwcbackend.verbose = (atoi(hwcounters_envvar) == 1);
 	}
 
 	// Get the list of enabled counters of each backend
@@ -55,7 +51,7 @@ void load_configuration()
 			for (short i = HWC_PAPI_MIN_EVENT; i <= HWC_PAPI_MAX_EVENT; ++i) {
 				if (!strcmp(counter_descriptions[i - HWC_PAPI_MIN_EVENT].descr, counter_label)) {
 					counter_added = 1;
-					enabled_counters[i] = 1;
+					hwcbackend.enabled_counters[i] = 1;
 				}
 			}
 
@@ -67,7 +63,7 @@ void load_configuration()
 		// TODO: Warn "PAPI enabled but no counters are enabled in the config file, disabling this backend"
 	}
 
-	any_backend_enabled = enabled[PAPI_BACKEND];
+	hwcbackend.any_backend_enabled = hwcbackend.enabled[PAPI_BACKEND];
 }
 
 //! \brief Check if multiple backends and/or other modules are enabled and incompatible
@@ -86,15 +82,15 @@ __internal void check_incompatibilities()
 void hwcounters_initialize()
 {
 	// Initialize default values
-	verbose = 0;
-	any_backend_enabled = 0;
-	num_enabled_counters = 0;
+	hwcbackend.verbose = 0;
+	hwcbackend.any_backend_enabled = 0;
+	hwcbackend.num_enabled_counters = 0;
 	for (size_t i = 0; i < NUM_BACKENDS; ++i) {
-		enabled[i] = 0;
+		hwcbackend.enabled[i] = 0;
 	}
 
 	for (size_t i = 0; i < HWC_TOTAL_NUM_EVENTS; ++i) {
-		enabled_counters[i] = 0;
+		hwcbackend.enabled_counters[i] = 0;
 	}
 
 	// Load the configuration to check which backends and events are enabled
@@ -104,62 +100,52 @@ void hwcounters_initialize()
 	check_incompatibilities();
 
 	// If verbose is enabled and no backends are available, warn the user
-	if (!any_backend_enabled && verbose) {
-		// TODO: Warn
-		// "Hardware Counters verbose mode enabled but no backends available!"
+	if (!hwcbackend.any_backend_enabled && hwcbackend.verbose) {
+		// TODO: Warn: "Hardware Counters verbose mode enabled but no backends available!"
 	}
 
 	// Initialize backends and keep track of the number of enabled counters
-	if (enabled[PAPI_BACKEND]) {
+	if (hwcbackend.enabled[PAPI_BACKEND]) {
 #if HAVE_PAPI
-		// TODO: Init PAPI
-		//papi_backend = new PAPIHardwareCounters(
-		//	&enabled_counters,
-		//	&num_enabled_counters
-		//);
+		papi_hwcounters_initialize(hwcbackend.verbose, (short *) &hwcbackend.num_enabled_counters, hwcbackend.enabled_counters);
 #else
 		// TODO: Warn: "PAPI library not found, disabling hardware counters."
-		enabled[PAPI_BACKEND] = 0;
+		hwcbackend.enabled[PAPI_BACKEND] = 0;
 #endif
 	}
 }
 
 void hwcounters_shutdown()
 {
-	if (enabled[PAPI_BACKEND]) {
-		// TODO: assert(papi_backend != NULL);
-
-		// TODO: delete _papiBackend;
-		// TODO: papi_backend = NULL;
-		enabled[PAPI_BACKEND] = 0;
+	if (hwcbackend.enabled[PAPI_BACKEND]) {
+		hwcbackend.enabled[PAPI_BACKEND] = 0;
 	}
 
-	any_backend_enabled = 0;
+	hwcbackend.any_backend_enabled = 0;
 }
 
 short hwcounters_enabled()
 {
-	return any_backend_enabled;
+	return hwcbackend.any_backend_enabled;
 }
 
 short hwcounters_backend_enabled(enum backends_t backend)
 {
-	return enabled[backend];
+	return hwcbackend.enabled[backend];
 }
 
 const enum counters_t *hwcounters_get_enabled_counters()
 {
-	return enabled_counters;
+	return hwcbackend.enabled_counters;
 }
 
 size_t hwcounters_get_num_enabled_counters()
 {
-	return num_enabled_counters;
+	return hwcbackend.num_enabled_counters;
 }
 
-void hwcounters_thread_initialized()
+void hwcounters_thread_initialized(nosv_worker_t *thread)
 {
-	nosv_worker_t *thread = worker_current();
 	assert(thread != NULL);
 
 	threadhwcounters_initialize(&(thread->counters));
@@ -175,7 +161,7 @@ void hwcounters_thread_shutdown()
 
 void hwcounters_task_created(nosv_task_t task, short enabled)
 {
-	if (any_backend_enabled) {
+	if (hwcbackend.any_backend_enabled) {
 		assert(task != NULL);
 
 		task_hwcounters_t *counters = (task_hwcounters_t *) task->counters;
@@ -185,47 +171,51 @@ void hwcounters_task_created(nosv_task_t task, short enabled)
 
 void hwcounters_update_task_counters(nosv_task_t task)
 {
-	if (any_backend_enabled) {
-// 		WorkerThread *thread = WorkerThread::getCurrentWorkerThread();
-// 		assert(thread != nullptr);
+	if (hwcbackend.any_backend_enabled) {
+		nosv_worker_t *thread = worker_current();
+		assert(thread != NULL);
 		assert(task != NULL);
 
-// 		ThreadHardwareCounters &threadCounters = thread->getHardwareCounters();
-// 		TaskHardwareCounters &taskCounters = task->getHardwareCounters();
-// 		if (_enabled[HWCounters::PAPI_BACKEND]) {
-// 			assert(_papiBackend != nullptr);
-//
-// 			_papiBackend->updateTaskCounters(
-// 				threadCounters.getPAPICounters(),
-// 				taskCounters.getPAPICounters()
-// 			);
-// 		}
+		__maybe_unused thread_hwcounters_t *thread_counters = &(thread->counters);
+		__maybe_unused task_hwcounters_t *task_counters = task->counters;
+ 		if (hwcbackend.enabled[PAPI_BACKEND]) {
+#if HAVE_PAPI
+			assert(thread_counters != NULL);
+			assert(task_counters != NULL);
+
+			papi_threadhwcounters_t *papi_thread = thread_counters->papi_counters;
+			papi_taskhwcounters_t *papi_task = task_counters->papi_counters;
+			papi_hwcounters_update_task_counters(papi_thread, papi_task);
+#endif
+ 		}
 	}
 }
 
 void hwcounters_update_runtime_counters()
 {
-	if (any_backend_enabled) {
-// 		WorkerThread *thread = WorkerThread::getCurrentWorkerThread();
-// 		assert(thread != nullptr);
-//
-// 		CPU *cpu = thread->getComputePlace();
-// 		assert(cpu != nullptr);
-//
-// 		CPUHardwareCounters &cpuCounters = cpu->getHardwareCounters();
-// 		ThreadHardwareCounters &threadCounters = thread->getHardwareCounters();
-// 		if (_enabled[HWCounters::PAPI_BACKEND]) {
-// 			assert(_papiBackend != nullptr);
-//
-// 			_papiBackend->updateRuntimeCounters(
-// 				cpuCounters.getPAPICounters(),
-// 				threadCounters.getPAPICounters()
-// 			);
-// 		}
+	if (hwcbackend.any_backend_enabled) {
+		nosv_worker_t *thread = worker_current();
+		assert(thread != NULL);
+
+		cpu_t *cpu = thread->cpu;;
+		assert(cpu != NULL);
+
+		__maybe_unused cpu_hwcounters_t *cpu_counters = &(cpu->counters);
+		__maybe_unused thread_hwcounters_t *thread_counters = &(thread->counters);
+		if (hwcbackend.enabled[PAPI_BACKEND]) {
+#if HAVE_PAPI
+			assert(cpu_counters != NULL);
+			assert(thread_counters != NULL);
+
+			papi_cpuhwcounters_t *papi_cpu = &(cpu_counters->papi_counters);
+			papi_threadhwcounters_t *papi_thread = thread_counters->papi_counters;
+			papi_hwcounters_update_runtime_counters(papi_cpu, papi_thread);
+#endif
+		}
 	}
 }
 
 size_t hwcounters_get_task_size()
 {
-	return (any_backend_enabled) ? taskhwcounters_get_alloc_size() : 0;
+	return (hwcbackend.any_backend_enabled) ? taskhwcounters_get_alloc_size() : 0;
 }

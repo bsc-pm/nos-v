@@ -11,8 +11,22 @@
 
 #include "compiler.h"
 #include "nosv.h"
-
 #include "supportedhwcounters.h"
+#include "hardware/threads.h"
+
+
+typedef struct hwcounters_backend {
+	// Whether the verbose mode is enabled
+	short verbose;
+	// Whether there is at least one enabled backend
+	short any_backend_enabled;
+	//! Whether each backend is enabled
+	short enabled[NUM_BACKENDS];
+	//! An array in which each position tells whether the 'i-th' event is enabled
+	enum counters_t enabled_counters[HWC_MAX_EVENT_ID];
+	//! The number of enabled counters
+	size_t num_enabled_counters;
+} hwcounters_backend_t;
 
 
 //! \brief Load backends and counter configuration
@@ -41,7 +55,8 @@ __internal const enum counters_t *hwcounters_get_enabled_counters();
 __internal size_t hwcounters_get_num_enabled_counters();
 
 //! \brief Initialize hardware counter structures for a new thread
-__internal void hwcounters_thread_initialized();
+//! \param[in,out] thread The current worker thread
+__internal void hwcounters_thread_initialized(nosv_worker_t *thread);
 
 //! \brief Destroy the hardware counter structures of a thread
 __internal void hwcounters_thread_shutdown();
