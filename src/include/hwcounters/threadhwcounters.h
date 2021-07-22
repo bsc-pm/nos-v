@@ -7,6 +7,10 @@
 #ifndef THREADHWCOUNTERS_H
 #define THREADHWCOUNTERS_H
 
+struct papi_threadhwcounters;
+
+typedef struct papi_threadhwcounters papi_threadhwcounters_t;
+
 typedef struct thread_hwcounters
 {
 	//! Thread-related hardware counters for the PAPI backend
