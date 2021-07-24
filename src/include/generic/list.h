@@ -7,6 +7,7 @@
 #ifndef LIST_H
 #define LIST_H
 
+#include <assert.h>
 #include <stddef.h>
 
 /*
@@ -89,6 +90,29 @@ static inline list_head_t *list_pop_head(list_head_t *head)
 static inline list_head_t *list_front(list_head_t *head)
 {
 	return head->next;
+}
+
+static inline void list_remove(list_head_t *head, list_head_t *n)
+{
+	list_head_t *prev = n->prev;
+	list_head_t *next = n->next;
+
+	if (prev) {
+		prev->next = next;
+	} else {
+		assert(head->next == n);
+		head->next = next;
+	}
+
+	if (next) {
+		next->prev = prev;
+	} else {
+		assert(head->prev == n);
+		head->prev = prev;
+	}
+
+	n->next = NULL;
+	n->prev = NULL;
 }
 
 
