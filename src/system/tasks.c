@@ -101,6 +101,7 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	res->affinity.index = 0;
 	res->affinity.level = 0;
 	res->deadline = 0;
+	res->yield = 0;
 	res->wakeup = NULL;
 
 	*task = res;
@@ -257,6 +258,7 @@ int nosv_yield()
 		return -EINVAL;
 
 	nosv_task_t task = worker_current_task();
+	task->yield = -1;
 	scheduler_submit(task);
 	worker_yield();
 

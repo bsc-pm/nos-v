@@ -28,6 +28,7 @@ typedef struct process_scheduler {
 	size_t tasks;
 	heap_head_t deadline_tasks;
 	deadline_t now;
+	scheduler_queue_t yield_tasks;
 	scheduler_queue_t *per_cpu_queue_strict;
 	scheduler_queue_t *per_cpu_queue_preferred;
 	scheduler_queue_t *per_numa_queue_strict;
@@ -43,6 +44,7 @@ typedef struct timestamp {
 
 typedef struct scheduler {
 	size_t tasks;
+	size_t served_tasks;
 	delegation_lock_t dtlock;
 	nosv_spinlock_t in_lock;
 	spsc_queue_t *in_queue;

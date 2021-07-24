@@ -39,6 +39,7 @@ void scheduler_init(int initialize)
 	list_init(&scheduler->queues);
 	nosv_spin_init(&scheduler->in_lock);
 	scheduler->tasks = 0;
+	scheduler->served_tasks = 0;
 
 	for (int i = 0; i < MAX_PIDS; ++i)
 		scheduler->queues_direct[i] = NULL;
@@ -86,6 +87,7 @@ static inline process_scheduler_t *scheduler_init_pid(int pid)
 	list_add_tail(&scheduler->queues, &sched->list_hook);
 
 	heap_init(&sched->deadline_tasks);
+	scheduler_init_queue(&sched->yield_tasks);
 	sched->now = clock_ns();
 
 	return sched;
@@ -116,7 +118,14 @@ static inline void scheduler_process_ready_tasks()
 		if (!pidqueue)
 			pidqueue = scheduler_init_pid(pid);
 
-		if (task->deadline) {
+		if (task->yield) {
+			assert(!task->deadline);
+			// This yield task will be executed when either all
+			// tasks in the global scheduler have been run or when
+			// there is no more work to do other than yield tasks
+			task->yield = scheduler->served_tasks + scheduler->tasks;
+			list_add_tail(&pidqueue->yield_tasks.tasks, &task->list_hook);
+		} else if (task->deadline) {
 			heap_insert(&pidqueue->deadline_tasks, &task->heap_hook, &deadline_cmp);
 		} else {
 			list_add_tail(&pidqueue->queue.tasks, &task->list_hook);
@@ -239,6 +248,25 @@ static inline void scheduler_insert_affine(process_scheduler_t *sched, nosv_task
 	list_add_tail(&queue->tasks, &task->list_hook);
 }
 
+static inline int scheduler_get_yield_expired(process_scheduler_t *sched, nosv_task_t *task /*out*/)
+{
+	nosv_task_t res;
+	list_head_t *head = list_front(&sched->yield_tasks.tasks);
+
+	if (!head)
+		return 0;
+
+	res = list_elem(head, struct nosv_task, list_hook);
+	if (res->yield <= scheduler->served_tasks) {
+		list_pop_head(&sched->yield_tasks.tasks);
+		res->yield = 0;
+		*task = res;
+		return 1;
+	}
+
+	return 0;
+}
+
 static inline int scheduler_get_deadline_expired(process_scheduler_t *sched, nosv_task_t *task /*out*/)
 {
 	// In reality we get the minimum, as we inverted the comparison function.
@@ -265,6 +293,7 @@ static inline int scheduler_get_deadline_expired(process_scheduler_t *sched, nos
 
 deadline_expired:
 	heap_pop_max(&sched->deadline_tasks, &deadline_cmp);
+	res->deadline = 0;
 	*task = res;
 	return 1;
 }
@@ -280,7 +309,17 @@ static inline nosv_task_t scheduler_find_task_process(process_scheduler_t *sched
 
 	// Check deadlines
 	while (scheduler_get_deadline_expired(sched, &task)) {
-		// Check the task is affine with the current cpu
+		// Check if the task is affine with the current cpu
+		if (task_affine(task, cpu))
+			goto task_obtained;
+
+		// Not affine. Insert to an appropiate queue
+		scheduler_insert_affine(sched, task);
+	}
+
+	// Check yield
+	while (scheduler_get_yield_expired(sched, &task)) {
+		// Check if the task is affine with the current cpu
 		if (task_affine(task, cpu))
 			goto task_obtained;
 
@@ -333,6 +372,30 @@ task_obtained:
 	return task;
 }
 
+static inline nosv_task_t scheduler_find_task_yield_process(process_scheduler_t *sched, cpu_t *cpu)
+{
+	nosv_task_t task;
+
+	// Are there any yield tasks?
+	list_head_t *elem = list_front(&sched->yield_tasks.tasks);
+	if (!elem)
+		return NULL;
+
+	assert(sched->tasks > 0);
+
+	do {
+		task = list_elem(elem, struct nosv_task, list_hook);
+		if (task_affine(task, cpu)) {
+			list_remove(&sched->yield_tasks.tasks, elem);
+			sched->tasks--;
+			task->yield = 0;
+			return task;
+		}
+	} while ((elem = list_next(elem)));
+
+	return NULL;
+}
+
 static inline nosv_task_t scheduler_get_internal(int cpu)
 {
 	int pid, yield;
@@ -371,6 +434,8 @@ static inline nosv_task_t scheduler_get_internal(int cpu)
 
 	list_head_t *stop = it;
 
+	// Search for a ready task to run. If none is found in the current
+	// scheduler, search a ready task in the next scheduler in the list.
 	do {
 		sched = list_elem(it, process_scheduler_t, list_hook);
 
@@ -378,6 +443,35 @@ static inline nosv_task_t scheduler_get_internal(int cpu)
 
 		if (task) {
 			scheduler->tasks--;
+			scheduler->served_tasks++;
+			scheduler_update_ts(pid, task, cpu, ts);
+			return task;
+		}
+
+		it = list_next_circular(it, &scheduler->queues);
+	} while (it != stop);
+
+	// If we have not been able to find any ready task suitable to be run in
+	// this cpu, search for the first yield task we can find, even if it has
+	// not "expired" yet. It is ok for this double search to be somewhat
+	// redundant, we have nothing better to do in this cpu.
+
+	// We cannot start the search in our own process scheduler, if there is
+	// a yield task there, we would run it in a loop instead of trying other
+	// processes.
+	if (!yield) {
+		it = list_next_circular(it, &scheduler->queues);
+		stop = it;
+	}
+
+	do {
+		sched = list_elem(it, process_scheduler_t, list_hook);
+
+		nosv_task_t task = scheduler_find_task_yield_process(sched, cpu_str);
+
+		if (task) {
+			scheduler->tasks--;
+			scheduler->served_tasks++;
 			scheduler_update_ts(pid, task, cpu, ts);
 			return task;
 		}

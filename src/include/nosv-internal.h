@@ -17,6 +17,7 @@
 struct nosv_worker;
 typedef atomic_uint_fast32_t atomic_uint32_t;
 typedef uint64_t deadline_t;
+typedef size_t yield_t;
 
 struct nosv_task_type
 {
@@ -42,6 +43,7 @@ struct nosv_task
 
 	// Maybe this could be on-demand allocated
 	deadline_t deadline;
+	yield_t yield;
 	heap_node_t heap_hook;
 
 	nosv_task_t wakeup;
