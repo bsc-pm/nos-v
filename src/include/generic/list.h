@@ -75,9 +75,12 @@ static inline list_head_t *list_pop_head(list_head_t *head)
 	if (first) {
 		head->next = first->next;
 
-		// Was last element
-		if (!head->next)
+		if (!head->next) {
+			// Was last element
 			head->prev = NULL;
+		} else {
+			head->next->prev = NULL;
+		}
 	}
 
 	return first;
