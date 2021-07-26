@@ -174,10 +174,12 @@ void scheduler_submit(nosv_task_t task)
 		success = spsc_push(scheduler->in_queue, (void *)task);
 		nosv_spin_unlock(&scheduler->in_lock);
 
-		int lock = dtlock_try_lock(&scheduler->dtlock);
-		if (lock) {
-			scheduler_process_ready_tasks();
-			dtlock_unlock(&scheduler->dtlock);
+		if (!success) {
+			int lock = dtlock_try_lock(&scheduler->dtlock);
+			if (lock) {
+				scheduler_process_ready_tasks();
+				dtlock_unlock(&scheduler->dtlock);
+			}
 		}
 	}
 }
