@@ -156,7 +156,7 @@ void hwcounters_thread_shutdown()
 	nosv_worker_t *thread = worker_current();
 	assert(thread != NULL);
 
-	threadhwcounters_initialize(&(thread->counters));
+	threadhwcounters_shutdown(&(thread->counters));
 }
 
 void hwcounters_task_created(nosv_task_t task, short enabled)

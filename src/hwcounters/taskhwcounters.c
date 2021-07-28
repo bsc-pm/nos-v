@@ -17,8 +17,8 @@ void taskhwcounters_initialize(task_hwcounters_t *counters, short enabled)
 	counters->enabled = enabled;
 	if (enabled) {
 #if HAVE_PAPI
-		// Skip the "enabled" boolean from "task_hwcounters_t"
-		counters->papi_counters = (void *) ((char *) counters + sizeof(short));
+		// Skip the size of "task_hwcounters_t"
+		counters->papi_counters = (void *) ((char *) counters + sizeof(struct task_hwcounters));
 		if (hwcounters_backend_enabled(PAPI_BACKEND)) {
 			papi_taskhwcounters_initialize(counters->papi_counters);
 		}
@@ -71,13 +71,10 @@ uint64_t taskhwcounters_get_accumulated(task_hwcounters_t *counters, enum counte
 size_t taskhwcounters_get_alloc_size()
 {
 	// The enabled boolean
-	size_t total_size = sizeof(short);
+	size_t total_size = sizeof(struct task_hwcounters);
 
 	// Add the size needed by each backend
 #if HAVE_PAPI
-	// Add the backend pointer
-	total_size += sizeof(papi_taskhwcounters_t *);
-
 	// Add the PAPI struct's size plus the hardware counter space
 	if (hwcounters_backend_enabled(PAPI_BACKEND)) {
 		total_size += sizeof(papi_taskhwcounters_t) + papi_taskhwcounters_get_alloc_size();

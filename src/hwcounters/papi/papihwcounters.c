@@ -125,22 +125,22 @@ void papi_hwcounters_initialize(
 		short id_enabled = (short) enabled_events[id];
 		if (id_enabled) {
 			int code;
-			ret = PAPI_event_name_to_code(counter_descriptions[id].descr, &code);
+			ret = PAPI_event_name_to_code(counter_descriptions[id - HWC_PAPI_MIN_EVENT].descr, &code);
 			if (ret != PAPI_OK) {
-				// TODO: Fail: (ret, counter_descriptions[id].descr, " event not known by this version of PAPI - ", PAPI_strerror(ret));
+				// TODO: Fail: (ret, counter_descriptions[id - HWC_PAPI_MIN_EVENT].descr, " event not known by this version of PAPI - ", PAPI_strerror(ret));
 			}
 
 			ret = PAPI_query_event(code);
 			if (verbose) {
 				if (ret != PAPI_OK) {
-					// TODO: print: ("  - ", counter_descriptions[id].descr, ": FAIL");
+					// TODO: print: ("  - ", counter_descriptions[id - HWC_PAPI_MIN_EVENT].descr, ": FAIL");
 				} else {
-					// TODO: print: ("  - ", counter_descriptions[id].descr, ": OK");
+					// TODO: print: ("  - ", counter_descriptions[id - HWC_PAPI_MIN_EVENT].descr, ": OK");
 				}
 			}
 
 			if (ret != PAPI_OK) {
-				// TODO: warn: (ret, " ", counter_descriptions[id].descr, " event unknown in this version of PAPI, skipping it - ", PAPI_strerror(ret));
+				// TODO: warn: (ret, " ", counter_descriptions[id - HWC_PAPI_MIN_EVENT].descr, " event unknown in this version of PAPI, skipping it - ", PAPI_strerror(ret));
 
 				// Disable the event from the vector of enabled events
 				enabled_events[id] = 0;
@@ -209,6 +209,7 @@ void papi_hwcounters_thread_initialize(papi_threadhwcounters_t *thread_counters)
 		if (ret != PAPI_OK) {
 			// TODO: Fail: ret, " when initializing the PAPI event set of a new thread - ", PAPI_strerror(ret));
 		}
+		assert(event_set != PAPI_NULL);
 
 		// Set the EventSet to the thread and start counting
 		papi_threadhwcounters_set_eventset(thread_counters, event_set);

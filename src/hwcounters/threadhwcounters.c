@@ -21,7 +21,7 @@ void threadhwcounters_initialize(thread_hwcounters_t *counters)
 		counters->papi_counters = (papi_threadhwcounters_t *) malloc(sizeof(papi_threadhwcounters_t));
 		assert(counters->papi_counters != NULL);
 
-		papi_threadhwcounters_initialize(counters->papi_counters);
+		papi_hwcounters_thread_initialize(counters->papi_counters);
 	}
 #endif
 }

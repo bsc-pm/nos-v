@@ -11,8 +11,6 @@
 #include "hwcounters/papi/papihwcounters.h"
 
 
-__internal void papi_threadhwcounters_initialize(papi_threadhwcounters_t *counters);
-
 __internal int papi_threadhwcounters_get_eventset(papi_threadhwcounters_t *counters);
 
 __internal void papi_threadhwcounters_set_eventset(papi_threadhwcounters_t *counters, int set);

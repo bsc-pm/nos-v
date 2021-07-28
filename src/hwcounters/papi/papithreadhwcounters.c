@@ -10,12 +10,6 @@
 #include "hwcounters/papi/papithreadhwcounters.h"
 
 
-void papi_threadhwcounters_initialize(papi_threadhwcounters_t *counters)
-{
-	assert(counters != NULL);
-	counters->event_set = PAPI_NULL;
-}
-
 int papi_threadhwcounters_get_eventset(papi_threadhwcounters_t *counters)
 {
 	assert(counters != NULL);

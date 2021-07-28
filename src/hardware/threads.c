@@ -268,8 +268,10 @@ static inline void *worker_start_routine(void *arg)
 
 	assert(!worker_get_immediate());
 
-	// Before transfering the active CPU, shutdown hardware counters for this thread
-	hwcounters_update_runtime_counters();
+	// Before transfering the active CPU, update runtime counters
+	if (current_worker->cpu)
+		hwcounters_update_runtime_counters();
+
 	hwcounters_thread_shutdown();
 
 	// Before shutting down, we have to transfer our active CPU if we still have one
@@ -464,6 +466,9 @@ nosv_worker_t *worker_create_external(void)
 	worker->creator_tid = -1;
 	worker->in_task_body = 1;
 	sched_getaffinity(0, sizeof(worker->original_affinity), &worker->original_affinity);
+
+	// Initialize hardware counters for the thread
+	hwcounters_thread_initialized(worker);
 
 	return worker;
 }
