@@ -33,6 +33,11 @@
 		exit(1);                                                                                   \
 	} while (0)
 
+static inline void nosv_print(const char *msg)
+{
+	printf("%s\n", msg);
+}
+
 static inline size_t next_power_of_two(uint64_t n)
 {
 	return 64 - __builtin_clzll(n - 1);
