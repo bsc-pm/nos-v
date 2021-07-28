@@ -222,6 +222,9 @@ static inline void *worker_start_routine(void *arg)
 	cpu_set_current(current_worker->cpu->logic_id);
 	current_worker->tid = gettid();
 
+	// Initialize hardware counters for the thread
+	hwcounters_thread_initialized(current_worker);
+
 	instr_thread_init();
 	instr_thread_execute(current_worker->cpu->logic_id, current_worker->creator_tid, (uint64_t) arg);
 	instr_worker_enter();

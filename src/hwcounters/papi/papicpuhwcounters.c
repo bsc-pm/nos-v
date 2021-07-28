@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <papi.h>
 
+#include "common.h"
 #include "hwcounters/papi/papicpuhwcounters.h"
 
 
@@ -26,12 +27,16 @@ void papi_cpuhwcounters_read_counters(papi_cpuhwcounters_t *counters, int event_
 
 	int ret = PAPI_read(event_set, counters->delta);
 	if (ret != PAPI_OK) {
-		// TODO: fail: (ret, " when reading a PAPI event set - ", PAPI_strerror(ret));
+		char error_string[256];
+		sprintf(error_string, "Code %d - Failed reading a PAPI event set - %s", ret, PAPI_strerror(ret));
+		nosv_abort(error_string);
 	}
 
 	ret = PAPI_reset(event_set);
 	if (ret != PAPI_OK) {
-		// TODO: fail: (ret, " when resetting a PAPI event set - ", PAPI_strerror(ret));
+		char error_string[256];
+		sprintf(error_string, "Code %d - Failed resetting a PAPI event set - %s", ret, PAPI_strerror(ret));
+		nosv_abort(error_string);
 	}
 }
 

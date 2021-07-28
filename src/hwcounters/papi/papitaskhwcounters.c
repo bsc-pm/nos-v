@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <papi.h>
 
+#include "common.h"
 #include "hwcounters/papi/papitaskhwcounters.h"
 
 
@@ -31,12 +32,16 @@ void papi_taskhwcounters_read_counters(papi_taskhwcounters_t *counters, int even
 
 	int ret = PAPI_read(event_set, counters->delta);
 	if (ret != PAPI_OK) {
-		// TODO: Fail: (ret, " when reading a PAPI event set - ", PAPI_strerror(ret));
+		char error_string[256];
+		sprintf(error_string, "Failed reading a PAPI event set - Code: %d - %s", ret, PAPI_strerror(ret));
+		nosv_abort(error_string);
 	}
 
 	ret = PAPI_reset(event_set);
 	if (ret != PAPI_OK) {
-		// TODO: Fail: (ret, " when resetting a PAPI event set - ", PAPI_strerror(ret));
+		char error_string[256];
+		sprintf(error_string, "Failed resetting a PAPI event set - Code: %d - %s", ret, PAPI_strerror(ret));
+		nosv_abort(error_string);
 	}
 
 	const size_t num_counters = papi_hwcounters_get_num_enabled_counters();

@@ -60,7 +60,7 @@ void load_configuration()
 	}
 
 	if (!counter_added) {
-		// TODO: Warn "PAPI enabled but no counters are enabled in the config file, disabling this backend"
+		nosv_warn("PAPI enabled but no counters enabled, disabling the backend!");
 	}
 
 	hwcbackend.any_backend_enabled = hwcbackend.enabled[PAPI_BACKEND];
@@ -101,7 +101,7 @@ void hwcounters_initialize()
 
 	// If verbose is enabled and no backends are available, warn the user
 	if (!hwcbackend.any_backend_enabled && hwcbackend.verbose) {
-		// TODO: Warn: "Hardware Counters verbose mode enabled but no backends available!"
+		nosv_warn("Hardware counters verbose mode enabled, but no backends available!");
 	}
 
 	// Initialize backends and keep track of the number of enabled counters
@@ -109,7 +109,7 @@ void hwcounters_initialize()
 #if HAVE_PAPI
 		papi_hwcounters_initialize(hwcbackend.verbose, (short *) &hwcbackend.num_enabled_counters, hwcbackend.enabled_counters);
 #else
-		// TODO: Warn: "PAPI library not found, disabling hardware counters."
+		nosv_warn("PAPI library not found, disabling hardware counters");
 		hwcbackend.enabled[PAPI_BACKEND] = 0;
 #endif
 	}
