@@ -31,6 +31,7 @@ struct nosv_task_type {
 	int pid;
 	uint32_t typeid;
 	list_head_t list_hook;
+	size_t (*get_cost)(void);
 
 	// Monitoring statistics
 	struct tasktypestatistics *stats;
@@ -63,8 +64,6 @@ struct nosv_task {
 
 	// Monitoring statistics
 	struct taskstatistics *stats;
-
-	size_t (*get_cost)(void);
 };
 
 #endif // NOSV_INTERNAL_H

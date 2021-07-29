@@ -78,7 +78,8 @@ int nosv_type_init(
 	nosv_task_completed_callback_t completed_callback,
 	const char *label,
 	void *metadata,
-	nosv_flags_t flags);
+	nosv_flags_t flags,
+	size_t (*cost_function)(void));
 
 /* Flags */
 #define NOSV_TYPE_DESTROY_NONE __ZEROBITS
@@ -98,8 +99,7 @@ int nosv_create(
 	nosv_task_t *task /* out */,
 	nosv_task_type_t type,
 	size_t metadata_size,
-	nosv_flags_t flags,
-	size_t (*cost_function)(void));
+	nosv_flags_t flags);
 
 /* Flags */
 #define NOSV_SUBMIT_NONE 		__ZEROBITS

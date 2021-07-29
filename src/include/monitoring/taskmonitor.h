@@ -22,13 +22,14 @@
 static inline void taskmonitor_task_created(nosv_task_t task)
 {
 	assert(task != NULL);
+	assert(task->type != NULL);
 
 	taskstatistics_t *task_stats = task->stats;
 	assert(task_stats != NULL);
 
 	// Initialize attributes of the new task
 	taskstatistics_init(task_stats);
-	size_t cost = task->get_cost();
+	size_t cost = task->type->get_cost();
 	task_stats->cost = cost;
 
 	// Predict metrics using past data
