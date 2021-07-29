@@ -21,6 +21,10 @@ libnosv_la_LDFLAGS=-lrt $(PTHREAD_CFLAGS) $(PTHREAD_LIBS) $(libnuma_LIBS)
 
 lib_LTLIBRARIES = libnosv.la
 
+# Install the pkg-config file; the directory is set using
+# PKG_INSTALLDIR in configure.ac
+pkgconfig_DATA = nos-v.pc
+
 libnosv_la_SOURCES = \
     src/bootstrap.c		\
 	src/hardware/cpus.c \
