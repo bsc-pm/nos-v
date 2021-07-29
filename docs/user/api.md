@@ -1,0 +1,163 @@
+# nOS-V API
+
+The nOS-V API follows the same convention as most other C APIs:
+
+ - Every function that is not a getter/setter returns an `int`.
+The return value is `0` on success and some negative error code in any other case.
+Checking the return value of every nOS-V call is *strongly encouraged*.
+
+ - Getters return directly the value of the field they are getting.
+Setters return `void`.
+
+## Types
+
+The basic types in the API are the following:
+
+### `nosv_flags_t`
+
+Represents a field that can contain multiple flags, which can be combined together.
+It is used as an argument for many calls which accept a flags argument.
+Can be directly initialized in user code. Its size is defined as 8 bytes.
+
+```c
+nosv_flags_t flags = (NOSV_SUBMIT_UNLOCKED | NOSV_SUBMIT_IMMEDIATE);
+int res = nosv_submit(..., flags);
+```
+
+### `nosv_task_t`
+
+Represents a nOS-V task. Is created by `nosv_create` or `nosv_attach` and destroyed by `nosv_destroy` or `nosv_detach`.
+
+Each task has an associated task type which specifies how each task is executed.
+
+Internally, `nosv_task_t` is a pointer to `struct nosv_task`, but user programs must not rely in this
+detail.
+
+### `nosv_task_type_t`
+
+Represents a task type, which can be associated to *n* tasks.
+Is created by `nosv_type_init` and destroyed by `nosv_type_destroy`.
+
+It contains information relevant to how tasks of this type are executed.
+
+Internally, `nosv_task_type_t` is a pointer to `struct nosv_task_type`, but user programs must not rely in this
+detail.
+
+### `nosv_affinity_t`
+
+Represents preferred or strict affinity to a specific CPU core or NUMA domain.
+Is created by `nosv_affinity_get`, and does not need to be destroyed.
+
+## Methods
+
+### Initialization and shutdown
+```
+int nosv_init(void);
+
+int nosv_shutdown(void);
+```
+
+Before executing any other nOS-V method, the user must call `nosv_init` to initialize the runtime. Similarly, before ending the program, the user must call `nosv_shutdown` to clean up the runtime. No other calls to nOS-V can be performed after shutdown.
+
+### Task types
+```
+int nosv_type_init(
+	nosv_task_type_t *type /* out */,
+	nosv_task_run_callback_t run_callback,
+	nosv_task_end_callback_t end_callback,
+	nosv_task_completed_callback_t completed_callback,
+	const char *label,
+	void *metadata,
+	nosv_cost_function_t cost_function,
+	nosv_flags_t flags);
+
+int nosv_type_destroy(
+	nosv_task_type_t type,
+	nosv_flags_t flags);
+```
+
+Task types must be created using the `nosv_type_init` function, and destroyed using `nosv_type_destroy`.
+
+### Managing tasks
+```
+int nosv_create(
+	nosv_task_t *task /* out */,
+	nosv_task_type_t type,
+	size_t metadata_size,
+	nosv_flags_t flags);
+
+int nosv_submit(
+	nosv_task_t task,
+	nosv_flags_t flags);
+
+int nosv_destroy(
+	nosv_task_t task,
+	nosv_flags_t flags);
+
+int nosv_attach(
+	nosv_task_t *task /* out */,
+	nosv_task_type_t type /* must have null callbacks */,
+	size_t metadata_size,
+	nosv_affinity_t *affinity,
+	nosv_flags_t flags);
+
+int nosv_detach(
+	nosv_flags_t flags);
+```
+
+### Getting the current nOS-V task
+```
+nosv_task_t nosv_self(void);
+```
+
+### Blocking and yielding tasks
+```
+int nosv_pause(
+	nosv_flags_t flags);
+
+int nosv_waitfor(
+	uint64_t target_ns,
+	uint64_t *actual_ns /* out */);
+
+int nosv_yield(
+	nosv_flags_t flags);
+
+int nosv_schedpoint(
+	nosv_flags_t flags);
+```
+
+### Event API
+```
+int nosv_increase_event_counter(
+	uint64_t increment);
+
+int nosv_decrease_event_counter(
+	uint64_t increment);
+```
+
+### Helper functions
+
+```
+int nosv_get_num_cpus(void);
+
+int nosv_get_current_logical_cpu(void);
+
+int nosv_get_current_system_cpu(void);
+```
+
+### Task getters and setters
+```
+void *nosv_get_task_metadata(nosv_task_t task);
+nosv_task_type_t nosv_get_task_type(nosv_task_t task);
+int nosv_get_task_priority(nosv_task_t task);
+void nosv_set_task_priority(nosv_task_t task, int priority);
+```
+
+### Task type getters and setters
+```
+nosv_task_run_callback_t nosv_get_task_type_run_callback(nosv_task_type_t type);
+nosv_task_end_callback_t nosv_get_task_type_end_callback(nosv_task_type_t type);
+nosv_task_completed_callback_t nosv_get_task_type_completed_callback(nosv_task_type_t type);
+const char *nosv_get_task_type_label(nosv_task_type_t type);
+void *nosv_get_task_type_metadata(nosv_task_type_t type);
+```
