@@ -221,11 +221,13 @@ static inline void scheduler_insert_affine(process_scheduler_t *sched, nosv_task
 		case CPU:
 			idx = cpu_system_to_logical(task->affinity.index);
 			assert(idx >= 0);
-			queue = task->affinity.type ? &sched->per_cpu_queue_strict[idx] : &sched->per_cpu_queue_preferred[idx];
+			queue = (task->affinity.type == STRICT)
+				? &sched->per_cpu_queue_strict[idx] : &sched->per_cpu_queue_preferred[idx];
 			break;
 		case NUMA:
 			idx = locality_get_logical_numa(task->affinity.index);
-			queue = task->affinity.type ? &sched->per_numa_queue_strict[idx] : &sched->per_numa_queue_preferred[idx];
+			queue = (task->affinity.type == STRICT)
+				? &sched->per_numa_queue_strict[idx] : &sched->per_numa_queue_preferred[idx];
 			break;
 		default:
 			break;

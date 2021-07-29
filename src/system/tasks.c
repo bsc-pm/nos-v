@@ -423,7 +423,7 @@ void nosv_set_task_affinity(nosv_task_t task, nosv_affinity_t affinity)
 	task->affinity = affinity;
 }
 
-nosv_task_t nosv_self()
+nosv_task_t nosv_self(void)
 {
 	return worker_current_task();
 }

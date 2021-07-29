@@ -12,8 +12,8 @@
 #include "generic/mutex.h"
 
 #define SMEM_START_ADDR ((void *) 0x0000200000000000)
-// #define SMEM_SIZE (1 << 21)
-#define SMEM_SIZE (1 << 27)
+// #define SMEM_SIZE (1ULL << 21)
+#define SMEM_SIZE (1ULL << 27)
 #define SMEM_NAME "nosv"
 
 __internal void smem_initialize();

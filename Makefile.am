@@ -3,8 +3,8 @@
 #	Copyright (C) 2021 Barcelona Supercomputing Center (BSC)
 
 ACLOCAL_AMFLAGS = -I m4
-AM_CFLAGS = -I$(srcdir)/src/include -I$(srcdir)/api
-AM_LIBS = -lrt -lpthread
+
+AM_CPPFLAGS = -I$(srcdir)/src/include -I$(srcdir)/api
 
 # See info page of libtool "Updating version info"
 # https://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
@@ -16,8 +16,9 @@ lib_age = 0
 lib_major = $(shell expr $(lib_current) - $(lib_age))
 lib_suffix = $(lib_major).$(lib_age).$(lib_revision)
 
-libnosv_la_CFLAGS=$(AM_CFLAGS) $(opt_CFLAGS) $(PTHREAD_CFLAGS) $(libnuma_CFLAGS)
-libnosv_la_LDFLAGS=-lrt $(PTHREAD_CFLAGS) $(PTHREAD_LIBS) $(libnuma_LIBS)
+libnosv_la_CPPFLAGS=$(AM_CPPFLAGS)
+libnosv_la_CFLAGS=$(PTHREAD_CFLAGS) $(libnuma_CFLAGS) $(nosv_CFLAGS)
+libnosv_la_LDFLAGS=$(PTHREAD_CFLAGS) $(PTHREAD_LIBS) $(libnuma_LIBS) $(shm_LIBS)
 
 lib_LTLIBRARIES = libnosv.la
 

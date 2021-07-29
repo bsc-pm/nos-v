@@ -14,6 +14,10 @@
 
 #pragma GCC visibility push(default)
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* 	The maximum size for metadata embedded in tasks is 4Kbytes
 	For more, embed a pointer into the structure and allocate metadata separately
 */
@@ -51,13 +55,13 @@ const char *nosv_get_task_type_label(nosv_task_type_t type);
 void *nosv_get_task_type_metadata(nosv_task_type_t type);
 
 /* Initialize nOS-V */
-int nosv_init();
+int nosv_init(void);
 
 /* Shutdown nOS-V */
-int nosv_shutdown();
+int nosv_shutdown(void);
 
 /* Get own task descriptor, NULL if we are not a task */
-nosv_task_t nosv_self();
+nosv_task_t nosv_self(void);
 
 /* Flags */
 #define NOSV_TYPE_INIT_NONE 		__ZEROBITS
@@ -153,8 +157,11 @@ int nosv_attach(
 
 /* Called from attached thread */
 int nosv_detach(
-	nosv_flags_t flags
-	);
+	nosv_flags_t flags);
+
+#ifdef __cplusplus
+}
+#endif
 
 #pragma GCC visibility pop
 
