@@ -424,9 +424,11 @@ nosv_affinity_t nosv_get_task_affinity(nosv_task_t task)
 	return task->affinity;
 }
 
-void nosv_set_task_affinity(nosv_task_t task, nosv_affinity_t affinity)
+void nosv_set_task_affinity(nosv_task_t task, nosv_affinity_t *affinity)
 {
-	task->affinity = affinity;
+	assert(affinity != NULL);
+
+	task->affinity = *affinity;
 }
 
 nosv_task_t nosv_self(void)
