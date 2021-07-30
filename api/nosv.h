@@ -34,6 +34,7 @@ struct nosv_task_type;
 typedef struct nosv_task_type *nosv_task_type_t;
 struct nosv_task;
 typedef struct nosv_task *nosv_task_t;
+typedef struct nosv_affinity nosv_affinity_t;
 
 typedef void (*nosv_task_run_callback_t)(nosv_task_t);
 typedef void (*nosv_task_end_callback_t)(nosv_task_t);
@@ -150,6 +151,7 @@ int nosv_attach(
 	nosv_task_t *task /* out */,
 	nosv_task_type_t type /* must have null callbacks */,
 	size_t metadata_size,
+	nosv_affinity_t *affinity,
 	nosv_flags_t flags);
 
 /* Flags */
