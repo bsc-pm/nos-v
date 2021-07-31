@@ -339,6 +339,7 @@ int nosv_attach(
 	nosv_task_t *task /* out */,
 	nosv_task_type_t type /* must have null callbacks */,
 	size_t metadata_size,
+	nosv_affinity_t *affinity,
 	nosv_flags_t flags)
 {
 	if (unlikely(!task))
@@ -367,6 +368,11 @@ int nosv_attach(
 	nosv_task_t t = *task;
 	t->worker = worker;
 	worker->task = t;
+
+	// Set the affinity if required
+	if (affinity != NULL) {
+		t->affinity = *affinity;
+	}
 
 	atomic_fetch_sub_explicit(&t->blocking_count, 1, memory_order_relaxed);
 
@@ -418,9 +424,11 @@ nosv_affinity_t nosv_get_task_affinity(nosv_task_t task)
 	return task->affinity;
 }
 
-void nosv_set_task_affinity(nosv_task_t task, nosv_affinity_t affinity)
+void nosv_set_task_affinity(nosv_task_t task, nosv_affinity_t *affinity)
 {
-	task->affinity = affinity;
+	assert(affinity != NULL);
+
+	task->affinity = *affinity;
 }
 
 nosv_task_t nosv_self(void)
