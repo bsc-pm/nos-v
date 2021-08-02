@@ -252,7 +252,8 @@ int nosv_waitfor(
 
 /* Yield operation */
 /* Restriction: Can only be called from a task context */
-int nosv_yield()
+int nosv_yield(
+	nosv_flags_t flags)
 {
 	if (!worker_is_in_task())
 		return -EINVAL;
