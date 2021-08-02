@@ -6,6 +6,7 @@
 
 #include <assert.h>
 #include <fcntl.h>
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/file.h>
@@ -91,6 +92,8 @@ static void segment_create()
 		}
 	}
 
+	atomic_thread_fence(memory_order_acquire);
+
 	st_config.config = NULL;
 
 	if (st.st_size != 0) {
@@ -112,6 +115,8 @@ static void segment_create()
 	}
 
 	st_config.config->count++;
+
+	atomic_thread_fence(memory_order_release);
 
 	// Release lock
 	ret = flock(st_config.smem_fd, LOCK_UN);
