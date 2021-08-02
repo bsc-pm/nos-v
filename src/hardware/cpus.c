@@ -5,6 +5,7 @@
 */
 
 #include <assert.h>
+#include <errno.h>
 
 #include "compiler.h"
 #include "hardware/cpus.h"
@@ -125,4 +126,28 @@ void cpu_transfer(int destination_pid, cpu_t *cpu, nosv_task_t task)
 	worker_wake(destination_pid, cpu, task);
 	// And sleep on this one
 	worker_idle();
+}
+
+int nosv_get_num_cpus(void)
+{
+	return cpus_count();
+}
+
+int nosv_get_current_logical_cpu(void)
+{
+	if (!worker_is_in_task())
+		return -EINVAL;
+
+	return cpu_get_current();
+}
+
+int nosv_get_current_system_cpu(void)
+{
+	if (!worker_is_in_task())
+		return -EINVAL;
+
+	cpu_t *cpu = cpu_get(cpu_get_current());
+	assert(cpu);
+
+	return cpu->system_id;
 }
