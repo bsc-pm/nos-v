@@ -222,12 +222,14 @@ static inline void scheduler_insert_affine(process_scheduler_t *sched, nosv_task
 			idx = cpu_system_to_logical(task->affinity.index);
 			assert(idx >= 0);
 			queue = (task->affinity.type == STRICT)
-				? &sched->per_cpu_queue_strict[idx] : &sched->per_cpu_queue_preferred[idx];
+						? &sched->per_cpu_queue_strict[idx]
+						: &sched->per_cpu_queue_preferred[idx];
 			break;
 		case NUMA:
 			idx = locality_get_logical_numa(task->affinity.index);
 			queue = (task->affinity.type == STRICT)
-				? &sched->per_numa_queue_strict[idx] : &sched->per_numa_queue_preferred[idx];
+						? &sched->per_numa_queue_strict[idx]
+						: &sched->per_numa_queue_preferred[idx];
 			break;
 		default:
 			break;
@@ -335,6 +337,7 @@ static inline nosv_task_t scheduler_get_internal(int cpu)
 {
 	int pid, yield;
 	uint64_t ts;
+	list_head_t *it;
 
 	if (!scheduler->tasks) {
 		scheduler_update_ts(0, NULL, cpu, 0);
@@ -347,10 +350,17 @@ static inline nosv_task_t scheduler_get_internal(int cpu)
 	pid = cpu_get_pid(cpu);
 	process_scheduler_t *sched = scheduler->queues_direct[pid];
 
+	// sched may be NULL at this point
+	// Maybe that CPU doesn't have a process_scheduler_t initialized already,
+	// hence, in that case, grab the standard list.
+	// The list itself must have at least one process_scheduler_t, as there are tasks in the scheduler.
+	if (sched)
+		it = &sched->list_hook;
+	else
+		it = list_front(&scheduler->queues);
+
 	// Do we need to yield?
 	yield = scheduler_should_yield(pid, cpu, &ts);
-
-	list_head_t *it = &sched->list_hook;
 
 	if (yield) {
 		// What we do is grab the current queue, that corresponds to our pid, and traverse that forward, to cause a round-robin.
