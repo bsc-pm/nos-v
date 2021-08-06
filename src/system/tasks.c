@@ -264,13 +264,15 @@ int nosv_destroy(
 
 static inline void task_complete(nosv_task_t task)
 {
-	if (task->wakeup) {
-		nosv_submit(task->wakeup, NOSV_SUBMIT_UNLOCKED);
-		task->wakeup = NULL;
-	}
+	nosv_task_t wakeup = task->wakeup;
+	task->wakeup = NULL;
 
 	if (task->type->completed_callback)
 		task->type->completed_callback(task);
+	// From here, task may be freed!
+
+	if (wakeup)
+		nosv_submit(wakeup, NOSV_SUBMIT_UNLOCKED);
 }
 
 void task_execute(nosv_task_t task)
