@@ -5,7 +5,12 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/syscall.h>
+
+#ifdef ENABLE_INSTRUMENTATION
 #include <ovni.h>
+#endif
+
 #include "nosv-internal.h"
 #include "hardware/threads.h"
 #include "hardware/pids.h"
@@ -14,11 +19,9 @@
 #ifdef ENABLE_INSTRUMENTATION
 # define INSTR_BEGIN ovni_clock_update(); do {
 # define INSTR_END } while (0);
-#else
-# define INSTR_BEGIN while(0) {
-# define INSTR_END }
 #endif
 
+#ifdef ENABLE_INSTRUMENTATION
 #define INSTR_0ARG(name, mcv) \
 	static inline void name(){ \
 		INSTR_BEGIN \
@@ -60,6 +63,23 @@
 		ovni_ev(&ev); \
 		INSTR_END \
 	}
+#else
+#define INSTR_0ARG(name, mcv) \
+	static inline void name(){ \
+	}
+
+#define INSTR_1ARG(name, mcv, ta, a) \
+	static inline void name(ta a){ \
+	}
+
+#define INSTR_2ARG(name, mcv, ta, a, tb, b) \
+	static inline void name(ta a, tb b){ \
+	}
+
+#define INSTR_3ARG(name, mcv, ta, a, tb, b, tc, c) \
+	static inline void name(ta a, tb b, tc c){ \
+	}
+#endif
 
 /* nOS-V events */
 
@@ -81,6 +101,7 @@ INSTR_1ARG(instr_task_end,              "VTe", int32_t, task_id)
 /* A jumbo event is needed to encode a large label */
 static inline void instr_type_create(int typeid, const char *label)
 {
+#ifdef ENABLE_INSTRUMENTATION
 	INSTR_BEGIN
 
 #define JUMBO_BUFSIZE 1024
@@ -104,6 +125,7 @@ static inline void instr_type_create(int typeid, const char *label)
 #undef JUMBO_BUFSIZE
 
 	INSTR_END
+#endif
 }
 
 /* ovni events */
@@ -131,6 +153,7 @@ INSTR_0ARG(instr_thread_resume,         "OHr")
 
 static inline void instr_thread_end()
 {
+#ifdef ENABLE_INSTRUMENTATION
 	INSTR_BEGIN
 	struct ovni_ev ev = {0};
 
@@ -140,6 +163,7 @@ static inline void instr_thread_end()
 	/* Flush the events to disk before killing the thread */
 	ovni_flush();
 	INSTR_END
+#endif
 }
 
 static inline void
@@ -188,7 +212,7 @@ static inline void
 instr_thread_init()
 {
 #ifdef ENABLE_INSTRUMENTATION
-	ovni_thread_init(gettid());
+	ovni_thread_init(syscall(SYS_gettid));
 #endif
 }
 

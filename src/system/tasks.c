@@ -52,14 +52,14 @@ int nosv_type_init(
 	res->pid = logical_pid;
 	res->typeid = atomic_fetch_add_explicit(&task_type_count, 1, memory_order_relaxed);
 
-	instr_type_create(res->typeid, res->label);
-
 	if (label) {
 		res->label = strndup(label, LABEL_MAX_CHAR - 1);
 		assert(res->label);
 	} else {
 		res->label = NULL;
 	}
+
+	instr_type_create(res->typeid, res->label);
 
 	*type = res;
 	return 0;
@@ -269,15 +269,17 @@ int nosv_pause(
 	nosv_task_t task = worker_current_task();
 	assert(task);
 
+	instr_task_pause(task->taskid);
+
 	uint32_t count = atomic_fetch_add_explicit(&task->blocking_count, 1, memory_order_relaxed) + 1;
 
 	// If r < 1, we have already been unblocked
 	if (count > 0)
 	{
-		instr_task_pause(task->taskid);
 		worker_yield();
-		instr_task_resume(task->taskid);
 	}
+
+	instr_task_resume(task->taskid);
 
 	return 0;
 }
@@ -294,6 +296,8 @@ int nosv_waitfor(
 	nosv_task_t task = worker_current_task();
 	assert(task);
 
+	instr_task_pause(task->taskid);
+
 	const uint64_t start_ns = clock_ns();
 	task->deadline = start_ns + target_ns;
 
@@ -301,15 +305,15 @@ int nosv_waitfor(
 	scheduler_submit(task);
 
 	// Block until the deadline expires
-	instr_task_pause(task->taskid);
 	worker_yield();
-	instr_task_resume(task->taskid);
 
 	// Unblocked
 	task->deadline = 0;
 
 	if (actual_ns)
 		*actual_ns = clock_ns() - start_ns;
+
+	instr_task_resume(task->taskid);
 
 	return 0;
 }
@@ -323,9 +327,16 @@ int nosv_yield(
 		return -EINVAL;
 
 	nosv_task_t task = worker_current_task();
+	assert(task);
+
+	instr_task_pause(task->taskid);
+
 	task->yield = -1;
 	scheduler_submit(task);
+
 	worker_yield();
+
+	instr_task_resume(task->taskid);
 
 	return 0;
 }
@@ -524,6 +535,8 @@ int nosv_detach(
 
 	if (!worker->task)
 		return -EINVAL;
+
+	instr_task_end(worker->task->taskid);
 
 	// First free the task
 	nosv_destroy(worker->task, NOSV_DESTROY_NONE);
