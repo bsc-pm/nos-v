@@ -149,7 +149,7 @@ static inline void scheduler_process_ready_tasks()
 }
 
 /* This function returns 1 if the current PID has spent more time than the quantum */
-static inline int scheduler_should_yield(int pid, int cpu, uint64_t *timestamp)
+int scheduler_should_yield(int pid, int cpu, uint64_t *timestamp)
 {
 	*timestamp = clock_fast_ns();
 
@@ -163,7 +163,16 @@ static inline int scheduler_should_yield(int pid, int cpu, uint64_t *timestamp)
 	return 0;
 }
 
-static inline void scheduler_update_ts(int pid, nosv_task_t task, int cpu, uint64_t timestamp)
+void scheduler_reset_accounting(int pid, int cpu)
+{
+	// No valid PID other than the one being reset should have been running immediately before
+	assert(scheduler->timestamps[cpu].pid == pid || scheduler->timestamps[cpu].pid == -1);
+
+	scheduler->timestamps[cpu].pid = pid;
+	scheduler->timestamps[cpu].ts_ns = clock_fast_ns();
+}
+
+static inline void scheduler_update_accounting(int pid, nosv_task_t task, int cpu, uint64_t timestamp)
 {
 	if (!task) {
 		scheduler->timestamps[cpu].pid = -1;
@@ -426,7 +435,7 @@ static inline nosv_task_t scheduler_get_internal(int cpu)
 	list_head_t *it;
 
 	if (!scheduler->tasks) {
-		scheduler_update_ts(0, NULL, cpu, 0);
+		scheduler_update_accounting(0, NULL, cpu, 0);
 		return NULL;
 	}
 
@@ -467,7 +476,7 @@ static inline nosv_task_t scheduler_get_internal(int cpu)
 		if (task) {
 			scheduler->tasks--;
 			scheduler->served_tasks++;
-			scheduler_update_ts(pid, task, cpu, ts);
+			scheduler_update_accounting(pid, task, cpu, ts);
 			return task;
 		}
 
@@ -495,7 +504,7 @@ static inline nosv_task_t scheduler_get_internal(int cpu)
 		if (task) {
 			scheduler->tasks--;
 			scheduler->served_tasks++;
-			scheduler_update_ts(pid, task, cpu, ts);
+			scheduler_update_accounting(pid, task, cpu, ts);
 			return task;
 		}
 
