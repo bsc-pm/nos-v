@@ -107,6 +107,8 @@ int nosv_create(
 #define NOSV_SUBMIT_BLOCKING	__BIT(1)
 /* Hint nOS-V to execute this task in the same thread as the one currently executing, immediately after */
 #define NOSV_SUBMIT_IMMEDIATE	__BIT(2)
+/* Execute this task inline, substituting the currently running task for this worker */
+#define NOSV_SUBMIT_INLINE		__BIT(3)
 
 /* Callable from everywhere */
 int nosv_submit(
