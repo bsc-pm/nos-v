@@ -13,7 +13,11 @@
 #include "scheduler/scheduler.h"
 #include "system/tasks.h"
 
+#include <stdlib.h>
+#include <string.h>
 #include <sys/errno.h>
+
+#define LABEL_MAX_CHAR 128
 
 /* Create a task type with certain run/end callbacks and a label */
 int nosv_type_init(
@@ -39,9 +43,15 @@ int nosv_type_init(
 	res->run_callback = run_callback;
 	res->end_callback = end_callback;
 	res->completed_callback = completed_callback;
-	res->label = label;
 	res->metadata = metadata;
 	res->pid = logical_pid;
+
+	if (label) {
+		res->label = strndup(label, LABEL_MAX_CHAR - 1);
+		assert(res->label);
+	} else {
+		res->label = NULL;
+	}
 
 	*type = res;
 	return 0;
@@ -78,6 +88,9 @@ int nosv_type_destroy(
 	nosv_task_type_t type,
 	nosv_flags_t flags)
 {
+	if (type->label)
+		free((void *) type->label);
+
 	sfree(type, sizeof(struct nosv_task_type), cpu_get_current());
 	return 0;
 }
