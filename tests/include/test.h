@@ -4,9 +4,12 @@
 	Copyright (C) 2021 Barcelona Supercomputing Center (BSC)
 */
 
+#define _GNU_SOURCE
+
 #include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <sched.h>
 
 typedef struct test {
 	int ntests;
@@ -75,7 +78,31 @@ static inline void test_error(test_t *test, const char *fmt, ...)
 	printf("\n");
 }
 
+static inline void test_check(test_t *test, int check, const char *fmt, ...)
+{
+	va_list args;
+	va_start(args, fmt);
+	test->ntests++;
+
+	if (check) {
+		// Pass
+		printf("pa");
+	} else {
+		printf("fa");
+	}
+
+	vprintf(fmt, args);
+	printf("\n");
+}
+
 static inline void test_end(test_t *test)
 {
 	assert(test->ntests == test->expected);
+}
+
+static inline int test_get_cpus()
+{
+	cpu_set_t set;
+	sched_getaffinity(0, sizeof(set), &set);
+	return CPU_COUNT(&set);
 }
