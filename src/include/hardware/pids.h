@@ -23,6 +23,7 @@ typedef struct pid_bitset pid_bitset_t;
 typedef struct pid_manager {
 	nosv_mutex_t lock;
 	pid_bitset_t pids;
+	pid_bitset_t pids_alloc;
 } pid_manager_t;
 
 __internal extern int logical_pid;

@@ -29,7 +29,7 @@ void pidmanager_register()
 	nosv_mutex_lock(&pidmanager->lock);
 
 	// Xor with all ones to get the "not set" bits to be one.
-	BIT_XOR(MAX_PIDS, &set, &pidmanager->pids);
+	BIT_XOR(MAX_PIDS, &set, &pidmanager->pids_alloc);
 	// Now find the first set bit, being the first free logical PID
 	// Its a 1-index, so we have to substract one
 	logical_pid = BIT_FFS(MAX_PIDS, &set) - 1;
@@ -37,6 +37,8 @@ void pidmanager_register()
 	if (logical_pid == -1)
 		nosv_abort("Maximum number of concurrent nOS-V processes surpassed");
 
+	// Set both as PID allocated and as ready
+	BIT_SET(MAX_PIDS, logical_pid, &pidmanager->pids_alloc);
 	BIT_SET(MAX_PIDS, logical_pid, &pidmanager->pids);
 
 	// Initialize PID-local structures
@@ -72,6 +74,12 @@ void pidmanager_shutdown()
 	// Notify all threads they have to shut down and wait until they do
 	// Each thread will pass its CPU during the shutdown process
 	threadmanager_shutdown(&local->threadmanager);
+
+	// Now deallocate the PID. We do this in two phases to prevent an ABA problem
+	// with logical PIDs
+	nosv_mutex_lock(&pidmanager->lock);
+	BIT_CLR(MAX_PIDS, logical_pid, &pidmanager->pids_alloc);
+	nosv_mutex_unlock(&pidmanager->lock);
 }
 
 void pidmanager_init(int initialize)
@@ -85,6 +93,7 @@ void pidmanager_init(int initialize)
 	pidmanager = (pid_manager_t *)salloc(sizeof(pid_manager_t), 0);
 	nosv_mutex_init(&pidmanager->lock);
 	BIT_ZERO(MAX_PIDS, &pidmanager->pids);
+	BIT_ZERO(MAX_PIDS, &pidmanager->pids_alloc);
 	st_config.config->pidmanager_ptr = pidmanager;
 }
 
@@ -100,6 +109,8 @@ void pidmanager_transfer_to_idle(cpu_t *cpu)
 
 	nosv_mutex_lock(&pidmanager->lock);
 	int pid = BIT_FFS(MAX_PIDS, &pidmanager->pids) - 1;
+
+	assert(pid != logical_pid);
 
 	if (pid >= 0)
 		cpu_transfer(pid, cpu, NULL);
