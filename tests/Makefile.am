@@ -4,7 +4,7 @@
 
 .NOTPARALLEL:
 
-AM_CFLAGS = -I$(top_srcdir)/tests/include $(PTHREAD_CFLAGS) -I$(top_builddir)/api
+AM_CFLAGS = -I$(top_srcdir)/tests/include $(PTHREAD_CFLAGS) -I$(top_srcdir)/api
 AM_LDFLAGS = -L$(top_builddir)/.libs -rpath $(abs_top_builddir)/.libs $(top_builddir)/libnosv.la
 
 a_tests = basic-init.test \
@@ -25,5 +25,5 @@ driver_SOURCES = common/driver.c
 driver_CFLAGS = -O3 -g -Wall -Wpedantic $(PTHREAD_CFLAGS)
 driver_LDFLAGS = -lrt $(PTHREAD_LIBS)
 
-TEST_LOG_DRIVER = env AM_TAP_AWK='$(AWK)' $(SHELL) $(top_srcdir)/tests/wrapper.sh $(top_srcdir)/build-aux/tap-driver.sh
-EXTRA_DIST = build-aux/tap-driver.sh $(TESTS)
+TEST_LOG_DRIVER = env AM_TAP_AWK='$(AWK)' $(SHELL) $(top_srcdir)/tests/wrapper.sh $(top_builddir)/tests/driver $(top_srcdir)/tests/tap-driver.sh
+EXTRA_DIST = tap-driver.sh driver wrapper.sh $(TESTS)
