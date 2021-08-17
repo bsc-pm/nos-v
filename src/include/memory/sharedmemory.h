@@ -10,6 +10,7 @@
 #include "compiler.h"
 #include "climits.h"
 #include "generic/mutex.h"
+#include "generic/proc.h"
 
 #define SMEM_START_ADDR ((void *) 0x0000200000000000)
 // #define SMEM_SIZE (1ULL << 21)
@@ -21,6 +22,8 @@ __internal void smem_initialize();
 __internal void smem_shutdown();
 
 typedef struct smem_config {
+	// Process Identifiers
+	process_identifier_t processes[MAX_PIDS];
 	nosv_mutex_t mutex;
 	void *scheduler_ptr;
 	void *cpumanager_ptr;
