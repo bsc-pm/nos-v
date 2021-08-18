@@ -14,7 +14,7 @@
 #include "generic/list.h"
 #include "generic/spinlock.h"
 #include "scheduler/dtlock.h"
-#include "scheduler/spsc.h"
+#include "scheduler/mpsc.h"
 
 #define IN_QUEUE_SIZE 256
 #define DEFAULT_QUANTUM_NS (20ULL * 1000ULL * 1000ULL)
@@ -51,8 +51,7 @@ typedef struct scheduler {
 	size_t tasks;
 	size_t served_tasks;
 	delegation_lock_t dtlock;
-	nosv_spinlock_t in_lock;
-	spsc_queue_t *in_queue;
+	mpsc_queue_t *in_queue;
 	list_head_t queues; // One scheduler_queue per process
 	process_scheduler_t *queues_direct[MAX_PIDS]; // Support both lists and random-access
 	timestamp_t *timestamps;

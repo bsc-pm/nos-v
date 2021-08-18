@@ -36,9 +36,8 @@ void scheduler_init(int initialize)
 	st_config.config->scheduler_ptr = scheduler;
 
 	dtlock_init(&scheduler->dtlock, cpu_count * 2);
-	scheduler->in_queue = spsc_alloc(IN_QUEUE_SIZE);
+	scheduler->in_queue = mpsc_alloc(IN_QUEUE_SIZE);
 	list_init(&scheduler->queues);
-	nosv_spin_init(&scheduler->in_lock);
 	scheduler->tasks = 0;
 	scheduler->served_tasks = 0;
 
@@ -122,7 +121,7 @@ static inline void scheduler_process_ready_tasks()
 
 	// Could creators overflow this?
 	// TODO maybe we want to limit how many tasks we pop
-	while (spsc_pop(scheduler->in_queue, (void **)&task)) {
+	while (mpsc_pop(scheduler->in_queue, (void **)&task)) {
 		assert(task);
 		int pid = task->type->pid;
 		process_scheduler_t *pidqueue = scheduler->queues_direct[pid];
@@ -201,9 +200,7 @@ void scheduler_submit(nosv_task_t task)
 	int success = 0;
 
 	while (!success) {
-		nosv_spin_lock(&scheduler->in_lock);
-		success = spsc_push(scheduler->in_queue, (void *)task);
-		nosv_spin_unlock(&scheduler->in_lock);
+		success = mpsc_push(scheduler->in_queue, (void *)task);
 
 		if (!success) {
 			int lock = dtlock_try_lock(&scheduler->dtlock);

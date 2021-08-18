@@ -67,6 +67,7 @@ noinst_HEADERS = \
 	src/include/memory/sharedmemory.h \
 	src/include/memory/slab.h \
 	src/include/scheduler/dtlock.h \
+	src/include/scheduler/mpsc.h \
 	src/include/scheduler/scheduler.h \
 	src/include/scheduler/spsc.h \
 	src/include/system/config.h \
