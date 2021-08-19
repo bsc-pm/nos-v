@@ -22,6 +22,8 @@
 __internal scheduler_t *scheduler;
 __internal thread_local process_scheduler_t *last;
 
+#define __SCHED_BATCH 64
+
 void scheduler_init(int initialize)
 {
 	if (!initialize) {
@@ -36,7 +38,7 @@ void scheduler_init(int initialize)
 	st_config.config->scheduler_ptr = scheduler;
 
 	dtlock_init(&scheduler->dtlock, cpu_count * 2);
-	scheduler->in_queue = mpsc_alloc(IN_QUEUE_SIZE);
+	scheduler->in_queue = mpsc_alloc(cpu_count, IN_QUEUE_SIZE);
 	list_init(&scheduler->queues);
 	scheduler->tasks = 0;
 	scheduler->served_tasks = 0;
@@ -117,33 +119,35 @@ static inline int deadline_cmp(heap_node_t *a, heap_node_t *b)
 // Must be called inside the dtlock
 static inline void scheduler_process_ready_tasks()
 {
-	nosv_task_t task;
+	nosv_task_t task[__SCHED_BATCH];
+	int cnt = 0;
 
-	// Could creators overflow this?
 	// TODO maybe we want to limit how many tasks we pop
-	while (mpsc_pop(scheduler->in_queue, (void **)&task)) {
-		assert(task);
-		int pid = task->type->pid;
-		process_scheduler_t *pidqueue = scheduler->queues_direct[pid];
+	while ((cnt = mpsc_pop_batch(scheduler->in_queue, (void **)task, __SCHED_BATCH))) {
+		for (int i = 0; i < cnt; ++i) {
+			assert(task[i]);
+			int pid = task[i]->type->pid;
+			process_scheduler_t *pidqueue = scheduler->queues_direct[pid];
 
-		if (!pidqueue)
-			pidqueue = scheduler_init_pid(pid);
+			if (!pidqueue)
+				pidqueue = scheduler_init_pid(pid);
 
-		if (task->yield) {
-			assert(!task->deadline);
-			// This yield task will be executed when either all
-			// tasks in the global scheduler have been run or when
-			// there is no more work to do other than yield tasks
-			task->yield = scheduler->served_tasks + scheduler->tasks;
-			list_add_tail(&pidqueue->yield_tasks.tasks, &task->list_hook);
-		} else if (task->deadline) {
-			heap_insert(&pidqueue->deadline_tasks, &task->heap_hook, &deadline_cmp);
-		} else {
-			list_add_tail(&pidqueue->queue.tasks, &task->list_hook);
+			if (task[i]->yield) {
+				assert(!task[i]->deadline);
+				// This yield task will be executed when either all
+				// tasks in the global scheduler have been run or when
+				// there is no more work to do other than yield tasks
+				task[i]->yield = scheduler->served_tasks + scheduler->tasks;
+				list_add_tail(&pidqueue->yield_tasks.tasks, &task[i]->list_hook);
+			} else if (task[i]->deadline) {
+				heap_insert(&pidqueue->deadline_tasks, &task[i]->heap_hook, &deadline_cmp);
+			} else {
+				list_add_tail(&pidqueue->queue.tasks, &task[i]->list_hook);
+			}
+
+			pidqueue->tasks++;
+			scheduler->tasks++;
 		}
-
-		pidqueue->tasks++;
-		scheduler->tasks++;
 	}
 }
 
@@ -200,7 +204,7 @@ void scheduler_submit(nosv_task_t task)
 	int success = 0;
 
 	while (!success) {
-		success = mpsc_push(scheduler->in_queue, (void *)task);
+		success = mpsc_push(scheduler->in_queue, (void *)task, cpu_get_current());
 
 		if (!success) {
 			int lock = dtlock_try_lock(&scheduler->dtlock);

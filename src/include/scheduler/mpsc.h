@@ -13,82 +13,122 @@
 #include <stdint.h>
 
 #include "compiler.h"
+#include "spsc.h"
+#include "generic/spinlock.h"
 #include "memory/slab.h"
+
+// TODO: Define a mode where there are multiple queues, but not one per cpu
+#define __MPSC_ONE_PER_CPU 1
+#define __MPSC_POPS_BEFORE_ROTATE 256
 
 /*
 	This is a queue that can accept multiple producers and a single consumer.
-	It is not strictly lock-free, but should give acceptable performance, specially against the SPSC queue with a lock holding the producer side.
+	This queue is indeed lock-free between producers, and there is one caveat: If the elements are not
+	consumed fast enough, it can fill up (which is fine).
 */
 
-typedef atomic_uint_fast64_t atomic_uint64_t;
-
-static_assert(sizeof(atomic_uintptr_t) == sizeof(void *));
-
-struct mpsc_queue_entry {
-	atomic_uintptr_t entry;
-};
-
 typedef struct mpsc_queue {
-	size_t size;
-	atomic_uint64_t head __cacheline_aligned;
-	atomic_uint64_t tail __cacheline_aligned;
-	atomic_uint64_t count __cacheline_aligned;
-	struct mpsc_queue_entry entries[] __cacheline_aligned;
+	size_t nqueues;
+	size_t current;
+	spsc_queue_t **queues;
+	nosv_spinlock_t qspin __cacheline_aligned;
 } mpsc_queue_t;
 
-static inline mpsc_queue_t *mpsc_alloc(size_t size)
+static inline mpsc_queue_t *mpsc_alloc(size_t nqueues, size_t slots)
 {
-	mpsc_queue_t *queue = (mpsc_queue_t *)salloc(sizeof(mpsc_queue_t) + size * sizeof(struct mpsc_queue_entry), -1);
+	mpsc_queue_t *queue = (mpsc_queue_t *)salloc(sizeof(mpsc_queue_t), -1);
 	assert(queue);
+	queue->queues = (spsc_queue_t **)salloc(sizeof(spsc_queue_t *) * (nqueues + 1), -1);
 
-	queue->size = size;
-	atomic_init(&queue->head, 0);
-	atomic_init(&queue->count, 0);
-	atomic_init(&queue->tail, 0);
+	assert(nqueues > 0);
+
+	for (int i = 0; i < nqueues + 1; ++i)
+		queue->queues[i] = spsc_alloc(slots);
+
+	queue->nqueues = nqueues;
+	queue->current = 0;
+	nosv_spin_init(&queue->qspin);
 
 	return queue;
 }
 
-static inline int mpsc_push(mpsc_queue_t *queue, void *value)
+static inline int mpsc_push(mpsc_queue_t *queue, void *value, int cpu)
 {
 	assert(value);
-	const size_t size = queue->size;
+	int ret;
 
-	if (atomic_fetch_add_explicit(&queue->count, 1, memory_order_relaxed) >= size) {
-		atomic_fetch_sub_explicit(&queue->count, 1, memory_order_relaxed);
-		return 0;
+	if (unlikely(cpu < 0)) {
+		nosv_spin_lock(&queue->qspin);
+		ret = spsc_push(queue->queues[queue->nqueues], value);
+		nosv_spin_unlock(&queue->qspin);
+	} else {
+		assert(cpu < queue->nqueues);
+		ret = spsc_push(queue->queues[cpu], value);
 	}
 
-	// This "has" to be an acquire just for the assert?
-	const uint64_t elem = atomic_fetch_add_explicit(&queue->head, 1, memory_order_acquire) % size;
-	assert(queue->entries[elem].entry == 0);
-	atomic_store_explicit(&queue->entries[elem].entry, (uintptr_t) value, memory_order_release);
+	return ret;
+}
 
-	return 1;
+static inline int mpsc_pop_batch(mpsc_queue_t *queue, void **value, int cnt)
+{
+	const size_t start = queue->current;
+	const size_t nqueues = queue->nqueues;
+	size_t current = start;
+	assert(current <= nqueues);
+
+	int total = 0;
+	int ret;
+
+	// First, try to pop from current
+	total = spsc_pop_batch(queue->queues[current], value, cnt);
+	if (total == cnt) {
+		// Rotate the queue
+		queue->current = (current + 1) % (nqueues + 1);
+		return cnt;
+	}
+
+	value = value + total;
+	current = (current + 1) % (nqueues + 1);
+
+	while (current != start && total < cnt) {
+		ret = spsc_pop_batch(queue->queues[current], value, cnt - total);
+		total += ret;
+		value += ret;
+
+		if (total == cnt) {
+			queue->current = current;
+			return cnt;
+		}
+
+		current = (current + 1) % (nqueues + 1);
+	}
+
+	return total;
 }
 
 static inline int mpsc_pop(mpsc_queue_t *queue, void **value)
 {
-	const size_t size = queue->size;
+	const size_t start = queue->current;
+	const size_t nqueues = queue->nqueues;
+	size_t current = start;
+	assert(current <= nqueues);
 
-	const uint64_t count = atomic_load_explicit(&queue->count, memory_order_relaxed);
-	if (!count)
-		return 0;
+	// First, try to pop from current
+	if (spsc_pop(queue->queues[current], value))
+		return 1;
 
-	const uint64_t tail = atomic_load_explicit(&queue->tail, memory_order_acquire);
-	const uint64_t next = (tail + 1) % size; // TODO: Maybe ensure this is a Po2 and use a mask.
+	current = (current + 1) % (nqueues + 1);
 
-	uintptr_t v;
-	do {
-		v = atomic_load_explicit(&queue->entries[tail].entry, memory_order_relaxed);
-	} while (!v);
+	while (current != start) {
+		if (spsc_pop(queue->queues[current], value)) {
+			queue->current = current;
+			return 1;
+		}
 
-	*value = (void *)v;
-	atomic_store_explicit(&queue->entries[tail].entry, 0, memory_order_relaxed);
-	atomic_store_explicit(&queue->tail, next, memory_order_relaxed);
-	atomic_fetch_sub_explicit(&queue->count, 1, memory_order_release);
+		current = (current + 1) % (nqueues + 1);
+	}
 
-	return 1;
+	return 0;
 }
 
 #endif // mpsc_H

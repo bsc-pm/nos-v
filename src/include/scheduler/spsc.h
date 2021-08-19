@@ -85,4 +85,30 @@ static inline int spsc_pop(spsc_queue_t *queue, void **value)
 	return 1;
 }
 
+static inline int spsc_pop_batch(spsc_queue_t *queue, void **value, int cnt)
+{
+	const size_t size = queue->size;
+	const uint64_t head = atomic_load_explicit(&queue->head, memory_order_acquire);
+	uint64_t tail = atomic_load_explicit(&queue->tail, memory_order_relaxed);
+
+	// Empty
+	if (head == tail)
+		return 0;
+
+	int remaining = (head > tail) ? (head - tail) : (size - tail + head);
+	assert((tail + remaining) % size == head);
+
+	if (cnt > remaining)
+		cnt = remaining;
+
+	for (int i = 0; i < cnt; ++i) {
+		value[i] = queue->entries[tail].entry;
+		tail = (tail + 1) % size;
+	}
+
+	atomic_store_explicit(&queue->tail, tail, memory_order_release);
+
+	return cnt;
+}
+
 #endif // SPSC_H
