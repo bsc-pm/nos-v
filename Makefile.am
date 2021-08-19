@@ -48,6 +48,9 @@ noinst_HEADERS = \
 	src/include/compiler.h \
 	src/include/nosv-internal.h \
 	src/include/generic/arch.h \
+	src/include/generic/arch/arm64.h \
+	src/include/generic/arch/power.h \
+	src/include/generic/arch/x86.h \
 	src/include/generic/bitset.h \
 	src/include/generic/clock.h \
 	src/include/generic/condvar.h \

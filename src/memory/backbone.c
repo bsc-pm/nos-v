@@ -9,6 +9,8 @@
 
 #include "memory/backbone.h"
 
+#define align_to(n, x) (((x) + (n) - 1) & ~((n) - 1))
+
 void *backbone_pages_start;
 page_metadata_t *backbone_metadata_start;
 static size_t backbone_size;
@@ -29,10 +31,14 @@ void backbone_alloc_init(void *start, size_t size, int initialize)
 	// This is optimistic because we need to pad the first page to be aligned. We may loose at most one page to padding.
 
 	backbone_metadata_start = (page_metadata_t *)(((uintptr_t)start) + sizeof(backbone_header_t));
+	// Has to be aligned to 16 bytes because of double compare and exchange reasons
+	uintptr_t metadata_start = (uintptr_t)backbone_metadata_start;
+	metadata_start = align_to(16, metadata_start);
+	backbone_metadata_start = (void *)metadata_start;
 
 	uintptr_t pages_start = (uintptr_t)&backbone_metadata_start[backbone_pages];
 	// Align pages
-	pages_start = (pages_start + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1);
+	pages_start = align_to(PAGE_SIZE, pages_start);
 	backbone_pages_start = (void *)pages_start;
 	// Re-compute the number of pages based on the needed padding
 
@@ -50,6 +56,9 @@ void backbone_alloc_init(void *start, size_t size, int initialize)
 	for (size_t i = 0; i < backbone_pages; ++i) {
 		list_add(&backbone_header->free_pages, &(backbone_metadata_start[i].list_hook));
 		backbone_metadata_start[i].addr = (void *)page;
+#ifndef ARCH_HAS_DWCAS
+		nosv_spin_init(&backbone_metadata_start[i].lock);
+#endif
 		page++;
 	}
 
@@ -58,7 +67,7 @@ void backbone_alloc_init(void *start, size_t size, int initialize)
 
 page_metadata_t *balloc()
 {
-	void *ret = NULL;
+	page_metadata_t *ret = NULL;
 	nosv_mutex_lock(&backbone_header->mutex);
 
 	list_head_t *first = list_pop_head(&backbone_header->free_pages);

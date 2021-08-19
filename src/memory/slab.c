@@ -5,9 +5,11 @@
 */
 
 #include <assert.h>
+#include <stdatomic.h>
 
 #include "common.h"
 #include "compiler.h"
+#include "generic/arch.h"
 #include "memory/backbone.h"
 #include "memory/slab.h"
 
@@ -17,11 +19,31 @@ static inline void cpubucket_init(cpu_cache_bucket_t *cpubucket)
 	cpubucket->freelist = NULL;
 }
 
-static inline void cpubucket_setpage(cpu_cache_bucket_t *cpubucket, page_metadata_t *page)
+static inline void cpubucket_setpage(cpu_cache_bucket_t *cpubucket, page_metadata_t *page, void *freelist)
 {
 	cpubucket->slab = (void *)page;
-	cpubucket->freelist = page->freelist;
-	page->freelist = NULL;
+	cpubucket->freelist = freelist;
+}
+
+static inline int page_metadata_cmpxchg_double(
+	page_metadata_t *metadata,
+	void *old_freelist, uint64_t old_inuse,
+	void *new_freelist, uint64_t new_inuse)
+{
+#ifndef ARCH_HAS_DWCAS
+	int ret = 0;
+	nosv_spin_lock(&metadata->lock);
+	if (metadata->freelist == old_freelist && metadata->inuse_chunks == old_inuse) {
+		metadata->freelist = new_freelist;
+		metadata->inuse_chunks = new_inuse;
+		ret = 1;
+	}
+	nosv_spin_unlock(&metadata->lock);
+
+	return ret;
+#else
+	return cmpxchg_double(&metadata->freelist, &metadata->inuse_chunks, old_freelist, old_inuse, new_freelist, new_inuse);
+#endif
 }
 
 static inline int cpubucket_alloc(cpu_cache_bucket_t *cpubucket, void **obj)
@@ -82,64 +104,6 @@ static inline void bucket_initialize_page(cache_bucket_t *bucket, page_metadata_
 	page->inuse_chunks = 0;
 }
 
-// Slow-path for allocation - usable from external threads, and very slow.
-static inline void *bucket_allocate_slow(cache_bucket_t *bucket)
-{
-	void *ret;
-	nosv_spin_lock(&bucket->lock);
-
-	// Do we have a partial page?
-	if (!clist_empty(&bucket->partial)) {
-		list_head_t *page = clist_head(&bucket->partial);
-		assert(page);
-		page_metadata_t *metadata = list_elem(page, page_metadata_t, list_hook);
-
-		// Move freelist
-		ret = metadata->freelist;
-		void *next = *((void **)ret);
-		metadata->freelist = next;
-		metadata->inuse_chunks++;
-
-		// If there are no more free pages, remove from partial list
-		if (!next)
-			clist_pop_head(&bucket->partial);
-	} else if (!clist_empty(&bucket->free)) {
-		list_head_t *page = clist_pop_head(&bucket->free);
-		page_metadata_t *metadata = list_elem(page, page_metadata_t, list_hook);
-
-		// Move freelist
-		ret = metadata->freelist;
-		void *next = *((void **)ret);
-		metadata->freelist = next;
-		metadata->inuse_chunks++;
-
-		assert(next);
-		clist_add(&bucket->partial, &metadata->list_hook);
-	} else {
-		nosv_spin_unlock(&bucket->lock);
-
-		page_metadata_t *newpage = balloc();
-		assert(newpage);
-
-		// Initialize and add to cache
-		bucket_initialize_page(bucket, newpage);
-
-		// Move freelist
-		ret = newpage->freelist;
-		void *next = *((void **)ret);
-		newpage->freelist = next;
-		newpage->inuse_chunks++;
-
-		nosv_spin_lock(&bucket->lock);
-		assert(next);
-		clist_add(&bucket->partial, &newpage->list_hook);
-	}
-
-	nosv_spin_unlock(&bucket->lock);
-
-	return ret;
-}
-
 static inline void bucket_refill_cpu_cache(cache_bucket_t *bucket, cpu_cache_bucket_t *cpubucket)
 {
 	size_t obj_in_page = bucket_objinpage(bucket);
@@ -147,40 +111,57 @@ static inline void bucket_refill_cpu_cache(cache_bucket_t *bucket, cpu_cache_buc
 	// Grab bucket lock
 	nosv_spin_lock(&bucket->lock);
 
-	// Find or allocate a free page
+	// Search for a page
+	page_metadata_t *metadata = NULL;
+	void *freelist = NULL;
+
 	if (!clist_empty(&bucket->partial)) {
 		// Fast-path, we have a partial page
 		list_head_t *firstpage = clist_pop_head(&bucket->partial);
-		page_metadata_t *metadata = list_elem(firstpage, page_metadata_t, list_hook);
+		metadata = list_elem(firstpage, page_metadata_t, list_hook);
 
-		size_t added = obj_in_page - metadata->inuse_chunks;
-		metadata->inuse_chunks = obj_in_page;
+		uint64_t inuse = metadata->inuse_chunks;
+		freelist = metadata->freelist;
 
-		assert(added > 0);
-		cpubucket_setpage(cpubucket, metadata);
+		while (!page_metadata_cmpxchg_double(metadata, freelist, inuse, NULL, obj_in_page)) {
+			inuse = metadata->inuse_chunks;
+			freelist = metadata->freelist;
+		}
 
 		nosv_spin_unlock(&bucket->lock);
 	} else if (!clist_empty(&bucket->free)) {
 		// Fast-path as well, we have a cached free page
 		list_head_t *firstpage = clist_pop_head(&bucket->free);
-		page_metadata_t *metadata = list_elem(firstpage, page_metadata_t, list_hook);
-
-		metadata->inuse_chunks = obj_in_page;
-		cpubucket_setpage(cpubucket, metadata);
-
 		nosv_spin_unlock(&bucket->lock);
+
+		metadata = list_elem(firstpage, page_metadata_t, list_hook);
+		// Nobody has allocated from here, so we should not be racing!
+		metadata->inuse_chunks = obj_in_page;
+		freelist = metadata->freelist;
+		metadata->freelist = NULL;
+
+		// All writes should be visible before any next one
+		atomic_thread_fence(memory_order_release);
 	} else {
 		// Slow-path, we need to allocate. Release the lock first
 		nosv_spin_unlock(&bucket->lock);
 
-		page_metadata_t *newpage = balloc();
-		assert(newpage);
+		metadata = balloc();
+		assert(metadata);
 
 		// Initialize and add to cache
-		bucket_initialize_page(bucket, newpage);
-		newpage->inuse_chunks = obj_in_page;
-		cpubucket_setpage(cpubucket, newpage);
+		bucket_initialize_page(bucket, metadata);
+		metadata->inuse_chunks = obj_in_page;
+		freelist = metadata->freelist;
+		metadata->freelist = NULL;
+
+		// All writes should be visible before any next one
+		atomic_thread_fence(memory_order_release);
 	}
+
+	assert(metadata);
+	assert(freelist);
+	cpubucket_setpage(cpubucket, metadata, freelist);
 }
 
 static inline void bucket_init(cache_bucket_t *bucket, size_t bucket_index)
@@ -192,6 +173,9 @@ static inline void bucket_init(cache_bucket_t *bucket, size_t bucket_index)
 
 	for (int i = 0; i < NR_CPUS; ++i)
 		cpubucket_init(&bucket->cpubuckets[i]);
+
+	cpubucket_init(&bucket->slow_bucket);
+	nosv_spin_init(&bucket->slow_bucket_lock);
 }
 
 static inline void *bucket_alloc(cache_bucket_t *bucket, int cpu)
@@ -200,25 +184,35 @@ static inline void *bucket_alloc(cache_bucket_t *bucket, int cpu)
 
 	assert(cpu < NR_CPUS);
 
-	if (cpu >= 0) {
-		cpu_cache_bucket_t *cpubucket = &bucket->cpubuckets[cpu];
+	cpu_cache_bucket_t *cpubucket = &bucket->cpubuckets[cpu];
 
-		// Fast Path
-		if (cpubucket_alloc(cpubucket, &obj))
-			return obj;
+	// Maybe not that unlikely, but we _want_ this path to be slow so the fast-path can be fast
+	if (unlikely(cpu < 0)) {
+		cpubucket = &bucket->slow_bucket;
+		// The slow-path is a cpubucket protected by a spinlock, usable for external threads
+		// This substituted a more elaborate slow path that is vulnerable to ABA problems when using DWCAS.
+		nosv_spin_lock(&bucket->slow_bucket_lock);
+	}
 
-		// Slower, there are no available chunks in the CPU cache and we have to refill
-		bucket_refill_cpu_cache(bucket, cpubucket);
-
-		__maybe_unused int ret = cpubucket_alloc(cpubucket, &obj);
-		assert(ret);
-		assert(obj);
+	// Try to allocate from cached page
+	if (cpubucket_alloc(cpubucket, &obj)) {
+		if (unlikely(cpu < 0))
+			nosv_spin_unlock(&bucket->slow_bucket_lock);
 
 		return obj;
 	}
 
-	// Slow-path
-	return bucket_allocate_slow(bucket);
+	// Slower, there are no available chunks in the CPU cache and we have to refill
+	bucket_refill_cpu_cache(bucket, cpubucket);
+
+	__maybe_unused int ret = cpubucket_alloc(cpubucket, &obj);
+	assert(ret);
+	assert(obj);
+
+	if (unlikely(cpu < 0))
+		nosv_spin_unlock(&bucket->slow_bucket_lock);
+
+	return obj;
 }
 
 static inline void bucket_free(cache_bucket_t *bucket, void *obj, int cpu)
@@ -232,34 +226,37 @@ static inline void bucket_free(cache_bucket_t *bucket, void *obj, int cpu)
 		cpubucket_localfree(cpubucket, obj);
 	} else {
 		// Remote free, slow-path
-		page_metadata_t *metadata =	page_metadata_from_block(obj);
+		// This path is still very common, but it is fast in an uncontended page.
+		page_metadata_t *metadata = page_metadata_from_block(obj);
 
-		// Grab bucket lock
-		nosv_spin_lock(&bucket->lock);
+		int success = 0;
+		uint64_t inuse;
 
-		// Post-decrement
-		if (metadata->inuse_chunks-- < obj_in_page) {
-			// Partial page, already in the partial list
-			// Set "next"
-			*((void **)obj) = metadata->freelist;
-			metadata->freelist = obj;
+		do {
+			inuse = metadata->inuse_chunks;
+			void *next = metadata->freelist;
+			*((void **)obj) = next;
 
-			if (metadata->inuse_chunks == 0) {
-				// We can put it in the free list or return it to the underlaying backbone
-				// allocator. Lots of options
-				// For now, we do NOTHING (stays in the partial list even full free)
+			if (inuse == 1) {
+				// This would be a good time to return the page.
+			} else if (inuse == obj_in_page) {
+				// assert(!next);
+				// This page was empty, we are going to add it to the list.
+				// Speculatively grab the bucket lock
+				nosv_spin_lock(&bucket->lock);
 			}
-		} else {
-			// Put in partial list
-			// Set "next"
-			*((void **)obj) = NULL;
-			metadata->freelist = obj;
 
+			success = page_metadata_cmpxchg_double(metadata, next, inuse, obj, inuse - 1);
+
+			if (!success && inuse == obj_in_page)
+				nosv_spin_unlock(&bucket->lock);
+		} while (!success);
+
+		if (inuse == obj_in_page) {
 			// Add to partial list
 			clist_add(&bucket->partial, &metadata->list_hook);
+			nosv_spin_unlock(&bucket->lock);
 		}
-
-		nosv_spin_unlock(&bucket->lock);
 	}
 }
 
@@ -275,7 +272,7 @@ void *salloc(size_t size, int cpu)
 
 	if (allocsize < SLAB_ALLOC_MIN)
 		allocsize = SLAB_ALLOC_MIN;
-	else if(allocsize >= SLAB_BUCKETS + SLAB_ALLOC_MIN)
+	else if (allocsize >= SLAB_BUCKETS + SLAB_ALLOC_MIN)
 		return NULL;
 
 	cache_bucket_t *bucket = &backbone_header->buckets[allocsize - SLAB_ALLOC_MIN];
