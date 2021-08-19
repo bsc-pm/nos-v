@@ -126,6 +126,14 @@ int nosv_waitfor(
 	uint64_t ns);
 
 /* Flags */
+#define NOSV_YIELD_NONE __ZEROBITS
+
+/* Yield operation */
+/* Restriction: Can only be called from a task context */
+int nosv_yield(
+	nosv_flags_t flags);
+
+/* Flags */
 #define NOSV_DESTROY_NONE __ZEROBITS
 
 /* Callable from everywhere */

@@ -101,6 +101,7 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	res->affinity.index = 0;
 	res->affinity.level = 0;
 	res->deadline = 0;
+	res->yield = 0;
 	res->wakeup = NULL;
 
 	*task = res;
@@ -245,6 +246,22 @@ int nosv_waitfor(
 
 	// Unblocked
 	task->deadline = 0;
+
+	return 0;
+}
+
+/* Yield operation */
+/* Restriction: Can only be called from a task context */
+int nosv_yield(
+	nosv_flags_t flags)
+{
+	if (!worker_is_in_task())
+		return -EINVAL;
+
+	nosv_task_t task = worker_current_task();
+	task->yield = -1;
+	scheduler_submit(task);
+	worker_yield();
 
 	return 0;
 }
