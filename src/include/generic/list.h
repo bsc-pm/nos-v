@@ -121,16 +121,14 @@ static inline void list_remove(list_head_t *head, list_head_t *n)
 */
 
 typedef struct clist_head {
-	struct list_head *next;
-	struct list_head *prev;
+	list_head_t __head;
 	size_t cnt;
 } clist_head_t;
 
 static inline void clist_init(clist_head_t *head)
 {
 	head->cnt = 0;
-	head->next = NULL;
-	head->prev = NULL;
+	list_init(&head->__head);
 }
 
 static inline size_t clist_count(clist_head_t *head)
@@ -146,35 +144,18 @@ static inline int clist_empty(clist_head_t *head)
 // Add in the first position
 static inline void clist_add(clist_head_t *head, list_head_t *n)
 {
-	n->next = head->next;
-	if(head->next)
-		head->next->prev = n;
-
-	head->next = n;
-	n->prev = NULL;
-
-	if (!head->prev)
-		head->prev = n;
-
+	list_add(&head->__head, n);
 	head->cnt++;
 }
 
-#define clist_head(h) ((h)->next)
+#define clist_head(h) ((h)->__head.next)
 
 static inline list_head_t *clist_pop_head(clist_head_t *head)
 {
-	list_head_t *first = head->next;
+	list_head_t *first = list_pop_head(&head->__head);
 
-	if (first) {
-		head->next = first->next;
-
-		// Was last element
-		if (!head->next)
-			head->prev = NULL;
-
+	if (first)
 		head->cnt--;
-	}
-
 	return first;
 }
 

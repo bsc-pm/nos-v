@@ -15,8 +15,7 @@
 #include "memory/slab.h"
 
 thread_local int __current_cpu = -1;
-
-static cpumanager_t *cpumanager;
+__internal cpumanager_t *cpumanager;
 
 void cpus_init(int initialize)
 {
@@ -98,12 +97,6 @@ cpu_t *cpu_pop_free(int pid)
 	}
 
 	return NULL;
-}
-
-int cpu_get_pid(int cpu)
-{
-	assert(cpumanager->pids_cpus[cpu] < MAX_PIDS);
-	return cpumanager->pids_cpus[cpu];
 }
 
 void cpu_set_pid(cpu_t *cpu, int pid)

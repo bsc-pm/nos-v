@@ -239,8 +239,9 @@ static inline void bucket_free(cache_bucket_t *bucket, void *obj, int cpu)
 
 			if (inuse == 1) {
 				// This would be a good time to return the page.
+				// Speculatively grab the bucket lock
+				nosv_spin_lock(&bucket->lock);
 			} else if (inuse == obj_in_page) {
-				// assert(!next);
 				// This page was empty, we are going to add it to the list.
 				// Speculatively grab the bucket lock
 				nosv_spin_lock(&bucket->lock);
@@ -252,7 +253,9 @@ static inline void bucket_free(cache_bucket_t *bucket, void *obj, int cpu)
 				nosv_spin_unlock(&bucket->lock);
 		} while (!success);
 
-		if (inuse == obj_in_page) {
+		if (inuse == 1) {
+			// Was in the partial list, now it's fully free
+		} if (inuse == obj_in_page) {
 			// Add to partial list
 			clist_add(&bucket->partial, &metadata->list_hook);
 			nosv_spin_unlock(&bucket->lock);
