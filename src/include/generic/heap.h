@@ -55,6 +55,13 @@ static inline void heap_init(heap_head_t *head)
 	head->size = 0;
 }
 
+static inline void heap_clean(heap_node_t *node)
+{
+	node->parent = NULL;
+	node->left = NULL;
+	node->right = NULL;
+}
+
 /*
 	max_heapify maintains the max-heap property
 	When it is called for a node "a", a->left and a->right are max-heaps, but "a" may be smaller than a->left or a->right, violating the max-heap property

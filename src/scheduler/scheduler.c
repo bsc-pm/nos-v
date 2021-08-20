@@ -327,6 +327,7 @@ static inline int scheduler_get_deadline_expired(process_scheduler_t *sched, nos
 
 deadline_expired:
 	heap_pop_max(&sched->deadline_tasks, &deadline_cmp);
+	heap_clean(&res->heap_hook);
 	res->deadline = 0;
 	*task = res;
 	return 1;
