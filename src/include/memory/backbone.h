@@ -51,4 +51,4 @@ static inline page_metadata_t *page_metadata_from_block(void *block)
 	return &backbone_metadata_start[block_idx];
 }
 
-#endif // BUDDY_H
+#endif // BACKBONE_H

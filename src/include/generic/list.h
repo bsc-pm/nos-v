@@ -115,7 +115,6 @@ static inline void list_remove(list_head_t *head, list_head_t *n)
 	n->prev = NULL;
 }
 
-
 /*
 	Doubly-linked list with a count (C-List)
 */
@@ -146,6 +145,12 @@ static inline void clist_add(clist_head_t *head, list_head_t *n)
 {
 	list_add(&head->__head, n);
 	head->cnt++;
+}
+
+static inline void clist_remove(clist_head_t *head, list_head_t *n)
+{
+	list_remove(&head->__head, n);
+	head->cnt--;
 }
 
 #define clist_head(h) ((h)->__head.next)
