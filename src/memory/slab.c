@@ -13,6 +13,8 @@
 #include "memory/backbone.h"
 #include "memory/slab.h"
 
+#define __SLAB_MAX_FREE_PAGES 16
+
 static inline void cpubucket_init(cpu_cache_bucket_t *cpubucket)
 {
 	cpubucket->slab = NULL;
@@ -249,13 +251,22 @@ static inline void bucket_free(cache_bucket_t *bucket, void *obj, int cpu)
 
 			success = page_metadata_cmpxchg_double(metadata, next, inuse, obj, inuse - 1);
 
-			if (!success && inuse == obj_in_page)
+			if (!success && (inuse == obj_in_page || inuse == 1))
 				nosv_spin_unlock(&bucket->lock);
 		} while (!success);
 
 		if (inuse == 1) {
 			// Was in the partial list, now it's fully free
-		} if (inuse == obj_in_page) {
+			clist_remove(&bucket->partial, &metadata->list_hook);
+
+			if (clist_count(&bucket->free) >= __SLAB_MAX_FREE_PAGES) {
+				nosv_spin_unlock(&bucket->lock);
+				bfree(metadata);
+			} else {
+				clist_add(&bucket->free, &metadata->list_hook);
+				nosv_spin_unlock(&bucket->lock);
+			}
+		} else if (inuse == obj_in_page) {
 			// Add to partial list
 			clist_add(&bucket->partial, &metadata->list_hook);
 			nosv_spin_unlock(&bucket->lock);
