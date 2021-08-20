@@ -71,10 +71,11 @@ static inline void worker_wakeup_internal(nosv_worker_t *worker, cpu_t *cpu)
 void threadmanager_init(thread_manager_t *threadmanager)
 {
 	atomic_init(&threads_shutdown_signal, 0);
-	nosv_spin_init(&threadmanager->idle_spinlock);
-	nosv_spin_init(&threadmanager->shutdown_spinlock);
+	atomic_init(&threadmanager->created, 0);
 	list_init(&threadmanager->idle_threads);
 	clist_init(&threadmanager->shutdown_threads);
+	nosv_spin_init(&threadmanager->idle_spinlock);
+	nosv_spin_init(&threadmanager->shutdown_spinlock);
 	event_queue_init(&threadmanager->thread_creation_queue);
 
 	current_process_manager = threadmanager;
@@ -95,6 +96,9 @@ void threadmanager_shutdown(thread_manager_t *threadmanager)
 	creation_event_t event;
 	event.type = Shutdown;
 	event_queue_put(&threadmanager->thread_creation_queue, &event);
+
+	// Join the delegate *first*, to prevent any races
+	pthread_join(threadmanager->delegate_thread, NULL);
 
 	int join = 0;
 	while (!join) {
@@ -131,14 +135,13 @@ void threadmanager_shutdown(thread_manager_t *threadmanager)
 		sfree(worker, sizeof(nosv_worker_t), -1);
 		head = clist_pop_head(&threadmanager->shutdown_threads);
 	}
-
-	// Join delegate as well
-	pthread_join(threadmanager->delegate_thread, NULL);
 }
 
 static inline void *worker_start_routine(void *arg)
 {
 	current_worker = (nosv_worker_t *)arg;
+	assert(current_worker);
+	assert(current_worker->cpu);
 	cpu_set_current(current_worker->cpu->logic_id);
 	current_worker->tid = gettid();
 
@@ -268,6 +271,7 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 {
 	int ret;
 	atomic_fetch_add_explicit(&threadmanager->created, 1, memory_order_release);
+	assert(cpu);
 
 	nosv_worker_t *worker = (nosv_worker_t *)salloc(sizeof(nosv_worker_t), cpu_get_current());
 	worker->cpu = cpu;
