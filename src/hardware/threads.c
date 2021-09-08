@@ -68,23 +68,26 @@ static inline void delegate_thread_create(thread_manager_t *threadmanager)
 
 static inline void worker_wake_internal(nosv_worker_t *worker, cpu_t *cpu)
 {
-	// CPU may be NULL
-	int ret;
+	assert(worker);
+	assert(worker->tid != 0);
+	assert(worker != current_worker);
+
 	worker->new_cpu = cpu;
 
-	if (cpu && worker->pid == logical_pid) {
-		// Remotely set thread affinity before waking up, to prevent disturbing another CPU
-		instr_affinity_remote(cpu->logic_id, worker->tid);
-		ret = pthread_setaffinity_np(worker->kthread, sizeof(cpu->cpuset), &cpu->cpuset);
-		if (ret)
-			nosv_abort("Cannot change local thread affinity");
-	} else if (cpu && worker->pid != logical_pid) {
-		cpu_set_pid(cpu, worker->pid);
-		assert(worker->tid != 0);
-		assert(worker->tid != current_worker->tid);
-		ret = sched_setaffinity(worker->tid, sizeof(cpu->cpuset), &cpu->cpuset);
-		if (ret)
-			nosv_abort("Cannot change remote thread affinity");
+	// CPU may be NULL
+	if (cpu) {
+		// if we are waking up a thread of a different process, keep
+		// track of the new running process in the cpumanager
+		if (worker->logic_pid != logical_pid)
+			cpu_set_pid(cpu, worker->logic_pid);
+
+		// if the worker was not previously bound to the core where it
+		// is going to wake up now, bind it remotely now
+		if (worker->cpu != cpu) {
+			instr_affinity_remote(cpu->logic_id, worker->tid);
+			if (unlikely(sched_setaffinity(worker->tid, sizeof(cpu->cpuset), &cpu->cpuset)))
+				nosv_abort("Cannot change thread affinity");
+		}
 	}
 	// Now wake up the thread
 	nosv_condvar_signal(&worker->condvar);
@@ -404,7 +407,7 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 	nosv_worker_t *worker = (nosv_worker_t *)salloc(sizeof(nosv_worker_t), cpu_get_current());
 	worker->cpu = cpu;
 	worker->task = task;
-	worker->pid = logical_pid;
+	worker->logic_pid = logical_pid;
 	worker->immediate_successor = NULL;
 	worker->creator_tid = gettid();
 	nosv_condvar_init(&worker->condvar);
@@ -437,7 +440,7 @@ nosv_worker_t *worker_create_external(void)
 	worker->task = NULL;
 	worker->kthread = pthread_self();
 	worker->tid = gettid();
-	worker->pid = logical_pid;
+	worker->logic_pid = logical_pid;
 	nosv_condvar_init(&worker->condvar);
 	current_worker = worker;
 	worker->immediate_successor = NULL;

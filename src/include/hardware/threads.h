@@ -58,8 +58,8 @@ typedef struct nosv_worker {
 	pid_t tid;
 	// Linux Thread ID of the creator thread (-1 if unknown)
 	pid_t creator_tid;
-	// Process ID parent of this thread
-	int pid;
+	// Logic process ID of this thread
+	int logic_pid;
 	// Original CPU Set (used for external workers)
 	cpu_set_t original_affinity;
 } nosv_worker_t;
