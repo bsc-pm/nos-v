@@ -69,14 +69,22 @@ static inline void delegate_thread_create(thread_manager_t *threadmanager)
 static inline void worker_wake_internal(nosv_worker_t *worker, cpu_t *cpu)
 {
 	// CPU may be NULL
+	int ret;
 	worker->new_cpu = cpu;
 
 	if (cpu && worker->pid == logical_pid) {
 		// Remotely set thread affinity before waking up, to prevent disturbing another CPU
 		instr_affinity_remote(cpu->logic_id, worker->tid);
-		pthread_setaffinity_np(worker->kthread, sizeof(cpu->cpuset), &cpu->cpuset);
+		ret = pthread_setaffinity_np(worker->kthread, sizeof(cpu->cpuset), &cpu->cpuset);
+		if (ret)
+			nosv_abort("Cannot change local thread affinity");
 	} else if (cpu && worker->pid != logical_pid) {
 		cpu_set_pid(cpu, worker->pid);
+		assert(worker->tid != 0);
+		assert(worker->tid != current_worker->tid);
+		ret = sched_setaffinity(worker->tid, sizeof(cpu->cpuset), &cpu->cpuset);
+		if (ret)
+			nosv_abort("Cannot change remote thread affinity");
 	}
 	// Now wake up the thread
 	nosv_condvar_signal(&worker->condvar);
@@ -332,13 +340,10 @@ void worker_block(void)
 	// Blocking operation
 	nosv_condvar_wait(&current_worker->condvar);
 
-	// Inform the instrumentation that the current thread has been signaled
-	// to awake, but is not yet running, as it may need to switch its own
-	// CPU. Prevents two threads in running state at the same time in a
-	// single CPU.
-	instr_thread_warm();
+	// We are back. At this point we have already been migrated to the right
+	// core by the worker that has woken us up.
 
-	// We are back. Update CPU in case of migration
+	// Update CPU in case of migration
 	// We use a different variable to detect cpu changes and prevent races
 	cpu_t *oldcpu = current_worker->cpu;
 	current_worker->cpu = current_worker->new_cpu;
@@ -348,8 +353,6 @@ void worker_block(void)
 		cpu_set_current(-1);
 	} else if (cpu != oldcpu) {
 		cpu_set_current(cpu->logic_id);
-		sched_setaffinity(current_worker->tid, sizeof(cpu->cpuset), &cpu->cpuset);
-		instr_affinity_set(cpu->logic_id);
 	}
 
 	instr_thread_resume();
