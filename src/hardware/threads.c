@@ -20,7 +20,9 @@
 #include "system/tasks.h"
 #include "instr.h"
 
-#define gettid() syscall(SYS_gettid)
+#ifndef gettid
+# define gettid() ((pid_t)syscall(SYS_gettid))
+#endif
 
 __internal thread_local nosv_worker_t *current_worker = NULL;
 __internal thread_manager_t *current_process_manager = NULL;

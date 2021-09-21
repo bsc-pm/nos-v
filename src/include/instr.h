@@ -1,11 +1,19 @@
 #ifndef INSTR_H
 #define INSTR_H
 
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE
+#endif
+
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/syscall.h>
+
+#ifndef gettid
+# include <sys/syscall.h>
+# define gettid() ((pid_t)syscall(SYS_gettid))
+#endif
 
 #ifdef ENABLE_INSTRUMENTATION
 #include <ovni.h>
@@ -17,69 +25,56 @@
 #include "api/nosv.h"
 
 #ifdef ENABLE_INSTRUMENTATION
-# define INSTR_BEGIN ovni_clock_update(); do {
-# define INSTR_END } while (0);
-#endif
-
-#ifdef ENABLE_INSTRUMENTATION
-#define INSTR_0ARG(name, mcv) \
+# define INSTR_0ARG(name, mcv) \
 	static inline void name(){ \
-		INSTR_BEGIN \
+		ovni_clock_update(); \
 		struct ovni_ev ev = {0}; \
 		ovni_ev_set_mcv(&ev, mcv); \
 		ovni_ev(&ev); \
-		INSTR_END \
 	}
 
-#define INSTR_1ARG(name, mcv, ta, a) \
+# define INSTR_1ARG(name, mcv, ta, a) \
 	static inline void name(ta a){ \
-		INSTR_BEGIN \
+		ovni_clock_update(); \
 		struct ovni_ev ev = {0}; \
 		ovni_ev_set_mcv(&ev, mcv); \
 		ovni_payload_add(&ev, (uint8_t *) &a, sizeof(a)); \
 		ovni_ev(&ev); \
-		INSTR_END \
 	}
 
-#define INSTR_2ARG(name, mcv, ta, a, tb, b) \
+# define INSTR_2ARG(name, mcv, ta, a, tb, b) \
 	static inline void name(ta a, tb b){ \
-		INSTR_BEGIN \
+		ovni_clock_update(); \
 		struct ovni_ev ev = {0}; \
 		ovni_ev_set_mcv(&ev, mcv); \
 		ovni_payload_add(&ev, (uint8_t *) &a, sizeof(a)); \
 		ovni_payload_add(&ev, (uint8_t *) &b, sizeof(b)); \
 		ovni_ev(&ev); \
-		INSTR_END \
 	}
 
-#define INSTR_3ARG(name, mcv, ta, a, tb, b, tc, c) \
+# define INSTR_3ARG(name, mcv, ta, a, tb, b, tc, c) \
 	static inline void name(ta a, tb b, tc c){ \
-		INSTR_BEGIN \
+		ovni_clock_update(); \
 		struct ovni_ev ev = {0}; \
 		ovni_ev_set_mcv(&ev, mcv); \
 		ovni_payload_add(&ev, (uint8_t *) &a, sizeof(a)); \
 		ovni_payload_add(&ev, (uint8_t *) &b, sizeof(b)); \
 		ovni_payload_add(&ev, (uint8_t *) &c, sizeof(c)); \
 		ovni_ev(&ev); \
-		INSTR_END \
 	}
-#else
-#define INSTR_0ARG(name, mcv) \
-	static inline void name(){ \
-	}
+#else /* ENABLE_INSTRUMENTATION */
+# define INSTR_0ARG(name, mcv) \
+	static inline void name() { }
 
-#define INSTR_1ARG(name, mcv, ta, a) \
-	static inline void name(ta a){ \
-	}
+# define INSTR_1ARG(name, mcv, ta, a) \
+	static inline void name(ta a) { }
 
-#define INSTR_2ARG(name, mcv, ta, a, tb, b) \
-	static inline void name(ta a, tb b){ \
-	}
+# define INSTR_2ARG(name, mcv, ta, a, tb, b) \
+	static inline void name(ta a, tb b) { }
 
-#define INSTR_3ARG(name, mcv, ta, a, tb, b, tc, c) \
-	static inline void name(ta a, tb b, tc c){ \
-	}
-#endif
+# define INSTR_3ARG(name, mcv, ta, a, tb, b, tc, c) \
+	static inline void name(ta a, tb b, tc c) { }
+#endif /* ENABLE_INSTRUMENTATION */
 
 /* nOS-V events */
 
@@ -102,7 +97,7 @@ INSTR_1ARG(instr_task_end,              "VTe", int32_t, task_id)
 static inline void instr_type_create(int typeid, const char *label)
 {
 #ifdef ENABLE_INSTRUMENTATION
-	INSTR_BEGIN
+	ovni_clock_update();
 
 #define JUMBO_BUFSIZE 1024
 
@@ -124,8 +119,7 @@ static inline void instr_type_create(int typeid, const char *label)
 
 #undef JUMBO_BUFSIZE
 
-	INSTR_END
-#endif
+#endif /* ENABLE_INSTRUMENTATION */
 }
 
 /* ovni events */
@@ -142,7 +136,7 @@ static inline void instr_cpu_id(int index, int phyid)
 {
 #ifdef ENABLE_INSTRUMENTATION
 	ovni_add_cpu(index, phyid);
-#endif
+#endif /* ENABLE_INSTRUMENTATION */
 }
 
 
@@ -154,7 +148,7 @@ INSTR_0ARG(instr_thread_resume,         "OHr")
 static inline void instr_thread_end()
 {
 #ifdef ENABLE_INSTRUMENTATION
-	INSTR_BEGIN
+	ovni_clock_update();
 	struct ovni_ev ev = {0};
 
 	ovni_ev_set_mcv(&ev, "OHe");
@@ -162,14 +156,15 @@ static inline void instr_thread_end()
 
 	/* Flush the events to disk before killing the thread */
 	ovni_flush();
-	INSTR_END
-#endif
+#endif /* ENABLE_INSTRUMENTATION */
 }
 
 static inline void
 instr_proc_init()
 {
 #ifdef ENABLE_INSTRUMENTATION
+	ovni_clock_update();
+
 	char hostname[HOST_NAME_MAX];
 	char *appid;
 
@@ -186,7 +181,7 @@ instr_proc_init()
 	}
 
 	ovni_proc_init(atoi(appid), hostname, getpid());
-#endif
+#endif /* ENABLE_INSTRUMENTATION */
 }
 
 static inline void
@@ -194,7 +189,7 @@ instr_proc_fini()
 {
 #ifdef ENABLE_INSTRUMENTATION
 	ovni_proc_fini();
-#endif
+#endif /* ENABLE_INSTRUMENTATION */
 }
 
 static inline void
@@ -205,15 +200,15 @@ instr_gen_bursts()
 
 	for(i=0; i<100; i++)
 		instr_burst();
-#endif
+#endif /* ENABLE_INSTRUMENTATION */
 }
 
 static inline void
 instr_thread_init()
 {
 #ifdef ENABLE_INSTRUMENTATION
-	ovni_thread_init(syscall(SYS_gettid));
-#endif
+	ovni_thread_init(gettid());
+#endif /* ENABLE_INSTRUMENTATION */
 }
 
-#endif
+#endif /* INSTR_H */
