@@ -32,3 +32,4 @@ stamp-h1
 **cscope.out
 .vscode/*
 nos-v.pc
+tests/driver

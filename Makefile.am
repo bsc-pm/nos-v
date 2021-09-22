@@ -5,6 +5,7 @@
 ACLOCAL_AMFLAGS = -I m4
 
 AM_CPPFLAGS = -I$(srcdir)/src/include -I$(srcdir)/api
+SUBDIRS = . tests
 
 # See info page of libtool "Updating version info"
 # https://www.gnu.org/software/libtool/manual/html_node/Updating-version-info.html
@@ -40,6 +41,37 @@ libnosv_la_SOURCES = \
 
 include_HEADERS = \
     api/nosv.h
+
+noinst_HEADERS = \
+	src/include/climits.h \
+	src/include/common.h \
+	src/include/compiler.h \
+	src/include/nosv-internal.h \
+	src/include/generic/arch.h \
+	src/include/generic/bitset.h \
+	src/include/generic/clock.h \
+	src/include/generic/condvar.h \
+	src/include/generic/heap.h \
+	src/include/generic/list.h \
+	src/include/generic/mutex.h \
+	src/include/generic/ringbuffer.h \
+	src/include/generic/signalmutex.h \
+	src/include/generic/spinlock.h \
+	src/include/hardware/cpus.h \
+	src/include/hardware/eventqueue.h \
+	src/include/hardware/locality.h \
+	src/include/hardware/pids.h \
+	src/include/hardware/threads.h \
+	src/include/memory/backbone.h \
+	src/include/memory/sharedmemory.h \
+	src/include/memory/slab.h \
+	src/include/scheduler/dtlock.h \
+	src/include/scheduler/scheduler.h \
+	src/include/scheduler/spsc.h \
+	src/include/system/config.h \
+	src/include/system/tasks.h \
+	tests/common/tap.h \
+	tests/include/test.h
 
 subincludedir = $(includedir)/nosv
 subinclude_HEADERS = \

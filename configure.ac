@@ -72,7 +72,7 @@ AC_CHECK_HEADER_STDBOOL
 AC_TYPE_SIZE_T
 AC_C_RESTRICT
 
-AC_CONFIG_FILES([Makefile nos-v.pc])
+AC_CONFIG_FILES([Makefile nos-v.pc tests/Makefile])
 AC_OUTPUT
 
 _AS_ECHO([])
