@@ -81,6 +81,11 @@
 INSTR_0ARG(instr_sched_recv,            "VSr")
 INSTR_0ARG(instr_sched_send,            "VSs")
 INSTR_0ARG(instr_sched_self_assign,     "VS@")
+INSTR_0ARG(instr_sched_hungry,          "VSh")
+INSTR_0ARG(instr_sched_fill,            "VSf")
+INSTR_0ARG(instr_sched_server_enter,    "VS[")
+INSTR_0ARG(instr_sched_server_exit,     "VS]")
+
 INSTR_0ARG(instr_sched_submit_enter,    "VU[")
 INSTR_0ARG(instr_sched_submit_exit,     "VU]")
 

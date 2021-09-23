@@ -539,6 +539,8 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
 		return task;
 	}
 
+	instr_sched_server_enter();
+
 	// Lock acquired
 	task = NULL;
 
@@ -559,6 +561,7 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
 
 			if(task)
 				instr_sched_send(task);
+
 			served++;
 			if (!task)
 				break;
@@ -572,6 +575,8 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
 
 	if(task)
 		instr_sched_self_assign(task);
+
+	instr_sched_server_exit();
 
 	return task;
 }

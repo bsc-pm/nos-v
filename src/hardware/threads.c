@@ -203,6 +203,10 @@ static inline void *worker_start_routine(void *arg)
 	instr_thread_init();
 	instr_thread_execute(current_worker->cpu->logic_id, current_worker->creator_tid, arg);
 
+	// At the initialization, we signal the instrumentation to state
+	// that we are looking for work.
+	instr_sched_hungry();
+
 	while (!atomic_load_explicit(&threads_shutdown_signal, memory_order_relaxed)) {
 		nosv_task_t task = current_worker->task;
 
@@ -214,9 +218,30 @@ static inline void *worker_start_routine(void *arg)
 		if (!task && current_worker->cpu)
 			task = scheduler_get(cpu_get_current(), SCHED_GET_DEFAULT);
 
-		if (task)
+		if (task) {
+			// We can only reach this point in two cases:
+			// 1) When this thread requests a task as
+			// client, and is assigned one by another
+			// scheduler server thread.
+			// 2) When this thread is the scheduler server
+			// and exits the scheduler serving loop because
+			// it has a task assigned.
+			//
+			// Therefore, we are now filled with work.
+			instr_sched_fill();
+
 			worker_execute_or_delegate(task, current_worker->cpu, /* idle thread */ 0);
+
+			// As soon as the task is handled, we are now
+			// looking for more work, so we call here
+			// instr_sched_hungry only once, so avoid filling
+			// the tracing buffer with sched enter events.
+			instr_sched_hungry();
+		}
 	}
+
+	// After the main loop we are no longer hungry (for tasks)
+	instr_sched_fill();
 
 	assert(!worker_get_immediate());
 
