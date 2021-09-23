@@ -9,6 +9,7 @@
 #include <stdio.h>
 
 #include "climits.h"
+#include "common.h"
 #include "compiler.h"
 #include "nosv-internal.h"
 #include "generic/clock.h"
@@ -49,6 +50,17 @@ void scheduler_init(int initialize)
 	for (int i = 0; i < cpu_count; ++i) {
 		scheduler->timestamps[i].pid = -1;
 		scheduler->timestamps[i].ts_ns = 0;
+	}
+
+	scheduler->quantum_ns = DEFAULT_QUANTUM_NS;
+
+	const char *quantum = getenv("NOSV_QUANTUM_US");
+	if (quantum != NULL) {
+		scheduler->quantum_ns = strtoull(quantum, NULL, 10) * 1000ULL;
+		if (!scheduler->quantum_ns) {
+			nosv_warn("Quantum must be an integer greater than zero. Using default...");
+			scheduler->quantum_ns = DEFAULT_QUANTUM_NS;
+		}
 	}
 }
 
@@ -144,7 +156,7 @@ static inline int scheduler_should_yield(int pid, int cpu, uint64_t *timestamp)
 		return 0;
 	}
 
-	if ((*timestamp - scheduler->timestamps[cpu].ts_ns) > QUANTUM_NS)
+	if ((*timestamp - scheduler->timestamps[cpu].ts_ns) > scheduler->quantum_ns)
 		return 1;
 
 	return 0;
