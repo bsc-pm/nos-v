@@ -23,6 +23,13 @@ static inline void test_init(test_t *test, int ntests)
 	test->expected = ntests;
 }
 
+#define TEST_OPTION_PARALLEL 0
+
+static inline void test_option(test_t *test, int option, int value)
+{
+	printf("op%d %d\n", option, value);
+}
+
 static inline void test_ok(test_t *test, const char *fmt, ...)
 {
 	va_list args;
