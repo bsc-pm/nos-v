@@ -307,6 +307,7 @@ nosv_worker_t *worker_create_external()
 	nosv_condvar_init(&worker->condvar);
 	current_worker = worker;
 	worker->immediate_successor = NULL;
+	sched_getaffinity(0, sizeof(worker->original_affinity), &worker->original_affinity);
 
 	return worker;
 }

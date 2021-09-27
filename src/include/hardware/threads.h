@@ -54,6 +54,8 @@ typedef struct nosv_worker {
 	pid_t tid;
 	// Process ID parent of this thread
 	int pid;
+	// Original CPU Set (used for external workers)
+	cpu_set_t original_affinity;
 } nosv_worker_t;
 
 __internal void threadmanager_init(thread_manager_t *threadmanager);

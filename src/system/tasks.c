@@ -465,6 +465,11 @@ int nosv_detach(
 	cpu_t *cpu = worker->cpu;
 	assert(cpu);
 
+	// Restore the worker's affinity to its original value
+	// Optionally deactivated with the NOSV_DETACH_NO_RESTORE_AFFINITY flag
+	if (!(flags & NOSV_DETACH_NO_RESTORE_AFFINITY))
+		sched_setaffinity(0, sizeof(worker->original_affinity), &worker->original_affinity);
+
 	// Now free the worker
 	// We have to free before waking up another worker on the current CPU
 	// Otherwise the sfree inside worker_free_external does not have exclusive access to the cpu buckets
