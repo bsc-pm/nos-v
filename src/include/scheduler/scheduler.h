@@ -17,7 +17,7 @@
 #include "scheduler/spsc.h"
 
 #define IN_QUEUE_SIZE 256
-#define QUANTUM_NS (20ULL * 1000ULL * 1000ULL)
+#define DEFAULT_QUANTUM_NS (20ULL * 1000ULL * 1000ULL)
 
 typedef struct scheduler_queue {
 	list_head_t tasks;
@@ -51,6 +51,7 @@ typedef struct scheduler {
 	list_head_t queues; // One scheduler_queue per process
 	process_scheduler_t *queues_direct[MAX_PIDS]; // Support both lists and random-access
 	timestamp_t *timestamps;
+	uint64_t quantum_ns;
 } scheduler_t;
 
 __internal void scheduler_init(int initialize);
