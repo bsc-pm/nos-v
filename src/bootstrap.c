@@ -6,6 +6,7 @@
 
 #include <stdio.h>
 
+#include "common.h"
 #include "compiler.h"
 #include "nosv.h"
 #include "hardware/locality.h"
@@ -49,6 +50,6 @@ void __constructor __nosv_construct_library(void)
 void __destructor __nosv_destruct_library(void)
 {
 	if (library_initialized == 1) {
-		fprintf(stderr, "Warning: nosv_shutdown() was not called to correctly shutdown the library.");
+		nosv_warn("nosv_shutdown() was not called to correctly shutdown the library.");
 	}
 }

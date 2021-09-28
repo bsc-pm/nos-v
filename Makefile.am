@@ -54,6 +54,7 @@ noinst_HEADERS = \
 	src/include/generic/heap.h \
 	src/include/generic/list.h \
 	src/include/generic/mutex.h \
+	src/include/generic/proc.h \
 	src/include/generic/ringbuffer.h \
 	src/include/generic/signalmutex.h \
 	src/include/generic/spinlock.h \

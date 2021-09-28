@@ -18,8 +18,11 @@
 #include "tap.h"
 
 #define PARALLEL_TESTS 8
-
 #define MAX_BUFF_SIZE 2048
+
+#define __unused __attribute__((unused))
+
+#define OPTION_PARALLEL 0
 
 enum test_status {
 	PASS = 0,
@@ -45,6 +48,11 @@ struct test_harness {
 struct harness_args {
 	const char *program;
 	struct test_harness *result;
+	struct test_options *options;
+};
+
+struct test_options {
+	int parallel;
 };
 
 struct harness_args args_threads[PARALLEL_TESTS];
@@ -55,7 +63,7 @@ void usage(const char *program)
 	exit(1);
 }
 
-void free_harness(struct test_harness *result)
+static inline void free_harness(struct test_harness *result)
 {
 	for (int i = 0; i < result->ntests; ++i) {
 		if (result->outcomes[i].description)
@@ -65,6 +73,11 @@ void free_harness(struct test_harness *result)
 	}
 
 	free(result->outcomes);
+}
+
+static inline void initialize_options(struct test_options *options)
+{
+	options->parallel = 1;
 }
 
 static inline void tap_emit_outcome(tap_t *tap, struct test_outcome *outcome)
@@ -94,7 +107,7 @@ static inline void tap_emit_outcome(tap_t *tap, struct test_outcome *outcome)
 	}
 }
 
-void handle_plan(const char *line, struct test_harness *result, __attribute__((unused)) enum test_status type)
+void handle_plan(const char *line, struct test_harness *result, __unused enum test_status type, __unused struct test_options *options)
 {
 	assert(result->ntests == 0);
 	sscanf(line, "pl%d\n", &result->ntests);
@@ -104,7 +117,7 @@ void handle_plan(const char *line, struct test_harness *result, __attribute__((u
 	result->outcomes = malloc(sizeof(struct test_outcome) * result->ntests);
 }
 
-void handle_single(const char *line, struct test_harness *result, enum test_status type)
+void handle_single(const char *line, struct test_harness *result, enum test_status type, __unused struct test_options *options)
 {
 	assert(result->ntests > 0);
 	// Copy anything other than the first two characters
@@ -115,7 +128,7 @@ void handle_single(const char *line, struct test_harness *result, enum test_stat
 	outcome->description = strdup(line + 2);
 }
 
-void handle_multi(const char *line, struct test_harness *result, enum test_status type)
+void handle_multi(const char *line, struct test_harness *result, enum test_status type, __unused struct test_options *options)
 {
 	assert(result->ntests > 0);
 	struct test_outcome *outcome = &result->outcomes[result->curr++];
@@ -129,15 +142,30 @@ void handle_multi(const char *line, struct test_harness *result, enum test_statu
 	outcome->reason = strdup(sep + 4);
 }
 
-#define NUM_HANDLERS 6
+void handle_option(const char *line, __unused struct test_harness *result, __unused enum test_status type, struct test_options *options)
+{
+	int option, value;
+	sscanf(line, "op%d %d\n", &option, &value);
 
-void (*handlers[NUM_HANDLERS])(const char *, struct test_harness *, enum test_status) = {
+	switch(option) {
+		case OPTION_PARALLEL:
+			options->parallel = value;
+			break;
+		default:
+			assert(0);
+	}
+}
+
+#define NUM_HANDLERS 7
+
+void (*handlers[NUM_HANDLERS])(const char *, struct test_harness *, enum test_status, struct test_options *) = {
 	handle_single, /* PASS  */
 	handle_multi,  /* XFAIL */
 	handle_multi,  /* SKIP  */
 	handle_single, /* FAIL  */
 	handle_single, /* ERROR */
-	handle_plan	   /* PLAN  */
+	handle_plan,   /* PLAN  */
+	handle_option  /* OPTION */
 };
 
 // Ensure this follows the same order as enum test_status!
@@ -147,9 +175,10 @@ const char *str_types[NUM_HANDLERS] = {
 	"sk",
 	"fa",
 	"bo",
-	"pl"};
+	"pl",
+	"op"};
 
-void process_harness_line(const char *line, struct test_harness *result)
+void process_harness_line(const char *line, struct test_harness *result, struct test_options *options)
 {
 	size_t length = strnlen(line, MAX_BUFF_SIZE);
 	if (length < 2)
@@ -157,7 +186,7 @@ void process_harness_line(const char *line, struct test_harness *result)
 
 	for (int i = 0; i < NUM_HANDLERS; ++i) {
 		if (strncmp(str_types[i], line, 2) == 0) {
-			handlers[i](line, result, (enum test_status)i);
+			handlers[i](line, result, (enum test_status)i, options);
 			break;
 		}
 	}
@@ -176,7 +205,7 @@ static inline void *__entry_execute_tests(void *arg)
 	}
 
 	while (fgets(buffer, MAX_BUFF_SIZE, fp) != NULL) {
-		process_harness_line(buffer, args->result);
+		process_harness_line(buffer, args->result, args->options);
 	}
 
 	args->result->retval = pclose(fp);
@@ -184,7 +213,7 @@ static inline void *__entry_execute_tests(void *arg)
 	return NULL;
 }
 
-void execute_tests(tap_t *tap, const char *program, int n)
+void execute_tests(tap_t *tap, const char *program, int n, struct test_options *options)
 {
 	assert(n > 0);
 	struct test_harness result[PARALLEL_TESTS];
@@ -196,6 +225,7 @@ void execute_tests(tap_t *tap, const char *program, int n)
 	for (int i = 0; i < n; ++i) {
 		result[i].ntests = 0;
 		args_threads[i].program = program;
+		args_threads[i].options = options;
 		args_threads[i].result = &result[i];
 		pthread_create(&threads[i], NULL, __entry_execute_tests, &args_threads[i]);
 	}
@@ -246,11 +276,16 @@ int main(int argc, char *argv[])
 	tap_t tap;
 	tap_init(&tap);
 
-	// First, execute 1 test and emit its results
-	execute_tests(&tap, argv[1], 1);
+	struct test_options options;
+	initialize_options(&options);
 
-	// Then do so for parallel testing
-	execute_tests(&tap, argv[1], PARALLEL_TESTS);
+	// First, execute 1 test and emit its results
+	execute_tests(&tap, argv[1], 1, &options);
+
+	if (options.parallel) {
+		// Then do so for parallel testing
+		execute_tests(&tap, argv[1], PARALLEL_TESTS, &options);
+	}
 
 	// Check if shared memory exists after the test
 	struct stat buf;
