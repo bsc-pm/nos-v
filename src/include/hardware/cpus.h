@@ -20,7 +20,7 @@ typedef struct cpu {
 } cpu_t;
 
 typedef struct cpumanager {
-	int cpu_cnt; // Number of CPUs in the system
+	int cpu_cnt; // Number of available CPUs in the system
 	int *pids_cpus; // Map from "Logical" PIDs to CPUs
 	int *system_to_logical; // Map from system CPU ids to logical cpu ids
 	cpu_t cpus[]; // Flexible array

@@ -169,6 +169,19 @@ int nosv_attach(
 int nosv_detach(
 	nosv_flags_t flags);
 
+/* CPU Information API */
+/* Get number of CPUs leveraged by the nOS-V runtime */
+int nosv_get_num_cpus(void);
+
+/* Get the logical identifier of the CPU where the current task is running */
+/* The range of logical identifiers is [0, number of cpus) */
+/* Restriction: Can only be called from a task context */
+int nosv_get_current_logical_cpu(void);
+
+/* Get the system identifier of the CPU where the current task is running */
+/* Restriction: Can only be called from a task context */
+int nosv_get_current_system_cpu(void);
+
 #ifdef __cplusplus
 }
 #endif
