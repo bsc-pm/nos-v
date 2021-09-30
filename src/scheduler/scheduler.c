@@ -75,6 +75,7 @@ static inline process_scheduler_t *scheduler_init_pid(int pid)
 
 	process_scheduler_t *sched = salloc(sizeof(process_scheduler_t), cpu_get_current());
 	sched->preferred_affinity_tasks = 0;
+	sched->tasks = 0;
 
 	int cpus = cpus_count();
 	sched->per_cpu_queue_preferred = salloc(sizeof(scheduler_queue_t) * cpus, cpu_get_current());
