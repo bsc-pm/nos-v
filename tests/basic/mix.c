@@ -6,6 +6,7 @@
 #include <stdatomic.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <sys/syscall.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -13,6 +14,14 @@
 #include <nosv/affinity.h>
 
 #include "test.h"
+
+// getcpu is only included in GLIBC since 2.29
+#if !__GLIBC_PREREQ(2, 29)
+static inline int getcpu(unsigned int *cpu, unsigned int *node)
+{
+	return syscall(SYS_getcpu, cpu, node);
+}
+#endif
 
 atomic_int tasks_run;
 nosv_task_t task_attach;
