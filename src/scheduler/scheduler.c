@@ -74,6 +74,7 @@ static inline process_scheduler_t *scheduler_init_pid(int pid)
 	assert(!scheduler->queues_direct[pid]);
 
 	process_scheduler_t *sched = salloc(sizeof(process_scheduler_t), cpu_get_current());
+	sched->preferred_affinity_tasks = 0;
 
 	int cpus = cpus_count();
 	sched->per_cpu_queue_preferred = salloc(sizeof(scheduler_queue_t) * cpus, cpu_get_current());
@@ -257,6 +258,8 @@ static inline void scheduler_insert_affine(process_scheduler_t *sched, nosv_task
 	}
 
 	assert(queue != NULL);
+	if (task->affinity.type == PREFERRED)
+		sched->preferred_affinity_tasks++;
 	list_add_tail(&queue->tasks, &task->list_hook);
 }
 
@@ -344,14 +347,16 @@ static inline nosv_task_t scheduler_find_task_process(process_scheduler_t *sched
 	if (scheduler_find_task_queue(&sched->per_cpu_queue_strict[cpuid], &task))
 		goto task_obtained;
 
-	if (scheduler_find_task_queue(&sched->per_cpu_queue_preferred[cpuid], &task))
-		goto task_obtained;
+	if (scheduler_find_task_queue(&sched->per_cpu_queue_preferred[cpuid], &task)) {
+		goto task_obtained_preferred;
+	}
 
 	if (scheduler_find_task_queue(&sched->per_numa_queue_strict[cpu->numa_node], &task))
 		goto task_obtained;
 
-	if (scheduler_find_task_queue(&sched->per_numa_queue_preferred[cpu->numa_node], &task))
-		goto task_obtained;
+	if (scheduler_find_task_queue(&sched->per_numa_queue_preferred[cpu->numa_node], &task)) {
+		goto task_obtained_preferred;
+	}
 
 	while (scheduler_find_task_queue(&sched->queue, &task)) {
 		// Check the task is affine with the current cpu
@@ -362,23 +367,27 @@ static inline nosv_task_t scheduler_find_task_process(process_scheduler_t *sched
 		scheduler_insert_affine(sched, task);
 	}
 
-	int cpus = cpus_count();
-	int numas = locality_numa_count();
-	// We can try to steal from somewhere
-	// Note that we don't skip our own cpus, although we know nothing is there, just for simplicity
-	for (int i = 0; i < cpus; ++i) {
-		if (scheduler_find_task_queue(&sched->per_cpu_queue_preferred[i], &task))
-			goto task_obtained;
-	}
+	if (sched->preferred_affinity_tasks) {
+		int cpus = cpus_count();
+		int numas = locality_numa_count();
+		// We can try to steal from somewhere
+		// Note that we don't skip our own cpus, although we know nothing is there, just for simplicity
+		for (int i = 0; i < cpus; ++i) {
+			if (scheduler_find_task_queue(&sched->per_cpu_queue_preferred[i], &task))
+				goto task_obtained_preferred;
+		}
 
-	for (int i = 0; i < numas; ++i) {
-		if (scheduler_find_task_queue(&sched->per_numa_queue_preferred[i], &task))
-			goto task_obtained;
+		for (int i = 0; i < numas; ++i) {
+			if (scheduler_find_task_queue(&sched->per_numa_queue_preferred[i], &task))
+				goto task_obtained_preferred;
+		}
 	}
 
 	// If we get here, we didn't find any tasks, otherwise we would've gone to task_obtained
 	return NULL;
 
+task_obtained_preferred:
+	sched->preferred_affinity_tasks--;
 task_obtained:
 	sched->tasks--;
 	return task;
@@ -389,21 +398,23 @@ static inline nosv_task_t scheduler_find_task_yield_process(process_scheduler_t 
 	nosv_task_t task;
 
 	// Are there any yield tasks?
-	list_head_t *elem = list_front(&sched->yield_tasks.tasks);
-	if (!elem)
+	list_head_t *head = list_pop_head(&sched->yield_tasks.tasks);
+	if (!head)
 		return NULL;
 
 	assert(sched->tasks > 0);
 
 	do {
-		task = list_elem(elem, struct nosv_task, list_hook);
+		task = list_elem(head, struct nosv_task, list_hook);
+		task->yield = 0;
+
 		if (task_affine(task, cpu)) {
-			list_remove(&sched->yield_tasks.tasks, elem);
 			sched->tasks--;
-			task->yield = 0;
 			return task;
+		} else {
+			scheduler_insert_affine(sched, task);
 		}
-	} while ((elem = list_next(elem)));
+	} while ((head = list_pop_head(&sched->yield_tasks.tasks)));
 
 	return NULL;
 }
