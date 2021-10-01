@@ -26,6 +26,7 @@ typedef struct scheduler_queue {
 typedef struct process_scheduler {
 	int pid;
 	size_t tasks;
+	size_t preferred_affinity_tasks;
 	heap_head_t deadline_tasks;
 	deadline_t now;
 	scheduler_queue_t yield_tasks;
