@@ -181,6 +181,8 @@ int nosv_submit(
 		// Not compatible
 		if (unlikely(flags & NOSV_SUBMIT_IMMEDIATE))
 			return -EINVAL;
+		if (unlikely(flags & NOSV_SUBMIT_INLINE))
+			return -EINVAL;
 
 		task->wakeup = worker_current_task();
 	}
@@ -191,6 +193,10 @@ int nosv_submit(
 	if (flags & NOSV_SUBMIT_IMMEDIATE) {
 		// Must be from a worker
 		if (!worker_is_in_task())
+			return -EINVAL;
+
+		// Not compatible
+		if (unlikely(flags & NOSV_SUBMIT_INLINE))
 			return -EINVAL;
 
 		if (worker_get_immediate()) {
@@ -204,6 +210,25 @@ int nosv_submit(
 
 		count = atomic_fetch_sub_explicit(&task->blocking_count, 1, memory_order_relaxed) - 1;
 		assert(count == 0);
+	} else if (flags & NOSV_SUBMIT_INLINE) {
+		nosv_worker_t *worker = worker_current();
+		// We cannot execute tasks without a valid worker
+		if (unlikely(!worker))
+			return -EINVAL;
+
+		count = atomic_fetch_sub_explicit(&task->blocking_count, 1, memory_order_relaxed) - 1;
+		assert(count == 0);
+
+		nosv_task_t old_task = worker_current_task();
+		assert(old_task);
+
+		// Assign and execute the new task
+		task->worker = worker;
+		worker->task = task;
+		task_execute(task);
+
+		// Restore old task
+		worker->task = old_task;
 	} else {
 		count = atomic_fetch_sub_explicit(&task->blocking_count, 1, memory_order_relaxed) - 1;
 

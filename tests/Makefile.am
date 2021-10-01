@@ -9,7 +9,8 @@ AM_LDFLAGS = -L$(top_builddir)/.libs -rpath $(abs_top_builddir)/.libs $(top_buil
 
 a_tests = basic-init.test \
 	basic-mix.test \
-	basic-crash.test
+	basic-crash.test \
+	basic-inline.test
 
 check_PROGRAMS = driver $(a_tests)
 TESTS = $(a_tests)
@@ -25,6 +26,10 @@ basic_mix_test_LDFLAGS = $(AM_LDFLAGS)
 basic_crash_test_SOURCES = basic/crash.c
 basic_crash_test_CFLAGS = $(AM_CFLAGS)
 basic_crash_test_LDFLAGS = $(AM_LDFLAGS)
+
+basic_inline_test_SOURCES = basic/inline.c
+basic_inline_test_CFLAGS = $(AM_CFLAGS)
+basic_inline_test_LDFLAGS = $(AM_LDFLAGS)
 
 driver_SOURCES = common/driver.c
 driver_CFLAGS = -O3 -g -Wall -Wpedantic $(PTHREAD_CFLAGS)
