@@ -41,7 +41,9 @@ static inline void *delegate_routine(void *args)
 	creation_event_t event;
 
 	while (1) {
+		instr_thread_pause();
 		event_queue_pull(queue, &event);
+		instr_thread_resume();
 
 		if (event.type == Shutdown)
 			break;
