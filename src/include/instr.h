@@ -78,6 +78,9 @@
 
 /* nOS-V events */
 
+INSTR_0ARG(instr_code_enter,            "VC[")
+INSTR_0ARG(instr_code_exit,             "VC]")
+
 INSTR_0ARG(instr_sched_recv,            "VSr")
 INSTR_0ARG(instr_sched_send,            "VSs")
 INSTR_0ARG(instr_sched_self_assign,     "VS@")
@@ -91,6 +94,17 @@ INSTR_0ARG(instr_sched_submit_exit,     "VU]")
 
 INSTR_0ARG(instr_salloc_enter,          "VM[")
 INSTR_0ARG(instr_salloc_exit,           "VM]")
+
+INSTR_0ARG(instr_submit_enter,          "VAs")
+INSTR_0ARG(instr_submit_exit,           "VAS")
+INSTR_0ARG(instr_pause_enter,           "VAp")
+INSTR_0ARG(instr_pause_exit,            "VAP")
+INSTR_0ARG(instr_yield_enter,           "VAy")
+INSTR_0ARG(instr_yield_exit,            "VAY")
+INSTR_0ARG(instr_waitfor_enter,         "VAw")
+INSTR_0ARG(instr_waitfor_exit,          "VAW")
+INSTR_0ARG(instr_schedpoint_enter,      "VAc")
+INSTR_0ARG(instr_schedpoint_exit,       "VAC")
 
 INSTR_2ARG(instr_task_create,           "VTc", int32_t, task_id, int32_t, type_id)
 INSTR_1ARG(instr_task_execute,          "VTx", int32_t, task_id)

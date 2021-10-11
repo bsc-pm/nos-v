@@ -14,10 +14,11 @@
 #include "system/tasks.h"
 #include "instr.h"
 
+#include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/errno.h>
-#include <stdio.h>
 
 __internal atomic_uint32_t task_count = 0;
 __internal atomic_uint32_t task_type_count = 0;
@@ -188,32 +189,29 @@ int nosv_submit(
 	if (unlikely(!task))
 		return -EINVAL;
 
-	if (flags & NOSV_SUBMIT_BLOCKING) {
-		// For now we don't support blocking submits outside a task context
+	const bool is_blocking = (flags & NOSV_SUBMIT_BLOCKING);
+	const bool is_immediate = (flags & NOSV_SUBMIT_IMMEDIATE);
+	const bool is_inline = (flags & NOSV_SUBMIT_INLINE);
+
+	// These submit modes are mutually exclusive
+	if (unlikely(is_immediate + is_blocking + is_inline > 1))
+		return -EINVAL;
+
+	if (is_immediate || is_blocking || is_inline) {
+		// These submit modes cannot be used from outside a task context
 		if (!worker_is_in_task())
 			return -EINVAL;
-
-		// Not compatible
-		if (unlikely(flags & NOSV_SUBMIT_IMMEDIATE))
-			return -EINVAL;
-		if (unlikely(flags & NOSV_SUBMIT_INLINE))
-			return -EINVAL;
-
-		task->wakeup = worker_current_task();
 	}
+
+	instr_submit_enter();
+
+	if (is_blocking)
+		task->wakeup = worker_current_task();
 
 	uint32_t count;
 
 	// If we have an immediate successor we don't place the task into the scheduler
-	if (flags & NOSV_SUBMIT_IMMEDIATE) {
-		// Must be from a worker
-		if (!worker_is_in_task())
-			return -EINVAL;
-
-		// Not compatible
-		if (unlikely(flags & NOSV_SUBMIT_INLINE))
-			return -EINVAL;
-
+	if (is_immediate) {
 		if (worker_get_immediate()) {
 			// Setting a new immediate successor, but there was already one.
 			// Place the new one and send the old one to the scheduler
@@ -225,11 +223,9 @@ int nosv_submit(
 
 		count = atomic_fetch_sub_explicit(&task->blocking_count, 1, memory_order_relaxed) - 1;
 		assert(count == 0);
-	} else if (flags & NOSV_SUBMIT_INLINE) {
+	} else if (is_inline) {
 		nosv_worker_t *worker = worker_current();
-		// We cannot execute tasks without a valid worker
-		if (unlikely(!worker))
-			return -EINVAL;
+		assert(worker);
 
 		count = atomic_fetch_sub_explicit(&task->blocking_count, 1, memory_order_relaxed) - 1;
 		assert(count == 0);
@@ -251,8 +247,10 @@ int nosv_submit(
 			scheduler_submit(task);
 	}
 
-	if (flags & NOSV_SUBMIT_BLOCKING)
+	if (is_blocking)
 		nosv_pause(NOSV_PAUSE_NONE);
+
+	instr_submit_exit();
 
 	return 0;
 }
@@ -270,6 +268,7 @@ int nosv_pause(
 	assert(task);
 
 	instr_task_pause(task->taskid);
+	instr_pause_enter();
 
 	uint32_t count = atomic_fetch_add_explicit(&task->blocking_count, 1, memory_order_relaxed) + 1;
 
@@ -279,6 +278,7 @@ int nosv_pause(
 		worker_yield();
 	}
 
+	instr_pause_exit();
 	instr_task_resume(task->taskid);
 
 	return 0;
@@ -297,6 +297,7 @@ int nosv_waitfor(
 	assert(task);
 
 	instr_task_pause(task->taskid);
+	instr_waitfor_enter();
 
 	const uint64_t start_ns = clock_ns();
 	task->deadline = start_ns + target_ns;
@@ -313,6 +314,7 @@ int nosv_waitfor(
 	if (actual_ns)
 		*actual_ns = clock_ns() - start_ns;
 
+	instr_waitfor_exit();
 	instr_task_resume(task->taskid);
 
 	return 0;
@@ -330,12 +332,14 @@ int nosv_yield(
 	assert(task);
 
 	instr_task_pause(task->taskid);
+	instr_yield_enter();
 
 	task->yield = -1;
 	scheduler_submit(task);
 
 	worker_yield();
 
+	instr_yield_exit();
 	instr_task_resume(task->taskid);
 
 	return 0;
