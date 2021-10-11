@@ -160,16 +160,19 @@ static inline void worker_execute_or_delegate(nosv_task_t task, cpu_t *cpu, int 
 	if (task->worker != NULL) {
 		// Another thread was already running the task, so we have to resume
 		// the execution of the thread
+		instr_thread_cool();
 		worker_wake_internal(task->worker, cpu);
 	} else if (task->type->pid != logical_pid) {
 		// The task has not started yet but it is from a PID other than the
 		// current one. Then, wake up an idle thread from the the task's PID
+		instr_thread_cool();
 		cpu_transfer(task->type->pid, cpu, task);
 	} else if (is_busy_worker) {
 		// The task has not started and it is from the current PID, but the
 		// current worker is busy and cannot execute directly the task. Then
 		// delegate the work and wake up an idle thread from this PID to
 		// execute the task
+		instr_thread_cool();
 		worker_wake_idle(logical_pid, cpu, task);
 	} else {
 		// Otherwise, start running the task because the current thread is
@@ -278,6 +281,11 @@ void worker_yield(void)
 {
 	assert(current_worker);
 
+	// Inform the instrumentation that this thread is going to be paused
+	// *before* we wake another thread. The thread is put in the cooling
+	// state, to prevent two threads in the running state in the same CPU.
+	instr_thread_cool();
+
 	// Block this thread and place another one. This is called on nosv_pause
 	// First, wake up another worker in this cpu, one from the same PID
 	worker_wake_idle(logical_pid, current_worker->cpu, NULL);
@@ -318,7 +326,11 @@ void worker_block(void)
 	// Blocking operation
 	nosv_condvar_wait(&current_worker->condvar);
 
-	instr_thread_resume();
+	// Inform the instrumentation that the current thread has been signaled
+	// to awake, but is not yet running, as it may need to switch its own
+	// CPU. Prevents two threads in running state at the same time in a
+	// single CPU.
+	instr_thread_warm();
 
 	// We are back. Update CPU in case of migration
 	// We use a different variable to detect cpu changes and prevent races
@@ -334,6 +346,8 @@ void worker_block(void)
 		sched_setaffinity(current_worker->tid, sizeof(cpu->cpuset), &cpu->cpuset);
 		instr_affinity_set(cpu->logic_id);
 	}
+
+	instr_thread_resume();
 }
 
 static inline void worker_create_remote(thread_manager_t *threadmanager, cpu_t *cpu, nosv_task_t task)

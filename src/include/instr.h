@@ -145,10 +145,12 @@ static inline void instr_cpu_id(int index, int phyid)
 }
 
 
-INSTR_2ARG(instr_thread_create,         "OHc", int32_t, cpu, void *, arg)
+INSTR_2ARG(instr_thread_create,         "OHC", int32_t, cpu, void *, arg)
 INSTR_3ARG(instr_thread_execute,        "OHx", int32_t, cpu, int32_t, creator_tid, void *, arg)
 INSTR_0ARG(instr_thread_pause,          "OHp")
 INSTR_0ARG(instr_thread_resume,         "OHr")
+INSTR_0ARG(instr_thread_cool,           "OHc")
+INSTR_0ARG(instr_thread_warm,           "OHw")
 
 static inline void instr_thread_end()
 {
