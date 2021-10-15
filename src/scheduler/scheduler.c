@@ -123,8 +123,6 @@ static inline void scheduler_process_ready_tasks()
 	// Could creators overflow this?
 	// TODO maybe we want to limit how many tasks we pop
 	while (spsc_pop(scheduler->in_queue, (void **)&task)) {
-		scheduler->tasks++;
-
 		assert(task);
 		int pid = task->type->pid;
 		process_scheduler_t *pidqueue = scheduler->queues_direct[pid];
@@ -146,6 +144,7 @@ static inline void scheduler_process_ready_tasks()
 		}
 
 		pidqueue->tasks++;
+		scheduler->tasks++;
 	}
 }
 
