@@ -125,7 +125,8 @@ int nosv_pause(
 
 /* Deadline tasks */
 int nosv_waitfor(
-	uint64_t ns);
+	uint64_t target_ns,
+	uint64_t *actual_ns /* out */);
 
 /* Flags */
 #define NOSV_YIELD_NONE __ZEROBITS
