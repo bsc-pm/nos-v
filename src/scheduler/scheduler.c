@@ -75,6 +75,7 @@ static inline process_scheduler_t *scheduler_init_pid(int pid)
 
 	process_scheduler_t *sched = salloc(sizeof(process_scheduler_t), cpu_get_current());
 	sched->preferred_affinity_tasks = 0;
+	sched->tasks = 0;
 
 	int cpus = cpus_count();
 	sched->per_cpu_queue_preferred = salloc(sizeof(scheduler_queue_t) * cpus, cpu_get_current());
@@ -122,8 +123,6 @@ static inline void scheduler_process_ready_tasks()
 	// Could creators overflow this?
 	// TODO maybe we want to limit how many tasks we pop
 	while (spsc_pop(scheduler->in_queue, (void **)&task)) {
-		scheduler->tasks++;
-
 		assert(task);
 		int pid = task->type->pid;
 		process_scheduler_t *pidqueue = scheduler->queues_direct[pid];
@@ -145,6 +144,7 @@ static inline void scheduler_process_ready_tasks()
 		}
 
 		pidqueue->tasks++;
+		scheduler->tasks++;
 	}
 }
 

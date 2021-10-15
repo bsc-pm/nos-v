@@ -165,7 +165,9 @@ int nosv_attach(
 	nosv_flags_t flags);
 
 /* Flags */
-#define NOSV_DETACH_NONE __ZEROBITS
+#define NOSV_DETACH_NONE 				__ZEROBITS
+/* Do not restore the original affinity of the attached thread */
+#define NOSV_DETACH_NO_RESTORE_AFFINITY	__BIT(0)
 
 /* Called from attached thread */
 int nosv_detach(
