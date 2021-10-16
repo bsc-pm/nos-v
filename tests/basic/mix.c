@@ -32,7 +32,7 @@ _Thread_local unsigned int test = 0;
 
 void run_deadline(nosv_task_t task)
 {
-	nosv_waitfor(1000000ULL);
+	nosv_waitfor(1000000ULL, NULL);
 }
 
 void complete_deadline(nosv_task_t task)

@@ -265,7 +265,8 @@ int nosv_pause(
 
 /* Deadline tasks */
 int nosv_waitfor(
-	uint64_t ns)
+	uint64_t target_ns,
+	uint64_t *actual_ns /* out */)
 {
 	// We have to be inside a worker
 	if (!worker_is_in_task())
@@ -274,7 +275,8 @@ int nosv_waitfor(
 	nosv_task_t task = worker_current_task();
 	assert(task);
 
-	task->deadline = clock_ns() + ns;
+	const uint64_t start_ns = clock_ns();
+	task->deadline = start_ns + target_ns;
 
 	// Submit the task to re-schedule when the deadline is done
 	scheduler_submit(task);
@@ -284,6 +286,9 @@ int nosv_waitfor(
 
 	// Unblocked
 	task->deadline = 0;
+
+	if (actual_ns)
+		*actual_ns = clock_ns() - start_ns;
 
 	return 0;
 }
