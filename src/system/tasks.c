@@ -312,7 +312,7 @@ int nosv_yield(
 int nosv_scheduling_point(
 	nosv_flags_t flags)
 {
-	int pid, yield, cpu;
+	int pid, yield, cpuid;
 	uint64_t ts;
 
 	if (!worker_is_in_task())
@@ -321,24 +321,21 @@ int nosv_scheduling_point(
 	nosv_task_t task = worker_current_task();
 	assert(task);
 
-	cpu = cpu_get_current();
-	pid = cpu_get_pid(cpu);
+	cpuid = cpu_get_current();
+	pid = cpu_get_pid(cpuid);
 
-	yield = scheduler_should_yield(pid, cpu, &ts);
+	// Check if the current PID's quantum is exceeded
+	yield = scheduler_should_yield(pid, cpuid, &ts);
 
 	if (yield) {
-		// Resubmit the task to the scheduler and yield the CPU. Since the
-		// quantum of the current process has been exceeded in this CPU, the
-		// scheduler will give priority to other processes' tasks
-		scheduler_submit(task);
+		// Yield the CPU if there is available work in the scheduler
+		worker_yield_if_needed(task);
 
-		worker_yield();
-
-		cpu = cpu_get_current();
+		cpuid = cpu_get_current();
 
 		// Give a new quantum to the process because it may have returned
-		// to the same task directly if there were no other ready tasks
-		scheduler_reset_accounting(pid, cpu);
+		// to this same task directly if there are no other ready tasks
+		scheduler_reset_accounting(pid, cpuid);
 	}
 
 	return 0;

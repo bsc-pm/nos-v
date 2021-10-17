@@ -62,6 +62,7 @@ __internal void threadmanager_init(thread_manager_t *threadmanager);
 __internal void threadmanager_shutdown(thread_manager_t *threadmanager);
 
 __internal void worker_yield();
+__internal int worker_yield_if_needed(nosv_task_t current_task);
 __internal void worker_block();
 __internal void worker_idle();
 __internal nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, nosv_task_t task);

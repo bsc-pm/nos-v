@@ -19,6 +19,10 @@
 #define IN_QUEUE_SIZE 256
 #define DEFAULT_QUANTUM_NS (20ULL * 1000ULL * 1000ULL)
 
+// Flags for the scheduler_get function
+#define SCHED_GET_DEFAULT     __ZEROBITS
+#define SCHED_GET_NONBLOCKING __BIT(0)
+
 typedef struct scheduler_queue {
 	list_head_t tasks;
 } scheduler_queue_t;
@@ -60,6 +64,6 @@ __internal void scheduler_init(int initialize);
 __internal int scheduler_should_yield(int pid, int cpu, uint64_t *timestamp);
 __internal void scheduler_reset_accounting(int pid, int cpu);
 __internal void scheduler_submit(nosv_task_t task);
-__internal nosv_task_t scheduler_get(int cpu);
+__internal nosv_task_t scheduler_get(int cpu, nosv_flags_t flags);
 
 #endif // SCHEDULER_H

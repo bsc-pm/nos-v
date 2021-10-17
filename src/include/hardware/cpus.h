@@ -33,6 +33,7 @@ __internal cpu_t *cpu_pop_free();
 __internal int cpu_get_pid(int cpu);
 __internal void cpu_set_pid(cpu_t *cpu, int pid);
 __internal void cpu_transfer(int destination_pid, cpu_t *cpu, nosv_task_t task);
+__internal void cpu_transfer_nonblocking(int destination_pid, cpu_t *cpu, nosv_task_t task);
 __internal void cpu_mark_free(cpu_t *cpu);
 __internal int cpu_system_to_logical(int cpu);
 

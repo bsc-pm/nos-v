@@ -515,7 +515,7 @@ static inline nosv_task_t scheduler_get_internal(int cpu)
 	return NULL;
 }
 
-nosv_task_t scheduler_get(int cpu)
+nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
 {
 	assert(cpu >= 0);
 
@@ -527,6 +527,9 @@ nosv_task_t scheduler_get(int cpu)
 
 	// Lock acquired
 	nosv_task_t task = NULL;
+
+	// Whether the thread can block serving tasks
+	const int blocking = !(flags & SCHED_GET_NONBLOCKING);
 
 	do {
 		scheduler_process_ready_tasks();
@@ -547,7 +550,7 @@ nosv_task_t scheduler_get(int cpu)
 
 		// Work for myself
 		task = scheduler_get_internal(cpu);
-	} while (!task && !worker_should_shutdown());
+	} while (!task && blocking && !worker_should_shutdown());
 
 	dtlock_unlock(&scheduler->dtlock);
 

@@ -53,7 +53,7 @@ static inline void delegate_thread_create(thread_manager_t *threadmanager)
 		nosv_abort("Cannot create pthread");
 }
 
-static inline void worker_wakeup_internal(nosv_worker_t *worker, cpu_t *cpu)
+void worker_wakeup_internal(nosv_worker_t *worker, cpu_t *cpu)
 {
 	// CPU may be NULL
 	worker->new_cpu = cpu;
@@ -154,7 +154,7 @@ static inline void *worker_start_routine(void *arg)
 		}
 
 		if (!task && current_worker->cpu)
-			task = scheduler_get(cpu_get_current());
+			task = scheduler_get(cpu_get_current(), SCHED_GET_DEFAULT);
 
 		if (task) {
 			int task_pid = task->type->pid;
@@ -205,12 +205,46 @@ int worker_should_shutdown()
 void worker_yield()
 {
 	assert(current_worker);
+
 	// Block this thread and place another one. This is called on nosv_pause
 	// First, wake up another worker in this cpu, one from the same PID
 	worker_wake(logical_pid, current_worker->cpu, NULL);
 
 	// Then, sleep and return once we have been woken up
 	worker_block();
+}
+
+int worker_yield_if_needed(nosv_task_t current_task)
+{
+	assert(current_worker);
+	assert(current_worker->task == current_task);
+
+	cpu_t *cpu = current_worker->cpu;
+	assert(cpu);
+
+	// Try to get a ready task without blocking
+	nosv_task_t new_task = scheduler_get(cpu->logic_id, SCHED_GET_NONBLOCKING);
+	if (!new_task)
+		return 0;
+
+	// We retrieved a ready task, so submit the current one
+	scheduler_submit(current_task);
+
+	if (new_task->worker) {
+		// Wake up the thread that was running the retrieved task
+		worker_wakeup_internal(new_task->worker, cpu);
+	} else if (new_task->type->pid != logical_pid) {
+		// Wake up a thread from the retrieved task's process
+		cpu_transfer_nonblocking(new_task->type->pid, cpu, new_task);
+	} else {
+		// Wake up a thread from this process to execute the retrieved task
+		worker_wake(logical_pid, cpu, new_task);
+	}
+
+	// Block the current worker
+	worker_block();
+
+	return 1;
 }
 
 // Returns new CPU
