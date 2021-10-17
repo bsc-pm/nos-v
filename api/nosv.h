@@ -136,11 +136,11 @@ int nosv_waitfor(
 int nosv_yield(
 	nosv_flags_t flags);
 
-#define NOSV_SCHEDULING_POINT_NONE __ZEROBITS
+#define NOSV_SCHEDPOINT_NONE __ZEROBITS
 
 /* Scheduling point operation */
 /* Restriction: Can only be called from a task context */
-int nosv_scheduling_point(
+int nosv_schedpoint(
 	nosv_flags_t flags);
 
 /* Flags */

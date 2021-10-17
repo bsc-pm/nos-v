@@ -43,7 +43,7 @@ void task_run(nosv_task_t task)
 
 		do {
 			// Yield the CPU if the quantum has been exceeded
-			nosv_scheduling_point(NOSV_SCHEDULING_POINT_NONE);
+			nosv_schedpoint(NOSV_SCHEDPOINT_NONE);
 
 			// Consume quantum without wasting resources
 			usleep(time_us);

@@ -309,7 +309,7 @@ int nosv_yield(
 	return 0;
 }
 
-int nosv_scheduling_point(
+int nosv_schedpoint(
 	nosv_flags_t flags)
 {
 	int pid, yield, cpuid;
