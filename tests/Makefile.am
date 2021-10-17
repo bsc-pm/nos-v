@@ -11,7 +11,8 @@ a_tests = basic-init.test \
 	basic-mix.test \
 	basic-crash.test \
 	basic-inline.test \
-	basic-attach.test
+	basic-attach.test \
+	basic-schedpoint.test
 
 check_PROGRAMS = driver $(a_tests)
 TESTS = $(a_tests)
@@ -35,6 +36,10 @@ basic_inline_test_LDFLAGS = $(AM_LDFLAGS)
 basic_attach_test_SOURCES = basic/attach.c
 basic_attach_test_CFLAGS = $(AM_CFLAGS)
 basic_attach_test_LDFLAGS = $(AM_LDFLAGS)
+
+basic_schedpoint_test_SOURCES = basic/schedpoint.c
+basic_schedpoint_test_CFLAGS = $(AM_CFLAGS)
+basic_schedpoint_test_LDFLAGS = $(AM_LDFLAGS)
 
 driver_SOURCES = common/driver.c
 driver_CFLAGS = -O3 -g -Wall -Wpedantic $(PTHREAD_CFLAGS)
