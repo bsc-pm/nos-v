@@ -513,7 +513,7 @@ int nosv_detach(
 	worker_free_external(worker);
 
 	// Then resume a thread on the current cpu
-	worker_wake(logical_pid, cpu, NULL);
+	worker_wake_idle(logical_pid, cpu, NULL);
 
 	return 0;
 }
