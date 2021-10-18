@@ -53,7 +53,7 @@ static inline void delegate_thread_create(thread_manager_t *threadmanager)
 		nosv_abort("Cannot create pthread");
 }
 
-static inline void worker_wakeup_internal(nosv_worker_t *worker, cpu_t *cpu)
+static inline void worker_wake_internal(nosv_worker_t *worker, cpu_t *cpu)
 {
 	// CPU may be NULL
 	worker->new_cpu = cpu;
@@ -106,7 +106,7 @@ void threadmanager_shutdown(thread_manager_t *threadmanager)
 		list_head_t *head = list_pop_head(&threadmanager->idle_threads);
 		while (head) {
 			nosv_worker_t *worker = list_elem(head, nosv_worker_t, list_hook);
-			worker_wakeup_internal(worker, NULL);
+			worker_wake_internal(worker, NULL);
 
 			head = list_pop_head(&threadmanager->idle_threads);
 		}
@@ -137,6 +137,48 @@ void threadmanager_shutdown(thread_manager_t *threadmanager)
 	}
 }
 
+static inline void worker_execute_or_delegate(nosv_task_t task, cpu_t *cpu, int is_busy_worker)
+{
+	assert(task);
+	assert(cpu);
+
+	if (task->worker != NULL) {
+		// Another thread was already running the task, so we have to resume
+		// the execution of the thread
+		worker_wake_internal(task->worker, cpu);
+	} else if (task->type->pid != logical_pid) {
+		// The task has not started yet but it is from a PID other than the
+		// current one. Then, wake up an idle thread from the the task's PID
+		cpu_transfer(task->type->pid, cpu, task);
+	} else if (is_busy_worker) {
+		// The task has not started and it is from the current PID, but the
+		// current worker is busy and cannot execute directly the task. Then
+		// delegate the work and wake up an idle thread from this PID to
+		// execute the task
+		worker_wake_idle(logical_pid, cpu, task);
+	} else {
+		// Otherwise, start running the task because the current thread is
+		// valid to run the task and it is idle
+		task->worker = current_worker;
+		current_worker->task = task;
+
+		task_execute(task);
+
+		current_worker->task = NULL;
+
+		// The task execution has ended, so do not block the thread
+		return;
+	}
+
+	// Block the worker if the task was delegated to another thread
+	if (is_busy_worker)
+		// Only block the current worker
+		worker_block();
+	else
+		// Block the current worker but also mark it as idle
+		worker_idle();
+}
+
 static inline void *worker_start_routine(void *arg)
 {
 	current_worker = (nosv_worker_t *)arg;
@@ -154,25 +196,10 @@ static inline void *worker_start_routine(void *arg)
 		}
 
 		if (!task && current_worker->cpu)
-			task = scheduler_get(cpu_get_current());
+			task = scheduler_get(cpu_get_current(), SCHED_GET_DEFAULT);
 
-		if (task) {
-			int task_pid = task->type->pid;
-
-			if (task->worker != NULL) {
-				worker_wakeup_internal(task->worker, current_worker->cpu);
-				worker_idle();
-			} else if (task_pid != logical_pid) {
-				cpu_transfer(task_pid, current_worker->cpu, task);
-			} else {
-				task->worker = current_worker;
-				current_worker->task = task;
-
-				task_execute(task);
-
-				current_worker->task = NULL;
-			}
-		}
+		if (task)
+			worker_execute_or_delegate(task, current_worker->cpu, /* idle thread */ 0);
 	}
 
 	assert(!worker_get_immediate());
@@ -205,12 +232,35 @@ int worker_should_shutdown()
 void worker_yield()
 {
 	assert(current_worker);
+
 	// Block this thread and place another one. This is called on nosv_pause
 	// First, wake up another worker in this cpu, one from the same PID
-	worker_wake(logical_pid, current_worker->cpu, NULL);
+	worker_wake_idle(logical_pid, current_worker->cpu, NULL);
 
 	// Then, sleep and return once we have been woken up
 	worker_block();
+}
+
+int worker_yield_if_needed(nosv_task_t current_task)
+{
+	assert(current_worker);
+	assert(current_worker->task == current_task);
+
+	cpu_t *cpu = current_worker->cpu;
+	assert(cpu);
+
+	// Try to get a ready task without blocking
+	nosv_task_t new_task = scheduler_get(cpu->logic_id, SCHED_GET_NONBLOCKING);
+	if (!new_task)
+		return 0;
+
+	// We retrieved a ready task, so submit the current one
+	scheduler_submit(current_task);
+
+	// Wake up the corresponding thread to execute the task
+	worker_execute_or_delegate(new_task, cpu, /* busy thread */ 1);
+
+	return 1;
 }
 
 // Returns new CPU
@@ -240,7 +290,7 @@ static inline void worker_create_remote(thread_manager_t *threadmanager, cpu_t *
 	event_queue_put(&threadmanager->thread_creation_queue, &event);
 }
 
-void worker_wake(int pid, cpu_t *cpu, nosv_task_t task)
+void worker_wake_idle(int pid, cpu_t *cpu, nosv_task_t task)
 {
 	// Find the remote thread manager
 	thread_manager_t *threadmanager = pidmanager_get_threadmanager(pid);
@@ -255,7 +305,7 @@ void worker_wake(int pid, cpu_t *cpu, nosv_task_t task)
 		nosv_worker_t *worker = list_elem(head, nosv_worker_t, list_hook);
 		assert(!worker->task);
 		worker->task = task;
-		worker_wakeup_internal(worker, cpu);
+		worker_wake_internal(worker, cpu);
 		return;
 	}
 

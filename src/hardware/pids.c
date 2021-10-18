@@ -112,10 +112,12 @@ void pidmanager_transfer_to_idle(cpu_t *cpu)
 
 	assert(pid != logical_pid);
 
-	if (pid >= 0)
+	if (pid >= 0) {
 		cpu_transfer(pid, cpu, NULL);
-	else
+		worker_idle();
+	} else {
 		cpu_mark_free(cpu);
+	}
 
 	nosv_mutex_unlock(&pidmanager->lock);
 }

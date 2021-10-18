@@ -123,9 +123,7 @@ void cpu_transfer(int destination_pid, cpu_t *cpu, nosv_task_t task)
 	cpumanager->pids_cpus[cpu->logic_id] = destination_pid;
 
 	// Wake up a worker from another PID to take over
-	worker_wake(destination_pid, cpu, task);
-	// And sleep on this one
-	worker_idle();
+	worker_wake_idle(destination_pid, cpu, task);
 }
 
 int nosv_get_num_cpus(void)

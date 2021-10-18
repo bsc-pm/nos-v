@@ -309,6 +309,38 @@ int nosv_yield(
 	return 0;
 }
 
+int nosv_schedpoint(
+	nosv_flags_t flags)
+{
+	int pid, yield, cpuid;
+	uint64_t ts;
+
+	if (!worker_is_in_task())
+		return -EINVAL;
+
+	nosv_task_t task = worker_current_task();
+	assert(task);
+
+	cpuid = cpu_get_current();
+	pid = cpu_get_pid(cpuid);
+
+	// Check if the current PID's quantum is exceeded
+	yield = scheduler_should_yield(pid, cpuid, &ts);
+
+	if (yield) {
+		// Yield the CPU if there is available work in the scheduler
+		worker_yield_if_needed(task);
+
+		cpuid = cpu_get_current();
+
+		// Give a new quantum to the process because it may have returned
+		// to this same task directly if there are no other ready tasks
+		scheduler_reset_accounting(pid, cpuid);
+	}
+
+	return 0;
+}
+
 /* Callable from everywhere */
 int nosv_destroy(
 	nosv_task_t task,
@@ -481,7 +513,7 @@ int nosv_detach(
 	worker_free_external(worker);
 
 	// Then resume a thread on the current cpu
-	worker_wake(logical_pid, cpu, NULL);
+	worker_wake_idle(logical_pid, cpu, NULL);
 
 	return 0;
 }
