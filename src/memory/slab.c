@@ -272,7 +272,7 @@ static inline void bucket_free(cache_bucket_t *bucket, void *obj, int cpu)
 	}
 }
 
-void slab_init()
+void slab_init(void)
 {
 	for (size_t i = 0; i < SLAB_BUCKETS; ++i)
 		bucket_init(&backbone_header->buckets[i], i + SLAB_ALLOC_MIN);

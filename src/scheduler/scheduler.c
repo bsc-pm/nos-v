@@ -117,7 +117,7 @@ static inline int deadline_cmp(heap_node_t *a, heap_node_t *b)
 }
 
 // Must be called inside the dtlock
-static inline void scheduler_process_ready_tasks()
+static inline void scheduler_process_ready_tasks(void)
 {
 	nosv_task_t task[__SCHED_BATCH];
 	int cnt = 0;

@@ -59,7 +59,7 @@ static void smem_config_initialize(smem_config_t *config)
 }
 
 // Boostrap of the shared memory for the first process
-static void smem_initialize_first()
+static void smem_initialize_first(void)
 {
 	pid_slot_config = 0;
 	smem_config_initialize(st_config.config);
@@ -71,7 +71,7 @@ static void smem_initialize_first()
 }
 
 // Bootstrap for the rest of processes
-static void smem_initialize_rest()
+static void smem_initialize_rest(void)
 {
 	// First of all, register in PID list
 	for (int i = 0; i < MAX_PIDS; ++i) {
@@ -91,7 +91,7 @@ static void smem_initialize_rest()
 	scheduler_init(0);
 }
 
-static inline int check_processes_correct()
+static inline int check_processes_correct(void)
 {
 	pid_t pid;
 	process_identifier_t pi;
@@ -112,7 +112,7 @@ static inline int check_processes_correct()
 	return 1;
 }
 
-static void segment_create()
+static void segment_create(void)
 {
 	int ret;
 	struct stat st;
@@ -189,7 +189,7 @@ static void segment_create()
 		nosv_abort("Cannot release initial file lock");
 }
 
-static void segment_unregister()
+static void segment_unregister(void)
 {
 	int ret;
 
@@ -219,12 +219,12 @@ static void segment_unregister()
 		nosv_warn("Cannot close memory segment");
 }
 
-void smem_initialize()
+void smem_initialize(void)
 {
 	segment_create();
 }
 
-void smem_shutdown()
+void smem_shutdown(void)
 {
 	segment_unregister();
 }

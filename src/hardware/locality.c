@@ -15,7 +15,7 @@ __internal int *numa_logical_to_system;
 __internal int *numa_system_to_logical;
 __internal int numa_count;
 
-static inline void locality_numa_disabled()
+static inline void locality_numa_disabled(void)
 {
 	numa_count = 1;
 	numa_logical_to_system = malloc(sizeof(int));
@@ -25,7 +25,7 @@ static inline void locality_numa_disabled()
 	numa_system_to_logical[0] = 0;
 }
 
-void locality_init()
+void locality_init(void)
 {
 	if (numa_available() == -1) {
 		locality_numa_disabled();
@@ -51,7 +51,7 @@ void locality_init()
 	assert(logic_idx == numa_count);
 }
 
-int locality_numa_count()
+int locality_numa_count(void)
 {
 	return numa_count;
 }
@@ -66,7 +66,7 @@ int locality_get_logical_numa(int system_numa_id)
 	return numa_system_to_logical[system_numa_id];
 }
 
-void locality_shutdown()
+void locality_shutdown(void)
 {
 	free(numa_logical_to_system);
 	free(numa_system_to_logical);

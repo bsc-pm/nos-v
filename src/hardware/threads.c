@@ -216,7 +216,7 @@ static inline void *worker_start_routine(void *arg)
 	return NULL;
 }
 
-void worker_idle()
+void worker_idle(void)
 {
 	nosv_spin_lock(&current_process_manager->idle_spinlock);
 	list_add(&current_process_manager->idle_threads, &current_worker->list_hook);
@@ -224,12 +224,12 @@ void worker_idle()
 	worker_block();
 }
 
-int worker_should_shutdown()
+int worker_should_shutdown(void)
 {
 	return atomic_load_explicit(&threads_shutdown_signal, memory_order_relaxed);
 }
 
-void worker_yield()
+void worker_yield(void)
 {
 	assert(current_worker);
 
@@ -264,7 +264,7 @@ int worker_yield_if_needed(nosv_task_t current_task)
 }
 
 // Returns new CPU
-void worker_block()
+void worker_block(void)
 {
 	assert(current_worker);
 	// Blocking operation
@@ -346,7 +346,7 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 	return worker;
 }
 
-nosv_worker_t *worker_create_external()
+nosv_worker_t *worker_create_external(void)
 {
 	nosv_worker_t *worker = (nosv_worker_t *)salloc(sizeof(nosv_worker_t), cpu_get_current());
 	worker->cpu = NULL;
@@ -378,7 +378,7 @@ void worker_join(nosv_worker_t *worker)
 		nosv_abort("Cannot join pthread");
 }
 
-int worker_is_in_task()
+int worker_is_in_task(void)
 {
 	if (!current_worker)
 		return 0;
@@ -389,12 +389,12 @@ int worker_is_in_task()
 	return 1;
 }
 
-nosv_worker_t *worker_current()
+nosv_worker_t *worker_current(void)
 {
 	return current_worker;
 }
 
-nosv_task_t worker_current_task()
+nosv_task_t worker_current_task(void)
 {
 	if (!current_worker)
 		return NULL;
@@ -402,7 +402,7 @@ nosv_task_t worker_current_task()
 	return current_worker->task;
 }
 
-nosv_task_t worker_get_immediate()
+nosv_task_t worker_get_immediate(void)
 {
 	if (!current_worker)
 		return NULL;

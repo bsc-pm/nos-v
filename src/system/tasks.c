@@ -448,7 +448,7 @@ int nosv_attach(
 	if (unlikely(type->run_callback || type->end_callback || type->completed_callback))
 		return -EINVAL;
 
-	nosv_worker_t *worker = worker_create_external(pthread_self());
+	nosv_worker_t *worker = worker_create_external();
 	assert(worker);
 
 	int ret = nosv_create_internal(task, type, metadata_size, flags);

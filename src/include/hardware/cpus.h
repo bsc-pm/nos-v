@@ -27,9 +27,9 @@ typedef struct cpumanager {
 } cpumanager_t;
 
 __internal void cpus_init(int initialize);
-__internal int cpus_count();
+__internal int cpus_count(void);
 __internal cpu_t *cpu_get(int cpu);
-__internal cpu_t *cpu_pop_free();
+__internal cpu_t *cpu_pop_free(int pid);
 __internal void cpu_set_pid(cpu_t *cpu, int pid);
 __internal void cpu_transfer(int destination_pid, cpu_t *cpu, nosv_task_t task);
 __internal void cpu_mark_free(cpu_t *cpu);
@@ -38,7 +38,7 @@ __internal int cpu_system_to_logical(int cpu);
 __internal extern thread_local int __current_cpu;
 __internal extern cpumanager_t *cpumanager;
 
-static inline int cpu_get_current()
+static inline int cpu_get_current(void)
 {
 	return __current_cpu;
 }

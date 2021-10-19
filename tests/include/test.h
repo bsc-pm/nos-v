@@ -123,7 +123,7 @@ static inline void test_end(test_t *test)
 	pthread_spin_destroy(&test->lock);
 }
 
-static inline int test_get_cpus()
+static inline int test_get_cpus(void)
 {
 	cpu_set_t set;
 	sched_getaffinity(0, sizeof(set), &set);

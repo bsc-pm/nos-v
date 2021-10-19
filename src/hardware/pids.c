@@ -20,7 +20,7 @@ __internal pid_manager_t *pidmanager;
 __internal int logical_pid;
 __internal pid_t system_pid;
 
-void pidmanager_register()
+void pidmanager_register(void)
 {
 	pid_bitset_t set;
 	BIT_FILL(MAX_PIDS, &set);
@@ -58,7 +58,7 @@ void pidmanager_register()
 	nosv_mutex_unlock(&pidmanager->lock);
 }
 
-void pidmanager_shutdown()
+void pidmanager_shutdown(void)
 {
 	nosv_mutex_lock(&pidmanager->lock);
 

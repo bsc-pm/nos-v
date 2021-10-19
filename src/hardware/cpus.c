@@ -77,7 +77,7 @@ int cpu_system_to_logical(int cpu)
 	return cpumanager->system_to_logical[cpu];
 }
 
-int cpus_count()
+int cpus_count(void)
 {
 	return cpumanager->cpu_cnt;
 }
