@@ -113,18 +113,22 @@ static inline int deadline_cmp(heap_node_t *a, heap_node_t *b)
 	nosv_task_t task_a = heap_elem(a, struct nosv_task, heap_hook);
 	nosv_task_t task_b = heap_elem(b, struct nosv_task, heap_hook);
 
-	return task_b->deadline - task_a->deadline;
+	// Comparing two uint64_t fields
+	// First, we check c = (a > b), which will be either 1 or 0
+	// Then, we do d = (b > a), either 1 or 0
+	// If we then calculate e = c - d, e will be 1 if a > b, -1 if b > a, or 0 if a = b.
+	return (task_a->deadline > task_b->deadline) - (task_b->deadline > task_a->deadline);
 }
 
 // Must be called inside the dtlock
 static inline void scheduler_process_ready_tasks(void)
 {
 	nosv_task_t task[__SCHED_BATCH];
-	int cnt = 0;
+	size_t cnt = 0;
 
 	// TODO maybe we want to limit how many tasks we pop
 	while ((cnt = mpsc_pop_batch(scheduler->in_queue, (void **)task, __SCHED_BATCH))) {
-		for (int i = 0; i < cnt; ++i) {
+		for (size_t i = 0; i < cnt; ++i) {
 			assert(task[i]);
 			int pid = task[i]->type->pid;
 			process_scheduler_t *pidqueue = scheduler->queues_direct[pid];
@@ -232,9 +236,9 @@ static inline int task_affine(nosv_task_t task, cpu_t *cpu)
 {
 	switch (task->affinity.level) {
 		case CPU:
-			return task->affinity.index == cpu->system_id;
+			return ((int) task->affinity.index) == cpu->system_id;
 		case NUMA:
-			return locality_get_logical_numa(task->affinity.index) == cpu->numa_node;
+			return locality_get_logical_numa((int) task->affinity.index) == cpu->numa_node;
 		case USER_COMPLEX:
 		default:
 			return 1;
@@ -251,14 +255,14 @@ static inline void scheduler_insert_affine(process_scheduler_t *sched, nosv_task
 
 	switch (task->affinity.level) {
 		case CPU:
-			idx = cpu_system_to_logical(task->affinity.index);
+			idx = cpu_system_to_logical((int) task->affinity.index);
 			assert(idx >= 0);
 			queue = (task->affinity.type == STRICT)
 						? &sched->per_cpu_queue_strict[idx]
 						: &sched->per_cpu_queue_preferred[idx];
 			break;
 		case NUMA:
-			idx = locality_get_logical_numa(task->affinity.index);
+			idx = locality_get_logical_numa((int) task->affinity.index);
 			queue = (task->affinity.type == STRICT)
 						? &sched->per_numa_queue_strict[idx]
 						: &sched->per_numa_queue_preferred[idx];
@@ -537,7 +541,7 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
 
 		size_t served = 0;
 		while (served < MAX_SERVED_TASKS && !dtlock_empty(&scheduler->dtlock)) {
-			uint64_t cpu_delegated = dtlock_front(&scheduler->dtlock);
+			int cpu_delegated = (int) dtlock_front(&scheduler->dtlock);
 			assert(cpu_delegated < cpus_count());
 
 			task = scheduler_get_internal(cpu_delegated);

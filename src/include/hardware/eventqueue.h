@@ -55,7 +55,8 @@ static inline int event_queue_pull(event_queue_t *queue, creation_event_t *event
 	while (ring_buffer_empty(&queue->rb))
 		nosv_signal_mutex_wait(&queue->lock);
 
-	ring_buffer_pull(&queue->rb, event);
+	__maybe_unused int success = ring_buffer_pull(&queue->rb, event);
+	assert(success);
 	nosv_signal_mutex_unlock(&queue->lock);
 
 	return 1;

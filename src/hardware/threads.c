@@ -113,7 +113,7 @@ void threadmanager_shutdown(thread_manager_t *threadmanager)
 		nosv_spin_unlock(&threadmanager->idle_spinlock);
 
 		nosv_spin_lock(&threadmanager->shutdown_spinlock);
-		int destroyed = clist_count(&threadmanager->shutdown_threads);
+		size_t destroyed = clist_count(&threadmanager->shutdown_threads);
 		int threads = atomic_load_explicit(&threadmanager->created, memory_order_acquire);
 
 		join = (threads == destroyed);

@@ -85,7 +85,7 @@ static inline int spsc_pop(spsc_queue_t *queue, void **value)
 	return 1;
 }
 
-static inline int spsc_pop_batch(spsc_queue_t *queue, void **value, int cnt)
+static inline size_t spsc_pop_batch(spsc_queue_t *queue, void **value, size_t cnt)
 {
 	const size_t size = queue->size;
 	const uint64_t head = atomic_load_explicit(&queue->head, memory_order_acquire);
@@ -95,7 +95,7 @@ static inline int spsc_pop_batch(spsc_queue_t *queue, void **value, int cnt)
 	if (head == tail)
 		return 0;
 
-	int remaining = (head > tail) ? (head - tail) : (size - tail + head);
+	size_t remaining = (head > tail) ? (head - tail) : (size - tail + head);
 	assert((tail + remaining) % size == head);
 
 	if (cnt > remaining)

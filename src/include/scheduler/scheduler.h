@@ -48,14 +48,15 @@ typedef struct timestamp {
 } timestamp_t;
 
 typedef struct scheduler {
+	delegation_lock_t dtlock;
 	size_t tasks;
 	size_t served_tasks;
-	delegation_lock_t dtlock;
 	mpsc_queue_t *in_queue;
-	list_head_t queues; // One scheduler_queue per process
-	process_scheduler_t *queues_direct[MAX_PIDS]; // Support both lists and random-access
 	timestamp_t *timestamps;
 	uint64_t quantum_ns;
+	list_head_t queues; // One scheduler_queue per process
+	process_scheduler_t *queues_direct[MAX_PIDS]; // Support both lists and random-access
+	nosv_spinlock_t in_lock;
 } scheduler_t;
 
 __internal void scheduler_init(int initialize);
