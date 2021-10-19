@@ -61,7 +61,7 @@ void run_immediate_2(nosv_task_t task)
 
 void run(nosv_task_t task)
 {
-	int cpu;
+	unsigned int cpu;
 	getcpu(&cpu, NULL);
 
 	int *metadata = nosv_get_task_metadata(task);
