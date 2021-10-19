@@ -7,7 +7,7 @@
 #ifndef LOCALITY_H
 #define LOCALITY_H
 
-#include "climits.h"
+#include "defaults.h"
 #include "compiler.h"
 
 __internal void locality_init(void);

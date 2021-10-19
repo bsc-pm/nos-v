@@ -11,7 +11,7 @@
 #include <stdatomic.h>
 
 #include "compiler.h"
-#include "climits.h"
+#include "defaults.h"
 #include "nosv.h"
 #include "generic/bitset.h"
 #include "generic/list.h"

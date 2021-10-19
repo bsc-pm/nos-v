@@ -11,7 +11,7 @@
 #include <stdint.h>
 
 #include "compiler.h"
-#include "climits.h"
+#include "defaults.h"
 #include "generic/arch.h"
 #include "generic/spinlock.h"
 #include "generic/list.h"

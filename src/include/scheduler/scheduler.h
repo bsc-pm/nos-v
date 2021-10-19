@@ -7,7 +7,7 @@
 #ifndef SCHEDULER_H
 #define SCHEDULER_H
 
-#include "climits.h"
+#include "defaults.h"
 #include "compiler.h"
 #include "nosv-internal.h"
 #include "generic/heap.h"
@@ -15,9 +15,6 @@
 #include "generic/spinlock.h"
 #include "scheduler/dtlock.h"
 #include "scheduler/mpsc.h"
-
-#define IN_QUEUE_SIZE 256
-#define DEFAULT_QUANTUM_NS (20ULL * 1000ULL * 1000ULL)
 
 // Flags for the scheduler_get function
 #define SCHED_GET_DEFAULT     __ZEROBITS
@@ -60,6 +57,7 @@ typedef struct scheduler {
 } scheduler_t;
 
 __internal void scheduler_init(int initialize);
+__internal void scheduler_shutdown(void);
 
 __internal int scheduler_should_yield(int pid, int cpu, uint64_t *timestamp);
 __internal void scheduler_reset_accounting(int pid, int cpu);

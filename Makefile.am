@@ -17,7 +17,7 @@ lib_age = 0
 lib_major = $(shell expr $(lib_current) - $(lib_age))
 lib_suffix = $(lib_major).$(lib_age).$(lib_revision)
 
-libnosv_la_CPPFLAGS=$(AM_CPPFLAGS) $(ovni_CPPFLAGS)
+libnosv_la_CPPFLAGS=$(AM_CPPFLAGS) $(ovni_CPPFLAGS) -DINSTALLED_CONFIG_DIR=\"$(datadir)\"
 libnosv_la_CFLAGS=$(PTHREAD_CFLAGS) $(libnuma_CFLAGS) $(nosv_CFLAGS)
 libnosv_la_LDFLAGS=$(PTHREAD_CFLAGS) $(PTHREAD_LIBS) $(libnuma_LIBS) $(ovni_LIBS) $(shm_LIBS)
 
@@ -29,6 +29,8 @@ pkgconfig_DATA = nos-v.pc
 
 libnosv_la_SOURCES = \
     src/bootstrap.c		\
+	src/config/config.c \
+	src/config/toml.c \
 	src/hardware/cpus.c \
 	src/hardware/locality.c \
 	src/hardware/pids.c \
@@ -43,12 +45,15 @@ include_HEADERS = \
     api/nosv.h
 
 noinst_HEADERS = \
-	src/include/climits.h \
+	src/include/defaults.h \
 	src/include/common.h \
 	src/include/compat.h \
 	src/include/compiler.h \
 	src/include/instr.h \
 	src/include/nosv-internal.h \
+	src/include/config/config.h \
+	src/include/config/configspec.h \
+	src/include/config/toml.h \
 	src/include/generic/arch.h \
 	src/include/generic/arch/arm64.h \
 	src/include/generic/arch/power.h \
@@ -75,7 +80,6 @@ noinst_HEADERS = \
 	src/include/scheduler/mpsc.h \
 	src/include/scheduler/scheduler.h \
 	src/include/scheduler/spsc.h \
-	src/include/system/config.h \
 	src/include/system/tasks.h \
 	tests/common/tap.h \
 	tests/common/utils.h \
@@ -84,3 +88,8 @@ noinst_HEADERS = \
 subincludedir = $(includedir)/nosv
 subinclude_HEADERS = \
 	api/nosv/affinity.h
+
+# Install config file
+data_DATA = nosv.toml
+
+EXTRA_DIST = nosv.toml
