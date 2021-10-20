@@ -101,24 +101,4 @@ static inline int mpsc_pop_batch(mpsc_queue_t *queue, void **value, int cnt)
 	return total;
 }
 
-static inline int mpsc_pop(mpsc_queue_t *queue, void **value)
-{
-	const size_t start = queue->current;
-	const size_t nqueues = queue->nqueues;
-	size_t current = start;
-	assert(current <= nqueues);
-
-	do {
-		if (spsc_pop(queue->queues[current].queue, value)) {
-			queue->current = current;
-			return 1;
-		}
-
-		current = (current + 1) % (nqueues + 1);
-	} while (current != start);
-
-	queue->current = current;
-	return 0;
-}
-
 #endif // MPSC_H
