@@ -12,6 +12,7 @@
 
 #include "compiler.h"
 #include "climits.h"
+#include "generic/arch.h"
 #include "generic/spinlock.h"
 #include "generic/list.h"
 
@@ -31,6 +32,8 @@ typedef struct cache_bucket {
 	clist_head_t partial;
 	nosv_spinlock_t lock;
 
+	cpu_cache_bucket_t slow_bucket;
+	nosv_spinlock_t slow_bucket_lock;
 	cpu_cache_bucket_t cpubuckets[NR_CPUS];
 } cache_bucket_t;
 

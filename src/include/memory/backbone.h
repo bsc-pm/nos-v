@@ -20,11 +20,14 @@
 // Some of the members of this struct are for the slab allocator.
 struct page_metadata;
 
-typedef struct page_metadata {
-	list_head_t list_hook;
+typedef struct __attribute__((aligned(16))) page_metadata {
 	void *freelist;
+	uint64_t inuse_chunks;
+#ifndef ARCH_HAS_DWCAS
+	nosv_spinlock_t lock;
+#endif
 	void *addr;
-	uint16_t inuse_chunks;
+	list_head_t list_hook;
 } page_metadata_t;
 
 typedef struct backbone_header {
@@ -48,4 +51,4 @@ static inline page_metadata_t *page_metadata_from_block(void *block)
 	return &backbone_metadata_start[block_idx];
 }
 
-#endif // BUDDY_H
+#endif // BACKBONE_H
