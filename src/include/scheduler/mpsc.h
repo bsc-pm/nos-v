@@ -17,7 +17,9 @@
 #include "generic/spinlock.h"
 #include "memory/slab.h"
 
-// One queue per 4 CPUs
+// This parameter can be tuned to define how many CPUs share a single queue
+// 1 means each CPU has its own queue, 4 means there is a lock-protected queue
+// each 4 CPUs
 #define __MSPC_CPU_BATCH 1
 
 /*
@@ -86,29 +88,15 @@ static inline int mpsc_pop_batch(mpsc_queue_t *queue, void **value, int cnt)
 	int total = 0;
 	int ret;
 
-	// First, try to pop from current
-	total = spsc_pop_batch(queue->queues[current].queue, value, cnt);
-	if (total == cnt) {
-		// Rotate the queue
-		queue->current = (current + 1) % (nqueues + 1);
-		return cnt;
-	}
-
-	value = value + total;
-	current = (current + 1) % (nqueues + 1);
-
-	while (current != start && total < cnt) {
+	do {
 		ret = spsc_pop_batch(queue->queues[current].queue, value, cnt - total);
 		total += ret;
 		value += ret;
-
-		if (total == cnt) {
-			queue->current = current;
-			return cnt;
-		}
-
 		current = (current + 1) % (nqueues + 1);
-	}
+	} while (current != start && total < cnt);
+
+	// We always advance queue->current, to prevent getting stuck extracting from a single queue
+	queue->current = current;
 
 	return total;
 }
@@ -120,22 +108,17 @@ static inline int mpsc_pop(mpsc_queue_t *queue, void **value)
 	size_t current = start;
 	assert(current <= nqueues);
 
-	// First, try to pop from current
-	if (spsc_pop(queue->queues[current].queue, value))
-		return 1;
-
-	current = (current + 1) % (nqueues + 1);
-
-	while (current != start) {
+	do {
 		if (spsc_pop(queue->queues[current].queue, value)) {
 			queue->current = current;
 			return 1;
 		}
 
 		current = (current + 1) % (nqueues + 1);
-	}
+	} while (current != start);
 
+	queue->current = current;
 	return 0;
 }
 
-#endif // mpsc_H
+#endif // MPSC_H

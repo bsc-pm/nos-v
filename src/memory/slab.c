@@ -239,13 +239,11 @@ static inline void bucket_free(cache_bucket_t *bucket, void *obj, int cpu)
 			void *next = metadata->freelist;
 			*((void **)obj) = next;
 
-			if (inuse == 1) {
-				// This would be a good time to return the page.
-				// Speculatively grab the bucket lock
-				nosv_spin_lock(&bucket->lock);
-			} else if (inuse == obj_in_page) {
-				// This page was empty, we are going to add it to the list.
-				// Speculatively grab the bucket lock
+			if (inuse == obj_in_page || inuse == 1) {
+				// When inuse == 1, we speculatively grab the bucket lock to return the page, because
+				// we may leave it totally unallocated
+				// When inuse == obj_in_page, the page was full, so we have to add it to the partial
+				// list (speculatively)
 				nosv_spin_lock(&bucket->lock);
 			}
 
