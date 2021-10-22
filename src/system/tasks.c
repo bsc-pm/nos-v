@@ -417,8 +417,6 @@ void task_execute(nosv_task_t task)
 	task->type->run_callback(task);
 	atomic_thread_fence(memory_order_release);
 
-	instr_task_end(task->taskid);
-
 	if (task->type->end_callback) {
 		atomic_thread_fence(memory_order_acquire);
 		task->type->end_callback(task);
@@ -429,6 +427,8 @@ void task_execute(nosv_task_t task)
 	if (!res) {
 		task_complete(task);
 	}
+
+	instr_task_end(task->taskid);
 }
 
 /* Events API */
