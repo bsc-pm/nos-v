@@ -357,6 +357,9 @@ int nosv_schedpoint(
 	nosv_task_t task = worker_current_task();
 	assert(task);
 
+	instr_task_pause(task->taskid);
+	instr_schedpoint_enter();
+
 	cpuid = cpu_get_current();
 	pid = cpu_get_pid(cpuid);
 
@@ -373,6 +376,9 @@ int nosv_schedpoint(
 		// to this same task directly if there are no other ready tasks
 		scheduler_reset_accounting(pid, cpuid);
 	}
+
+	instr_schedpoint_exit();
+	instr_task_resume(task->taskid);
 
 	return 0;
 }
