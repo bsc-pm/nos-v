@@ -27,7 +27,7 @@ typedef struct list_head {
 	name - name of the list_head_t member
 */
 #define list_elem(head, type, name) \
-	((type *) (((char *) head) - offsetof(type, name)))
+	((type *) (((char *) (head)) - offsetof(type, name)))
 
 #define list_next(p) \
 	((p)->next)

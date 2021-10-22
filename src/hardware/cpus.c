@@ -57,7 +57,6 @@ void cpus_init(int initialize)
 			cpumanager->cpus[i].numa_node = locality_get_cpu_numa(curr);
 			cpumanager->system_to_logical[curr] = i;
 			++i;
-			maxcpu = curr;
 		} else {
 			cpumanager->system_to_logical[curr] = -1;
 		}
@@ -77,7 +76,7 @@ int cpu_system_to_logical(int cpu)
 	return cpumanager->system_to_logical[cpu];
 }
 
-int cpus_count()
+int cpus_count(void)
 {
 	return cpumanager->cpu_cnt;
 }

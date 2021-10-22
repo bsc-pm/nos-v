@@ -35,7 +35,7 @@ static inline void parse_proc_stat(process_identifier_t *pi, FILE *fp)
 	rewind(fp);
 
 	while (!feof(fp)) {
-		char c = fgetc(fp);
+		char c = (char) fgetc(fp);
 		if (c == ')')
 			pos = ftell(fp);
 	}

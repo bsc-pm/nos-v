@@ -25,7 +25,7 @@ extern "C" {
 
 /* Support Macros */
 #define __ZEROBITS ((uint64_t)0)
-#define __BIT(n) ((uint64_t)(1 << n))
+#define __BIT(n) ((uint64_t)(1 << (n)))
 
 typedef uint64_t nosv_flags_t;
 

@@ -39,6 +39,6 @@ typedef struct cache_bucket {
 
 __internal void *salloc(size_t size, int cpu);
 __internal void sfree(void *ptr, size_t size, int cpu);
-__internal void slab_init();
+__internal void slab_init(void);
 
 #endif // SLAB_H

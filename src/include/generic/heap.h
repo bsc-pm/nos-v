@@ -30,7 +30,7 @@ typedef struct head_head {
 } heap_head_t;
 
 #define heap_elem(head, type, name) \
-	((type *) (((char *) head) - offsetof(type, name)))
+	((type *) (((char *) (head)) - offsetof(type, name)))
 
 #define heap_swap(a, b)                \
 	{                                  \

@@ -10,10 +10,10 @@
 #include "climits.h"
 #include "compiler.h"
 
-__internal void locality_init();
-__internal int locality_numa_count();
+__internal void locality_init(void);
+__internal int locality_numa_count(void);
 __internal int locality_get_cpu_numa(int system_cpu_id);
 __internal int locality_get_logical_numa(int system_numa_id);
-__internal void locality_shutdown();
+__internal void locality_shutdown(void);
 
 #endif // LOCALITY_H

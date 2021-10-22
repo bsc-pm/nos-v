@@ -65,7 +65,7 @@ void backbone_alloc_init(void *start, size_t size, int initialize)
 	nosv_mutex_init(&backbone_header->mutex);
 }
 
-page_metadata_t *balloc()
+page_metadata_t *balloc(void)
 {
 	page_metadata_t *ret = NULL;
 	nosv_mutex_lock(&backbone_header->mutex);

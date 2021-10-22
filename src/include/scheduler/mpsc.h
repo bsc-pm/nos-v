@@ -62,7 +62,8 @@ static inline mpsc_queue_t *mpsc_alloc(size_t nqueues, size_t slots)
 static inline int mpsc_push(mpsc_queue_t *queue, void *value, int cpu)
 {
 	assert(value);
-	int q, ret;
+	size_t q;
+	int ret;
 
 	if (unlikely(cpu < 0)) {
 		q = queue->nqueues;
@@ -78,15 +79,15 @@ static inline int mpsc_push(mpsc_queue_t *queue, void *value, int cpu)
 	return ret;
 }
 
-static inline int mpsc_pop_batch(mpsc_queue_t *queue, void **value, int cnt)
+static inline size_t mpsc_pop_batch(mpsc_queue_t *queue, void **value, size_t cnt)
 {
 	const size_t start = queue->current;
 	const size_t nqueues = queue->nqueues;
 	size_t current = start;
 	assert(current <= nqueues);
 
-	int total = 0;
-	int ret;
+	size_t total = 0;
+	size_t ret;
 
 	do {
 		ret = spsc_pop_batch(queue->queues[current].queue, value, cnt - total);

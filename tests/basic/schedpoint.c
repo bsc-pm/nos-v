@@ -12,7 +12,7 @@
 #define NTASKS 4
 
 volatile int iteration = 0;
-volatile int completed = 0;
+atomic_int completed = 0;
 
 nosv_task_t tasks[NTASKS];
 

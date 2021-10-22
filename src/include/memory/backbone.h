@@ -42,7 +42,7 @@ __internal extern backbone_header_t *backbone_header;
 
 __internal void backbone_alloc_init(void *start, size_t size, int initialize);
 
-__internal page_metadata_t *balloc();
+__internal page_metadata_t *balloc(void);
 __internal void bfree(page_metadata_t *block);
 
 static inline page_metadata_t *page_metadata_from_block(void *block)

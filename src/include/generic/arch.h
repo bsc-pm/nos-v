@@ -32,12 +32,12 @@
 #error "Unsupported architecture"
 #endif
 
-static inline void spin_wait()
+static inline void spin_wait(void)
 {
 	arch_spin_wait_body();
 }
 
-static inline void spin_wait_release()
+static inline void spin_wait_release(void)
 {
 	arch_spin_wait_release();
 }

@@ -6,14 +6,14 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-static inline void exec_child_crash()
+static inline void exec_child_crash(void)
 {
 	// Initialize nOS-V and "crash"
 	nosv_init();
 	exit(0);
 }
 
-static inline void exec_child_nocrash()
+static inline void exec_child_nocrash(void)
 {
 	// Initialize and exit correctly
 	nosv_init();

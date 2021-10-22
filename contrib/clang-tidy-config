@@ -1,0 +1,5 @@
+Checks: 'clang-diagnostic-*,clang-analyzer-*,clang-analyzer-*,clang-diagnostic-*,bugprone-*,-bugprone-reserved-identifier,-clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling'
+WarningsAsErrors: ''
+HeaderFilterRegex: '.*'
+AnalyzeTemporaryDtors: false
+FormatStyle:     none

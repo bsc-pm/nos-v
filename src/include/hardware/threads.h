@@ -61,21 +61,21 @@ typedef struct nosv_worker {
 __internal void threadmanager_init(thread_manager_t *threadmanager);
 __internal void threadmanager_shutdown(thread_manager_t *threadmanager);
 
-__internal void worker_yield();
+__internal void worker_yield(void);
 __internal int worker_yield_if_needed(nosv_task_t current_task);
-__internal void worker_block();
-__internal void worker_idle();
+__internal void worker_block(void);
+__internal void worker_idle(void);
 __internal nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, nosv_task_t task);
-__internal nosv_worker_t *worker_create_external();
+__internal nosv_worker_t *worker_create_external(void);
 __internal void worker_free_external(nosv_worker_t *worker);
 __internal void worker_wake_idle(int pid, cpu_t *cpu, nosv_task_t task);
 __internal void worker_join(nosv_worker_t *worker);
-__internal int worker_is_in_task();
-__internal nosv_worker_t *worker_current();
-__internal nosv_task_t worker_current_task();
-__internal nosv_task_t worker_get_immediate();
+__internal int worker_is_in_task(void);
+__internal nosv_worker_t *worker_current(void);
+__internal nosv_task_t worker_current_task(void);
+__internal nosv_task_t worker_get_immediate(void);
 __internal void worker_set_immediate(nosv_task_t task);
 
-__internal int worker_should_shutdown();
+__internal int worker_should_shutdown(void);
 
 #endif // THREADS_H

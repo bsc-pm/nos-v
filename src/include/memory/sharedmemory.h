@@ -17,9 +17,9 @@
 #define SMEM_SIZE (1ULL << 31)
 #define SMEM_NAME "nosv"
 
-__internal void smem_initialize();
+__internal void smem_initialize(void);
 
-__internal void smem_shutdown();
+__internal void smem_shutdown(void);
 
 typedef struct smem_config {
 	// Process Identifiers
