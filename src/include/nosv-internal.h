@@ -27,7 +27,7 @@ struct nosv_task_type
 	void *metadata;
 	const char *label;
 	int pid;
-	int32_t typeid;
+	uint32_t typeid;
 };
 
 struct nosv_task
@@ -48,7 +48,7 @@ struct nosv_task
 	heap_node_t heap_hook;
 
 	nosv_task_t wakeup;
-	int32_t taskid;
+	uint32_t taskid;
 };
 
 #endif // NOSV_INTERNAL_H

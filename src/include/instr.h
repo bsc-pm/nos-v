@@ -107,14 +107,14 @@ INSTR_0ARG(instr_waitfor_exit,          "VAW")
 INSTR_0ARG(instr_schedpoint_enter,      "VAc")
 INSTR_0ARG(instr_schedpoint_exit,       "VAC")
 
-INSTR_2ARG(instr_task_create,           "VTc", int32_t, task_id, int32_t, type_id)
-INSTR_1ARG(instr_task_execute,          "VTx", int32_t, task_id)
-INSTR_1ARG(instr_task_pause,            "VTp", int32_t, task_id)
-INSTR_1ARG(instr_task_resume,           "VTr", int32_t, task_id)
-INSTR_1ARG(instr_task_end,              "VTe", int32_t, task_id)
+INSTR_2ARG(instr_task_create,           "VTc", uint32_t, task_id, uint32_t, type_id)
+INSTR_1ARG(instr_task_execute,          "VTx", uint32_t, task_id)
+INSTR_1ARG(instr_task_pause,            "VTp", uint32_t, task_id)
+INSTR_1ARG(instr_task_resume,           "VTr", uint32_t, task_id)
+INSTR_1ARG(instr_task_end,              "VTe", uint32_t, task_id)
 
 /* A jumbo event is needed to encode a large label */
-static inline void instr_type_create(int typeid, const char *label)
+static inline void instr_type_create(uint32_t typeid, const char *label)
 {
 #ifdef ENABLE_INSTRUMENTATION
 	ovni_clock_update();
