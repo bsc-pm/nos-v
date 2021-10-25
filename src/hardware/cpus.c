@@ -11,9 +11,9 @@
 #include "hardware/cpus.h"
 #include "hardware/locality.h"
 #include "hardware/threads.h"
+#include "instr.h"
 #include "memory/sharedmemory.h"
 #include "memory/slab.h"
-#include "instr.h"
 
 thread_local int __current_cpu = -1;
 __internal cpumanager_t *cpumanager;

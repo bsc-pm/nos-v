@@ -10,9 +10,9 @@
 #include "common.h"
 #include "compiler.h"
 #include "generic/arch.h"
+#include "instr.h"
 #include "memory/backbone.h"
 #include "memory/slab.h"
-#include "instr.h"
 
 #define __SLAB_MAX_FREE_PAGES 16
 

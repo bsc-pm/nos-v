@@ -8,13 +8,13 @@
 
 #include "common.h"
 #include "compiler.h"
-#include "nosv.h"
 #include "hardware/locality.h"
-#include "hardware/threads.h"
 #include "hardware/pids.h"
+#include "hardware/threads.h"
+#include "instr.h"
 #include "memory/sharedmemory.h"
 #include "memory/slab.h"
-#include "instr.h"
+#include "nosv.h"
 
 __internal int library_initialized = 0;
 

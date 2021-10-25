@@ -4,15 +4,15 @@
 	Copyright (C) 2021 Barcelona Supercomputing Center (BSC)
 */
 
-#include "nosv-internal.h"
 #include "generic/clock.h"
 #include "hardware/cpus.h"
-#include "hardware/threads.h"
 #include "hardware/pids.h"
+#include "hardware/threads.h"
+#include "instr.h"
 #include "memory/slab.h"
+#include "nosv-internal.h"
 #include "scheduler/scheduler.h"
 #include "system/tasks.h"
-#include "instr.h"
 
 #include <stdbool.h>
 #include <stdio.h>

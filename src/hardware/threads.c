@@ -13,13 +13,13 @@
 #include "compat.h"
 #include "compiler.h"
 #include "hardware/cpus.h"
-#include "hardware/threads.h"
 #include "hardware/pids.h"
+#include "hardware/threads.h"
+#include "instr.h"
 #include "memory/sharedmemory.h"
 #include "memory/slab.h"
 #include "scheduler/scheduler.h"
 #include "system/tasks.h"
-#include "instr.h"
 
 __internal thread_local nosv_worker_t *current_worker = NULL;
 __internal thread_manager_t *current_process_manager = NULL;

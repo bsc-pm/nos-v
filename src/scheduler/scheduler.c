@@ -11,14 +11,14 @@
 #include "climits.h"
 #include "common.h"
 #include "compiler.h"
-#include "nosv-internal.h"
 #include "generic/clock.h"
 #include "hardware/cpus.h"
-#include "hardware/threads.h"
 #include "hardware/locality.h"
-#include "memory/sharedmemory.h"
-#include "scheduler/scheduler.h"
+#include "hardware/threads.h"
 #include "instr.h"
+#include "memory/sharedmemory.h"
+#include "nosv-internal.h"
+#include "scheduler/scheduler.h"
 
 __internal scheduler_t *scheduler;
 __internal thread_local process_scheduler_t *last;

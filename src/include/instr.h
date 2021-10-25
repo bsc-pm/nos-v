@@ -5,8 +5,8 @@
 # define _GNU_SOURCE
 #endif
 
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
@@ -14,12 +14,12 @@
 # include <ovni.h>
 #endif
 
+#include "api/nosv.h"
 #include "common.h"
 #include "compat.h"
-#include "nosv-internal.h"
-#include "hardware/threads.h"
 #include "hardware/pids.h"
-#include "api/nosv.h"
+#include "hardware/threads.h"
+#include "nosv-internal.h"
 
 #ifdef ENABLE_INSTRUMENTATION
 # define INSTR_0ARG(name, mcv) \

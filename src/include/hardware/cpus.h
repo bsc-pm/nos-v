@@ -7,6 +7,7 @@
 #ifndef CPUS_H
 #define CPUS_H
 
+#include <assert.h>
 #include <sched.h>
 
 #include "compiler.h"
