@@ -121,21 +121,40 @@ static inline void instr_type_create(uint32_t typeid, const char *label)
 
 #define JUMBO_BUFSIZE 1024
 
-	size_t bufsize;
+	size_t bufsize, label_len, size_left;
 	struct ovni_ev ev = {0};
 	uint8_t buf[JUMBO_BUFSIZE], *p;
+
+	p = buf;
+	size_left = sizeof(buf);
+	bufsize = 0;
+
+	memcpy(p, &typeid, sizeof(typeid));
+	p += sizeof(typeid);
+	size_left -= sizeof(typeid);
+	bufsize += sizeof(typeid);
 
 	if(label == NULL)
 		label = "";
 
-	bufsize = sizeof(typeid) + strlen(label) + 1;
-	if(bufsize > JUMBO_BUFSIZE)
-		abort();
+	label_len = strlen(label);
 
-	p = buf;
-	memcpy(p, &typeid, sizeof(typeid));
-	p += sizeof(typeid);
-	memcpy(p, label, strlen(label) + 1);
+	// Truncate the label if required
+	if(label_len > size_left - 1) {
+		// Maximum length of the label without the '\0'
+		label_len = size_left - 1;
+
+		// FIXME: Print detailed truncation message
+		nosv_warn("The task label is too large, truncated\n");
+	}
+
+	memcpy(p, label, label_len);
+	p += label_len;
+	bufsize += label_len;
+
+	// Always terminate the label
+	*p = '\0';
+	bufsize += 1;
 
 	ovni_ev_set_mcv(&ev, "VYc");
 	ovni_ev_jumbo(&ev, buf, bufsize);
