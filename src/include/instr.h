@@ -10,16 +10,12 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#ifndef gettid
-# include <sys/syscall.h>
-# define gettid() ((pid_t)syscall(SYS_gettid))
-#endif
-
 #ifdef ENABLE_INSTRUMENTATION
 #include <ovni.h>
 #endif
 
 #include "common.h"
+#include "compat.h"
 #include "nosv-internal.h"
 #include "hardware/threads.h"
 #include "hardware/pids.h"

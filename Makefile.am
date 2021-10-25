@@ -45,6 +45,7 @@ include_HEADERS = \
 noinst_HEADERS = \
 	src/include/climits.h \
 	src/include/common.h \
+	src/include/compat.h \
 	src/include/compiler.h \
 	src/include/nosv-internal.h \
 	src/include/generic/arch.h \

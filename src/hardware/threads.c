@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include "common.h"
+#include "compat.h"
 #include "compiler.h"
 #include "hardware/cpus.h"
 #include "hardware/threads.h"
@@ -19,10 +20,6 @@
 #include "scheduler/scheduler.h"
 #include "system/tasks.h"
 #include "instr.h"
-
-#ifndef gettid
-# define gettid() ((pid_t)syscall(SYS_gettid))
-#endif
 
 __internal thread_local nosv_worker_t *current_worker = NULL;
 __internal thread_manager_t *current_process_manager = NULL;
