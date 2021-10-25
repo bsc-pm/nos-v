@@ -29,7 +29,7 @@
 
 #ifdef ENABLE_INSTRUMENTATION
 # define INSTR_0ARG(name, mcv) \
-	static inline void name(){ \
+	static inline void name(void){ \
 		ovni_clock_update(); \
 		struct ovni_ev ev = {0}; \
 		ovni_ev_set_mcv(&ev, mcv); \
@@ -67,7 +67,7 @@
 	}
 #else // ENABLE_INSTRUMENTATION
 # define INSTR_0ARG(name, mcv) \
-	static inline void name() { }
+	static inline void name(void) { }
 
 # define INSTR_1ARG(name, mcv, ta, a) \
 	static inline void name(ta a) { }
@@ -196,7 +196,7 @@ static inline void instr_cpu_id(int index, int phyid)
 	ovni_add_cpu(index, phyid);
 }
 
-static inline void instr_thread_end()
+static inline void instr_thread_end(void)
 {
 	ovni_clock_update();
 	struct ovni_ev ev = {0};
@@ -208,7 +208,7 @@ static inline void instr_thread_end()
 	ovni_flush();
 }
 
-static inline void instr_proc_init()
+static inline void instr_proc_init(void)
 {
 	ovni_clock_update();
 
@@ -236,12 +236,12 @@ static inline void instr_proc_init()
 	ovni_proc_init(appid, hostname, getpid());
 }
 
-static inline void instr_proc_fini()
+static inline void instr_proc_fini(void)
 {
 	ovni_proc_fini();
 }
 
-static inline void instr_gen_bursts()
+static inline void instr_gen_bursts(void)
 {
 	int i;
 
@@ -249,7 +249,7 @@ static inline void instr_gen_bursts()
 		instr_burst();
 }
 
-static inline void instr_thread_init()
+static inline void instr_thread_init(void)
 {
 	ovni_thread_init(gettid());
 }
@@ -257,11 +257,11 @@ static inline void instr_thread_init()
 #else // ENABLE_INSTRUMENTATION
 
 static inline void instr_cpu_id(int index, int phyid) {}
-static inline void instr_thread_end() {}
-static inline void instr_proc_init() {}
-static inline void instr_proc_fini() {}
-static inline void instr_gen_bursts() {}
-static inline void instr_thread_init() {}
+static inline void instr_thread_end(void) {}
+static inline void instr_proc_init(void) {}
+static inline void instr_proc_fini(void) {}
+static inline void instr_gen_bursts(void) {}
+static inline void instr_thread_init(void) {}
 
 #endif // ENABLE_INSTRUMENTATION
 
