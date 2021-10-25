@@ -59,7 +59,7 @@
 		ovni_payload_add(&ev, (uint8_t *) &c, sizeof(c)); \
 		ovni_ev(&ev); \
 	}
-#else /* ENABLE_INSTRUMENTATION */
+#else // ENABLE_INSTRUMENTATION
 # define INSTR_0ARG(name, mcv) \
 	static inline void name() { }
 
@@ -71,7 +71,7 @@
 
 # define INSTR_3ARG(name, mcv, ta, a, tb, b, tc, c) \
 	static inline void name(ta a, tb b, tc c) { }
-#endif /* ENABLE_INSTRUMENTATION */
+#endif // ENABLE_INSTRUMENTATION
 
 /* ----------------------- nOS-V events  --------------------------- */
 
@@ -259,4 +259,4 @@ static inline void instr_thread_init() {}
 
 #endif // ENABLE_INSTRUMENTATION
 
-#endif /* INSTR_H */
+#endif // INSTR_H
