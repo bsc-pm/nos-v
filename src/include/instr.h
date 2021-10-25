@@ -11,7 +11,7 @@
 #include <unistd.h>
 
 #ifdef ENABLE_INSTRUMENTATION
-#include <ovni.h>
+# include <ovni.h>
 #endif
 
 #include "common.h"
@@ -73,7 +73,7 @@
 	static inline void name(ta a, tb b, tc c) { }
 #endif /* ENABLE_INSTRUMENTATION */
 
-/* nOS-V events */
+/* ----------------------- nOS-V events  --------------------------- */
 
 INSTR_0ARG(instr_code_enter,            "VC[")
 INSTR_0ARG(instr_code_exit,             "VC]")
@@ -111,10 +111,11 @@ INSTR_1ARG(instr_task_pause,            "VTp", uint32_t, task_id)
 INSTR_1ARG(instr_task_resume,           "VTr", uint32_t, task_id)
 INSTR_1ARG(instr_task_end,              "VTe", uint32_t, task_id)
 
+#ifdef ENABLE_INSTRUMENTATION
+
 /* A jumbo event is needed to encode a large label */
 static inline void instr_type_create(uint32_t typeid, const char *label)
 {
-#ifdef ENABLE_INSTRUMENTATION
 	ovni_clock_update();
 
 #define JUMBO_BUFSIZE 1024
@@ -158,11 +159,15 @@ static inline void instr_type_create(uint32_t typeid, const char *label)
 	ovni_ev_jumbo(&ev, buf, bufsize);
 
 #undef JUMBO_BUFSIZE
-
-#endif /* ENABLE_INSTRUMENTATION */
 }
 
-/* ovni events */
+#else // ENABLE_INSTRUMENTATION
+
+static inline void instr_type_create(uint32_t typeid, const char *label) {}
+
+#endif // ENABLE_INSTRUMENTATION
+
+/* ----------------------- Ovni events  --------------------------- */
 
 INSTR_0ARG(instr_burst,                 "OB.")
 
@@ -170,15 +175,6 @@ INSTR_1ARG(instr_affinity_set,          "OAs", int32_t, cpu)
 INSTR_2ARG(instr_affinity_remote,       "OAr", int32_t, cpu, int32_t, tid)
 
 INSTR_2ARG(instr_cpu_count,             "OCn", int32_t, count, int32_t, maxcpu)
-//INSTR_2ARG(instr_cpu_id,                "OCi", int32_t, cpu, int32_t, syscpu)
-
-static inline void instr_cpu_id(int index, int phyid)
-{
-#ifdef ENABLE_INSTRUMENTATION
-	ovni_add_cpu(index, phyid);
-#endif /* ENABLE_INSTRUMENTATION */
-}
-
 
 INSTR_2ARG(instr_thread_create,         "OHC", int32_t, cpu, void *, arg)
 INSTR_3ARG(instr_thread_execute,        "OHx", int32_t, cpu, int32_t, creator_tid, void *, arg)
@@ -187,9 +183,15 @@ INSTR_0ARG(instr_thread_resume,         "OHr")
 INSTR_0ARG(instr_thread_cool,           "OHc")
 INSTR_0ARG(instr_thread_warm,           "OHw")
 
+#ifdef ENABLE_INSTRUMENTATION
+
+static inline void instr_cpu_id(int index, int phyid)
+{
+	ovni_add_cpu(index, phyid);
+}
+
 static inline void instr_thread_end()
 {
-#ifdef ENABLE_INSTRUMENTATION
 	ovni_clock_update();
 	struct ovni_ev ev = {0};
 
@@ -198,13 +200,10 @@ static inline void instr_thread_end()
 
 	/* Flush the events to disk before killing the thread */
 	ovni_flush();
-#endif /* ENABLE_INSTRUMENTATION */
 }
 
-static inline void
-instr_proc_init()
+static inline void instr_proc_init()
 {
-#ifdef ENABLE_INSTRUMENTATION
 	ovni_clock_update();
 
 	char hostname[HOST_NAME_MAX + 1];
@@ -229,34 +228,35 @@ instr_proc_init()
 	}
 
 	ovni_proc_init(appid, hostname, getpid());
-#endif /* ENABLE_INSTRUMENTATION */
 }
 
-static inline void
-instr_proc_fini()
+static inline void instr_proc_fini()
 {
-#ifdef ENABLE_INSTRUMENTATION
 	ovni_proc_fini();
-#endif /* ENABLE_INSTRUMENTATION */
 }
 
-static inline void
-instr_gen_bursts()
+static inline void instr_gen_bursts()
 {
-#ifdef ENABLE_INSTRUMENTATION
 	int i;
 
 	for(i=0; i<100; i++)
 		instr_burst();
-#endif /* ENABLE_INSTRUMENTATION */
 }
 
-static inline void
-instr_thread_init()
+static inline void instr_thread_init()
 {
-#ifdef ENABLE_INSTRUMENTATION
 	ovni_thread_init(gettid());
-#endif /* ENABLE_INSTRUMENTATION */
 }
+
+#else // ENABLE_INSTRUMENTATION
+
+static inline void instr_cpu_id(int index, int phyid) {}
+static inline void instr_thread_end() {}
+static inline void instr_proc_init() {}
+static inline void instr_proc_fini() {}
+static inline void instr_gen_bursts() {}
+static inline void instr_thread_init() {}
+
+#endif // ENABLE_INSTRUMENTATION
 
 #endif /* INSTR_H */
