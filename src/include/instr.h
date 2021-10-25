@@ -19,6 +19,7 @@
 #include <ovni.h>
 #endif
 
+#include "common.h"
 #include "nosv-internal.h"
 #include "hardware/threads.h"
 #include "hardware/pids.h"
@@ -189,22 +190,28 @@ instr_proc_init()
 #ifdef ENABLE_INSTRUMENTATION
 	ovni_clock_update();
 
-	char hostname[HOST_NAME_MAX];
-	char *appid;
+	char hostname[HOST_NAME_MAX + 1];
+	int appid;
+	char *appid_str;
 
-	if(gethostname(hostname, HOST_NAME_MAX) != 0)
-	{
-		perror("gethostname failed");
-		abort();
+	if (gethostname(hostname, HOST_NAME_MAX) != 0) {
+		nosv_abort("Could not get hostname while initializing instrumentation");
 	}
 
-	if((appid = getenv("NOSV_APPID")) == NULL)
-	{
-		fprintf(stderr, "missing NOSV_APPID env var\n");
-		abort();
+	/* gethostname() may not null-terminate the buffer */
+	hostname[HOST_NAME_MAX] = '\0';
+
+	if ((appid_str = getenv("NOSV_APPID")) == NULL) {
+		nosv_warn("NOSV_APPID not set, using 0 as default");
+		appid = 0;
+	} else {
+		errno = 0;
+		appid = strtol(appid_str, NULL, 10);
+		if (errno != 0)
+			nosv_abort("strtol() failed to parse NOSV_APPID as a number");
 	}
 
-	ovni_proc_init(atoi(appid), hostname, getpid());
+	ovni_proc_init(appid, hostname, getpid());
 #endif /* ENABLE_INSTRUMENTATION */
 }
 
