@@ -306,6 +306,8 @@ end:
 
 void sfree(void *ptr, size_t size, int cpu)
 {
+	instr_sfree_enter();
+
 	size_t allocsize = next_power_of_two(size);
 
 	if (allocsize < SLAB_ALLOC_MIN)
@@ -316,4 +318,6 @@ void sfree(void *ptr, size_t size, int cpu)
 	cache_bucket_t *bucket = &backbone_header->buckets[allocsize - SLAB_ALLOC_MIN];
 
 	bucket_free(bucket, ptr, cpu);
+
+	instr_sfree_exit();
 }

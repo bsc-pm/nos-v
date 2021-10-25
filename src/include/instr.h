@@ -93,8 +93,10 @@ INSTR_0ARG(instr_sched_server_exit,     "VS]")
 INSTR_0ARG(instr_sched_submit_enter,    "VU[")
 INSTR_0ARG(instr_sched_submit_exit,     "VU]")
 
-INSTR_0ARG(instr_salloc_enter,          "VM[")
-INSTR_0ARG(instr_salloc_exit,           "VM]")
+INSTR_0ARG(instr_salloc_enter,          "VMa")
+INSTR_0ARG(instr_salloc_exit,           "VMA")
+INSTR_0ARG(instr_sfree_enter,           "VMf")
+INSTR_0ARG(instr_sfree_exit,            "VMF")
 
 INSTR_0ARG(instr_submit_enter,          "VAs")
 INSTR_0ARG(instr_submit_exit,           "VAS")
