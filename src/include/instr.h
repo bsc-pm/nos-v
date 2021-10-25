@@ -8,7 +8,7 @@
 #define INSTR_H
 
 #ifndef _GNU_SOURCE
-# define _GNU_SOURCE
+#define _GNU_SOURCE
 #endif
 
 #include <stdint.h>
@@ -17,7 +17,7 @@
 #include <unistd.h>
 
 #ifdef ENABLE_INSTRUMENTATION
-# include <ovni.h>
+#include <ovni.h>
 #endif
 
 #include "api/nosv.h"
@@ -28,94 +28,106 @@
 #include "nosv-internal.h"
 
 #ifdef ENABLE_INSTRUMENTATION
-# define INSTR_0ARG(name, mcv) \
-	static inline void name(void){ \
-		ovni_clock_update(); \
-		struct ovni_ev ev = {0}; \
+#define INSTR_0ARG(name, mcv)              \
+	static inline void name(void)      \
+	{                                  \
+		ovni_clock_update();       \
+		struct ovni_ev ev = {0};   \
 		ovni_ev_set_mcv(&ev, mcv); \
-		ovni_ev(&ev); \
+		ovni_ev(&ev);              \
 	}
 
-# define INSTR_1ARG(name, mcv, ta, a) \
-	static inline void name(ta a){ \
-		ovni_clock_update(); \
-		struct ovni_ev ev = {0}; \
-		ovni_ev_set_mcv(&ev, mcv); \
-		ovni_payload_add(&ev, (uint8_t *) &a, sizeof(a)); \
-		ovni_ev(&ev); \
+#define INSTR_1ARG(name, mcv, ta, a)                             \
+	static inline void name(ta a)                            \
+	{                                                        \
+		ovni_clock_update();                             \
+		struct ovni_ev ev = {0};                         \
+		ovni_ev_set_mcv(&ev, mcv);                       \
+		ovni_payload_add(&ev, (uint8_t *)&a, sizeof(a)); \
+		ovni_ev(&ev);                                    \
 	}
 
-# define INSTR_2ARG(name, mcv, ta, a, tb, b) \
-	static inline void name(ta a, tb b){ \
-		ovni_clock_update(); \
-		struct ovni_ev ev = {0}; \
-		ovni_ev_set_mcv(&ev, mcv); \
-		ovni_payload_add(&ev, (uint8_t *) &a, sizeof(a)); \
-		ovni_payload_add(&ev, (uint8_t *) &b, sizeof(b)); \
-		ovni_ev(&ev); \
+#define INSTR_2ARG(name, mcv, ta, a, tb, b)                      \
+	static inline void name(ta a, tb b)                      \
+	{                                                        \
+		ovni_clock_update();                             \
+		struct ovni_ev ev = {0};                         \
+		ovni_ev_set_mcv(&ev, mcv);                       \
+		ovni_payload_add(&ev, (uint8_t *)&a, sizeof(a)); \
+		ovni_payload_add(&ev, (uint8_t *)&b, sizeof(b)); \
+		ovni_ev(&ev);                                    \
 	}
 
-# define INSTR_3ARG(name, mcv, ta, a, tb, b, tc, c) \
-	static inline void name(ta a, tb b, tc c){ \
-		ovni_clock_update(); \
-		struct ovni_ev ev = {0}; \
-		ovni_ev_set_mcv(&ev, mcv); \
-		ovni_payload_add(&ev, (uint8_t *) &a, sizeof(a)); \
-		ovni_payload_add(&ev, (uint8_t *) &b, sizeof(b)); \
-		ovni_payload_add(&ev, (uint8_t *) &c, sizeof(c)); \
-		ovni_ev(&ev); \
+#define INSTR_3ARG(name, mcv, ta, a, tb, b, tc, c)               \
+	static inline void name(ta a, tb b, tc c)                \
+	{                                                        \
+		ovni_clock_update();                             \
+		struct ovni_ev ev = {0};                         \
+		ovni_ev_set_mcv(&ev, mcv);                       \
+		ovni_payload_add(&ev, (uint8_t *)&a, sizeof(a)); \
+		ovni_payload_add(&ev, (uint8_t *)&b, sizeof(b)); \
+		ovni_payload_add(&ev, (uint8_t *)&c, sizeof(c)); \
+		ovni_ev(&ev);                                    \
 	}
 #else // ENABLE_INSTRUMENTATION
-# define INSTR_0ARG(name, mcv) \
-	static inline void name(void) { }
+#define INSTR_0ARG(name, mcv)         \
+	static inline void name(void) \
+	{                             \
+	}
 
-# define INSTR_1ARG(name, mcv, ta, a) \
-	static inline void name(ta a) { }
+#define INSTR_1ARG(name, mcv, ta, a)     \
+	static inline void name(ta a)    \
+	{                                \
+	}
 
-# define INSTR_2ARG(name, mcv, ta, a, tb, b) \
-	static inline void name(ta a, tb b) { }
+#define INSTR_2ARG(name, mcv, ta, a, tb, b)     \
+	static inline void name(ta a, tb b)     \
+	{                                       \
+	}
 
-# define INSTR_3ARG(name, mcv, ta, a, tb, b, tc, c) \
-	static inline void name(ta a, tb b, tc c) { }
+#define INSTR_3ARG(name, mcv, ta, a, tb, b, tc, c)     \
+	static inline void name(ta a, tb b, tc c)      \
+	{                                              \
+	}
 #endif // ENABLE_INSTRUMENTATION
 
 /* ----------------------- nOS-V events  --------------------------- */
 
-INSTR_0ARG(instr_code_enter,            "VC[")
-INSTR_0ARG(instr_code_exit,             "VC]")
+INSTR_0ARG(instr_code_enter, "VC[")
+INSTR_0ARG(instr_code_exit, "VC]")
 
-INSTR_0ARG(instr_sched_recv,            "VSr")
-INSTR_0ARG(instr_sched_send,            "VSs")
-INSTR_0ARG(instr_sched_self_assign,     "VS@")
-INSTR_0ARG(instr_sched_hungry,          "VSh")
-INSTR_0ARG(instr_sched_fill,            "VSf")
-INSTR_0ARG(instr_sched_server_enter,    "VS[")
-INSTR_0ARG(instr_sched_server_exit,     "VS]")
+INSTR_0ARG(instr_sched_recv, "VSr")
+INSTR_0ARG(instr_sched_send, "VSs")
+INSTR_0ARG(instr_sched_self_assign, "VS@")
+INSTR_0ARG(instr_sched_hungry, "VSh")
+INSTR_0ARG(instr_sched_fill, "VSf")
+INSTR_0ARG(instr_sched_server_enter, "VS[")
+INSTR_0ARG(instr_sched_server_exit, "VS]")
 
-INSTR_0ARG(instr_sched_submit_enter,    "VU[")
-INSTR_0ARG(instr_sched_submit_exit,     "VU]")
+INSTR_0ARG(instr_sched_submit_enter, "VU[")
+INSTR_0ARG(instr_sched_submit_exit, "VU]")
 
-INSTR_0ARG(instr_salloc_enter,          "VMa")
-INSTR_0ARG(instr_salloc_exit,           "VMA")
-INSTR_0ARG(instr_sfree_enter,           "VMf")
-INSTR_0ARG(instr_sfree_exit,            "VMF")
+INSTR_0ARG(instr_salloc_enter, "VMa")
+INSTR_0ARG(instr_salloc_exit, "VMA")
+INSTR_0ARG(instr_sfree_enter, "VMf")
+INSTR_0ARG(instr_sfree_exit, "VMF")
 
-INSTR_0ARG(instr_submit_enter,          "VAs")
-INSTR_0ARG(instr_submit_exit,           "VAS")
-INSTR_0ARG(instr_pause_enter,           "VAp")
-INSTR_0ARG(instr_pause_exit,            "VAP")
-INSTR_0ARG(instr_yield_enter,           "VAy")
-INSTR_0ARG(instr_yield_exit,            "VAY")
-INSTR_0ARG(instr_waitfor_enter,         "VAw")
-INSTR_0ARG(instr_waitfor_exit,          "VAW")
-INSTR_0ARG(instr_schedpoint_enter,      "VAc")
-INSTR_0ARG(instr_schedpoint_exit,       "VAC")
+INSTR_0ARG(instr_submit_enter, "VAs")
+INSTR_0ARG(instr_submit_exit, "VAS")
+INSTR_0ARG(instr_pause_enter, "VAp")
+INSTR_0ARG(instr_pause_exit, "VAP")
+INSTR_0ARG(instr_yield_enter, "VAy")
+INSTR_0ARG(instr_yield_exit, "VAY")
+INSTR_0ARG(instr_waitfor_enter, "VAw")
+INSTR_0ARG(instr_waitfor_exit, "VAW")
+INSTR_0ARG(instr_schedpoint_enter, "VAc")
+INSTR_0ARG(instr_schedpoint_exit, "VAC")
 
-INSTR_2ARG(instr_task_create,           "VTc", uint32_t, task_id, uint32_t, type_id)
-INSTR_1ARG(instr_task_execute,          "VTx", uint32_t, task_id)
-INSTR_1ARG(instr_task_pause,            "VTp", uint32_t, task_id)
-INSTR_1ARG(instr_task_resume,           "VTr", uint32_t, task_id)
-INSTR_1ARG(instr_task_end,              "VTe", uint32_t, task_id)
+INSTR_2ARG(instr_task_create, "VTc", uint32_t, task_id, uint32_t, type_id)
+INSTR_1ARG(instr_task_execute, "VTx", uint32_t, task_id)
+INSTR_1ARG(instr_task_pause, "VTp", uint32_t, task_id)
+INSTR_1ARG(instr_task_resume, "VTr", uint32_t, task_id)
+INSTR_1ARG(instr_task_end, "VTe", uint32_t, task_id)
 
 #ifdef ENABLE_INSTRUMENTATION
 
@@ -139,13 +151,13 @@ static inline void instr_type_create(uint32_t typeid, const char *label)
 	size_left -= sizeof(typeid);
 	bufsize += sizeof(typeid);
 
-	if(label == NULL)
+	if (label == NULL)
 		label = "";
 
 	label_len = strlen(label);
 
 	// Truncate the label if required
-	if(label_len > size_left - 1) {
+	if (label_len > size_left - 1) {
 		// Maximum length of the label without the '\0'
 		label_len = size_left - 1;
 
@@ -169,25 +181,27 @@ static inline void instr_type_create(uint32_t typeid, const char *label)
 
 #else // ENABLE_INSTRUMENTATION
 
-static inline void instr_type_create(uint32_t typeid, const char *label) {}
+static inline void instr_type_create(uint32_t typeid, const char *label)
+{
+}
 
 #endif // ENABLE_INSTRUMENTATION
 
 /* ----------------------- Ovni events  --------------------------- */
 
-INSTR_0ARG(instr_burst,                 "OB.")
+INSTR_0ARG(instr_burst, "OB.")
 
-INSTR_1ARG(instr_affinity_set,          "OAs", int32_t, cpu)
-INSTR_2ARG(instr_affinity_remote,       "OAr", int32_t, cpu, int32_t, tid)
+INSTR_1ARG(instr_affinity_set, "OAs", int32_t, cpu)
+INSTR_2ARG(instr_affinity_remote, "OAr", int32_t, cpu, int32_t, tid)
 
-INSTR_2ARG(instr_cpu_count,             "OCn", int32_t, count, int32_t, maxcpu)
+INSTR_2ARG(instr_cpu_count, "OCn", int32_t, count, int32_t, maxcpu)
 
-INSTR_2ARG(instr_thread_create,         "OHC", int32_t, cpu, void *, arg)
-INSTR_3ARG(instr_thread_execute,        "OHx", int32_t, cpu, int32_t, creator_tid, void *, arg)
-INSTR_0ARG(instr_thread_pause,          "OHp")
-INSTR_0ARG(instr_thread_resume,         "OHr")
-INSTR_0ARG(instr_thread_cool,           "OHc")
-INSTR_0ARG(instr_thread_warm,           "OHw")
+INSTR_2ARG(instr_thread_create, "OHC", int32_t, cpu, void *, arg)
+INSTR_3ARG(instr_thread_execute, "OHx", int32_t, cpu, int32_t, creator_tid, void *, arg)
+INSTR_0ARG(instr_thread_pause, "OHp")
+INSTR_0ARG(instr_thread_resume, "OHr")
+INSTR_0ARG(instr_thread_cool, "OHc")
+INSTR_0ARG(instr_thread_warm, "OHw")
 
 #ifdef ENABLE_INSTRUMENTATION
 
@@ -245,7 +259,7 @@ static inline void instr_gen_bursts(void)
 {
 	int i;
 
-	for(i=0; i<100; i++)
+	for (i = 0; i < 100; i++)
 		instr_burst();
 }
 
@@ -256,12 +270,24 @@ static inline void instr_thread_init(void)
 
 #else // ENABLE_INSTRUMENTATION
 
-static inline void instr_cpu_id(int index, int phyid) {}
-static inline void instr_thread_end(void) {}
-static inline void instr_proc_init(void) {}
-static inline void instr_proc_fini(void) {}
-static inline void instr_gen_bursts(void) {}
-static inline void instr_thread_init(void) {}
+static inline void instr_cpu_id(int index, int phyid)
+{
+}
+static inline void instr_thread_end(void)
+{
+}
+static inline void instr_proc_init(void)
+{
+}
+static inline void instr_proc_fini(void)
+{
+}
+static inline void instr_gen_bursts(void)
+{
+}
+static inline void instr_thread_init(void)
+{
+}
 
 #endif // ENABLE_INSTRUMENTATION
 

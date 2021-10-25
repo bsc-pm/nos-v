@@ -19,8 +19,7 @@ typedef atomic_uint_fast32_t atomic_uint32_t;
 typedef uint64_t deadline_t;
 typedef size_t yield_t;
 
-struct nosv_task_type
-{
+struct nosv_task_type {
 	nosv_task_run_callback_t run_callback;
 	nosv_task_end_callback_t end_callback;
 	nosv_task_completed_callback_t completed_callback;
@@ -30,8 +29,7 @@ struct nosv_task_type
 	uint32_t typeid;
 };
 
-struct nosv_task
-{
+struct nosv_task {
 	atomic_uint32_t event_count;
 	atomic_uint32_t blocking_count;
 	size_t metadata;

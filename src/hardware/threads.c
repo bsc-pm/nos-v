@@ -338,7 +338,7 @@ void worker_block(void)
 	current_worker->cpu = current_worker->new_cpu;
 	cpu_t *cpu = current_worker->cpu;
 
-	if(!cpu) {
+	if (!cpu) {
 		instr_affinity_set(-1);
 		cpu_set_current(-1);
 	} else if (cpu != oldcpu) {

@@ -533,7 +533,7 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
 
 	if (!dtlock_lock_or_delegate(&scheduler->dtlock, (uint64_t)cpu, (void *)&task)) {
 		// Served item
-		if(task)
+		if (task)
 			instr_sched_recv();
 
 		return task;
@@ -559,7 +559,7 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
 			dtlock_set_item(&scheduler->dtlock, cpu_delegated, task);
 			dtlock_popfront(&scheduler->dtlock);
 
-			if(task)
+			if (task)
 				instr_sched_send();
 
 			served++;
@@ -573,7 +573,7 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
 
 	dtlock_unlock(&scheduler->dtlock);
 
-	if(task)
+	if (task)
 		instr_sched_self_assign();
 
 	instr_sched_server_exit();

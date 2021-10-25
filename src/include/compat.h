@@ -8,7 +8,7 @@
 #define COMPAT_H
 
 #ifndef _GNU_SOURCE
-# define _GNU_SOURCE
+#define _GNU_SOURCE
 #endif
 
 #include <sys/syscall.h>
@@ -18,7 +18,7 @@
 #if !__GLIBC_PREREQ(2, 30)
 static inline pid_t gettid(void)
 {
-	return (pid_t) syscall(SYS_gettid);
+	return (pid_t)syscall(SYS_gettid);
 }
 #endif
 

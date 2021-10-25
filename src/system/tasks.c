@@ -98,7 +98,7 @@ int nosv_type_destroy(
 	nosv_flags_t flags)
 {
 	if (type->label)
-		free((void *) type->label);
+		free((void *)type->label);
 
 	sfree(type, sizeof(struct nosv_task_type), cpu_get_current());
 	return 0;
