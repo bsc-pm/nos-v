@@ -124,6 +124,9 @@ static inline void instr_type_create(int typeid, const char *label)
 	struct ovni_ev ev = {0};
 	uint8_t buf[JUMBO_BUFSIZE], *p;
 
+	if(label == NULL)
+		label = "";
+
 	bufsize = sizeof(typeid) + strlen(label) + 1;
 	if(bufsize > JUMBO_BUFSIZE)
 		abort();
