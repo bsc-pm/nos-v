@@ -274,9 +274,7 @@ int nosv_pause(
 
 	// If r < 1, we have already been unblocked
 	if (count > 0)
-	{
 		worker_yield();
-	}
 
 	instr_pause_exit();
 	instr_task_resume(task->taskid);
@@ -336,7 +334,6 @@ int nosv_yield(
 
 	task->yield = -1;
 	scheduler_submit(task);
-
 	worker_yield();
 
 	instr_yield_exit();

@@ -31,7 +31,6 @@ __internal atomic_int threads_shutdown_signal;
 // The delegate thread is used to create remote workers
 static inline void *delegate_routine(void *args)
 {
-
 	thread_manager_t *threadmanager = (thread_manager_t *)args;
 
 	instr_thread_init();
