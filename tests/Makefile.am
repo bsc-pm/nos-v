@@ -4,7 +4,7 @@
 
 .NOTPARALLEL:
 
-AM_CFLAGS = -I$(top_srcdir)/tests/include $(PTHREAD_CFLAGS) -I$(top_srcdir)/api
+AM_CFLAGS = -I$(top_srcdir)/tests/include $(PTHREAD_CFLAGS) -I$(top_srcdir)/api $(ovni_CPPFLAGS)
 AM_LDFLAGS = -L$(top_builddir)/.libs -rpath $(abs_top_builddir)/.libs $(top_builddir)/libnosv.la $(ovni_LIBS)
 
 a_tests = basic-init.test \
@@ -39,7 +39,7 @@ basic_attach_test_CFLAGS = $(AM_CFLAGS)
 basic_attach_test_LDFLAGS = $(AM_LDFLAGS)
 
 basic_attach_external_test_SOURCES = basic/attach-external.c
-basic_attach_external_test_CFLAGS = $(AM_CFLAGS)
+basic_attach_external_test_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/src/include
 basic_attach_external_test_LDFLAGS = $(AM_LDFLAGS)
 
 basic_schedpoint_test_SOURCES = basic/schedpoint.c

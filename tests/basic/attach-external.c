@@ -4,6 +4,11 @@
 #include <pthread.h>
 #include <sched.h>
 
+#ifdef ENABLE_INSTRUMENTATION
+// Load instrumentation definitions from nosv header for now
+#include "instr.h"
+#endif
+
 static nosv_task_type_t type;
 static test_t test;
 
@@ -12,12 +17,22 @@ static void *start_routine(void *arg)
 {
 	nosv_task_t task;
 
+#ifdef ENABLE_INSTRUMENTATION
+	// The thread must be instrumented *outside* nosv, before it
+	// calls any external nosv function which may emit events.
+	instr_thread_init();
+	instr_thread_execute(-1, -1, NULL);
+#endif
 	nosv_attach(&task, type, 0, NULL, NOSV_ATTACH_NONE);
 	test_ok(&test, "External thread can attach");
 
 	nosv_detach(NOSV_DETACH_NONE);
 	test_ok(&test, "External thread can detach");
 
+#ifdef ENABLE_INSTRUMENTATION
+	// The thread end also flushes the events to disk.
+	instr_thread_end();
+#endif
 	return NULL;
 }
 
