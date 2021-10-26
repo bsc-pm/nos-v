@@ -491,6 +491,8 @@ int nosv_attach(
 	if (unlikely(type->run_callback || type->end_callback || type->completed_callback))
 		return -EINVAL;
 
+	instr_thread_attach();
+
 	nosv_worker_t *worker = worker_create_external();
 	assert(worker);
 
@@ -542,6 +544,8 @@ int nosv_detach(
 
 	if (!worker->task)
 		return -EINVAL;
+
+	instr_thread_detach();
 
 	instr_task_end(worker->task->taskid);
 

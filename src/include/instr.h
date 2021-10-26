@@ -268,6 +268,18 @@ static inline void instr_thread_init(void)
 	ovni_thread_init(gettid());
 }
 
+static inline void instr_thread_attach(void)
+{
+	if(!ovni_thread_isready())
+		nosv_abort("The current thread is not instrumented in nosv_attach()");
+}
+
+static inline void instr_thread_detach(void)
+{
+	if(!ovni_thread_isready())
+		nosv_abort("The current thread is not instrumented in nosv_detach()");
+}
+
 #else // ENABLE_INSTRUMENTATION
 
 static inline void instr_cpu_id(int index, int phyid)
@@ -286,6 +298,12 @@ static inline void instr_gen_bursts(void)
 {
 }
 static inline void instr_thread_init(void)
+{
+}
+static inline void instr_thread_attach(void)
+{
+}
+static inline void instr_thread_detach(void)
 {
 }
 

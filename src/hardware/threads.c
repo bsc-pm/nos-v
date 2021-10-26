@@ -432,9 +432,6 @@ nosv_worker_t *worker_create_external(void)
 	worker->immediate_successor = NULL;
 	sched_getaffinity(0, sizeof(worker->original_affinity), &worker->original_affinity);
 
-	/* The thread may be already initialized */
-	instr_thread_init();
-
 	return worker;
 }
 
