@@ -47,6 +47,7 @@ noinst_HEADERS = \
 	src/include/common.h \
 	src/include/compat.h \
 	src/include/compiler.h \
+	src/include/instr.h \
 	src/include/nosv-internal.h \
 	src/include/generic/arch.h \
 	src/include/generic/arch/arm64.h \
