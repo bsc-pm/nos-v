@@ -162,7 +162,7 @@ static inline void worker_execute_or_delegate(nosv_task_t task, cpu_t *cpu, int 
 		worker_wake_internal(task->worker, cpu);
 	} else if (task->type->pid != logical_pid) {
 		// The task has not started yet but it is from a PID other than the
-		// current one. Then, wake up an idle thread from the the task's PID
+		// current one. Then, wake up an idle thread from the task's PID
 		instr_thread_cool();
 		cpu_transfer(task->type->pid, cpu, task);
 	} else if (is_busy_worker) {
