@@ -7,10 +7,6 @@
 #ifndef COMPAT_H
 #define COMPAT_H
 
-#ifndef _GNU_SOURCE
-#define _GNU_SOURCE
-#endif
-
 #include <sys/syscall.h>
 #include <unistd.h>
 
