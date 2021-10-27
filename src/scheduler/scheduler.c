@@ -213,13 +213,13 @@ void scheduler_submit(nosv_task_t task)
 	while (!success) {
 		success = mpsc_push(scheduler->in_queue, (void *)task, cpu_get_current());
 
-		if (!success) {
-			int lock = dtlock_try_lock(&scheduler->dtlock);
-			if (lock) {
-				scheduler_process_ready_tasks();
-				dtlock_unlock(&scheduler->dtlock);
-			}
-		}
+		// if (!success) {
+		// 	int lock = dtlock_try_lock(&scheduler->dtlock);
+		// 	if (lock) {
+		// 		scheduler_process_ready_tasks();
+		// 		dtlock_unlock(&scheduler->dtlock);
+		// 	}
+		// }
 	}
 
 	instr_sched_submit_exit();
@@ -526,13 +526,49 @@ static inline nosv_task_t scheduler_get_internal(int cpu)
 	return NULL;
 }
 
+static inline size_t scheduler_serve_batch(int *skip)
+{
+	// Serve a task batch
+	// TODO instead of call scheduler_get_internal in a loop,
+	// do something smarter
+
+	size_t served = 0;
+	int cpu_delegated = 0;
+
+	while ((cpu_delegated = dtlock_get_next_waiter(&scheduler->dtlock, cpu_delegated))) {
+		// Adjust 1-index
+		int cpu = cpu_delegated - 1;
+		assert(cpu < cpus_count());
+		nosv_task_t task = scheduler_get_internal(cpu);
+
+		// If we don't get a task, indicate this situation to the server thread
+		// Additionally, don't wake the other thread up
+		if (!task) {
+			*skip = 1;
+		} else {
+			dtlock_set_item(&scheduler->dtlock, cpu, task);
+			instr_sched_send();
+		}
+
+		served++;
+	}
+
+	return served;
+}
+
 nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
 {
 	assert(cpu >= 0);
 
-	nosv_task_t task = NULL;
 
-	if (!dtlock_lock_or_delegate(&scheduler->dtlock, (uint64_t)cpu, (void **)&task)) {
+	nosv_task_t task = NULL;
+	int res = 0;
+
+	do {
+		res = dtlock_lock_or_delegate(&scheduler->dtlock, (uint64_t)cpu, (void **)&task);
+	} while (res == DTLOCK_EAGAIN);
+
+	if (res == DTLOCK_SERVED) {
 		// Served item
 		if (task)
 			instr_sched_recv();
@@ -540,7 +576,9 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
 		return task;
 	}
 
+	// Lock acquired
 	instr_sched_server_enter();
+	assert(res == DTLOCK_SERVER);
 
 	// Whether the thread can block serving tasks
 	const int blocking = !(flags & SCHED_GET_NONBLOCKING);
@@ -549,19 +587,16 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
 		scheduler_process_ready_tasks();
 
 		size_t served = 0;
-		while (served < MAX_SERVED_TASKS && !dtlock_empty(&scheduler->dtlock)) {
-			int cpu_delegated = (int) dtlock_front(&scheduler->dtlock);
-			assert(cpu_delegated < cpus_count());
 
-			task = scheduler_get_internal(cpu_delegated);
-			dtlock_set_item(&scheduler->dtlock, cpu_delegated, task);
-			dtlock_popfront(&scheduler->dtlock);
+		// Grab threads pending
+		int waiters = dtlock_get_waiters(&scheduler->dtlock);
+		// If some tasks could not be scheduled, it is a good idea to try
+		// and get work for ourselves, just in case affinities are at play.
+		int skip = 0;
 
-			served++;
-			if (!task)
-				break;
-
-			instr_sched_send();
+		while (served < MAX_SERVED_TASKS && waiters && !skip) {
+			served += scheduler_serve_batch(&skip);
+			waiters = dtlock_get_waiters(&scheduler->dtlock);
 		}
 
 		// Work for myself
