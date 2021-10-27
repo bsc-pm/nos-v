@@ -37,6 +37,9 @@ AX_CHECK_CC_VERSION
 # Set C11 standard
 AX_CHECK_C11
 
+# Fixup CC Flags
+AX_FIXUP_CC_FLAGS
+
 AM_PROG_AR
 
 AM_INIT_AUTOMAKE([foreign dist-bzip2 no-dist-gzip subdir-objects -Wall tar-pax -Wno-portability])
