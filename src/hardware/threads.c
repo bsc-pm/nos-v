@@ -161,12 +161,20 @@ static inline void worker_execute_or_delegate(nosv_task_t task, cpu_t *cpu, int 
 		// Another thread was already running the task, so we have to resume
 		// the execution of the thread
 		instr_thread_cool();
+		if (!is_busy_worker)
+			worker_add_to_idle_list();
+
 		worker_wake_internal(task->worker, cpu);
+		worker_block();
 	} else if (task->type->pid != logical_pid) {
 		// The task has not started yet but it is from a PID other than the
 		// current one. Then, wake up an idle thread from the task's PID
 		instr_thread_cool();
+		if (!is_busy_worker)
+			worker_add_to_idle_list();
+
 		cpu_transfer(task->type->pid, cpu, task);
+		worker_block();
 	} else if (is_busy_worker) {
 		// The task has not started and it is from the current PID, but the
 		// current worker is busy and cannot execute directly the task. Then
@@ -174,6 +182,7 @@ static inline void worker_execute_or_delegate(nosv_task_t task, cpu_t *cpu, int 
 		// execute the task
 		instr_thread_cool();
 		worker_wake_idle(logical_pid, cpu, task);
+		worker_block();
 	} else {
 		// Otherwise, start running the task because the current thread is
 		// valid to run the task and it is idle
@@ -185,16 +194,7 @@ static inline void worker_execute_or_delegate(nosv_task_t task, cpu_t *cpu, int 
 		current_worker->task = NULL;
 
 		// The task execution has ended, so do not block the thread
-		return;
 	}
-
-	// Block the worker if the task was delegated to another thread
-	if (is_busy_worker)
-		// Only block the current worker
-		worker_block();
-	else
-		// Block the current worker but also mark it as idle
-		worker_idle();
 }
 
 static inline void *worker_start_routine(void *arg)
@@ -266,12 +266,11 @@ static inline void *worker_start_routine(void *arg)
 	return NULL;
 }
 
-void worker_idle(void)
+void worker_add_to_idle_list(void)
 {
 	nosv_spin_lock(&current_process_manager->idle_spinlock);
 	list_add(&current_process_manager->idle_threads, &current_worker->list_hook);
 	nosv_spin_unlock(&current_process_manager->idle_spinlock);
-	worker_block();
 }
 
 int worker_should_shutdown(void)

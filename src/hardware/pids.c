@@ -113,8 +113,9 @@ void pidmanager_transfer_to_idle(cpu_t *cpu)
 	assert(pid != logical_pid);
 
 	if (pid >= 0) {
+		worker_add_to_idle_list();
 		cpu_transfer(pid, cpu, NULL);
-		worker_idle();
+		worker_block();
 	} else {
 		cpu_mark_free(cpu);
 	}
