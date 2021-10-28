@@ -41,6 +41,7 @@ typedef void (*nosv_task_end_callback_t)(nosv_task_t);
 typedef void (*nosv_task_completed_callback_t)(nosv_task_t);
 
 /* Read-only task attributes */
+/* Returns a pointer to the metadata or NULL if nothing was allocated */
 void *nosv_get_task_metadata(nosv_task_t task);
 nosv_task_type_t nosv_get_task_type(nosv_task_t task);
 
