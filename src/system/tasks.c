@@ -146,7 +146,11 @@ int nosv_create(
 /* Read-only task attributes */
 void *nosv_get_task_metadata(nosv_task_t task)
 {
-	return ((char *)task) + sizeof(struct nosv_task);
+	// Check if any metadata was allocated
+	if (task->metadata)
+		return ((char *)task) + sizeof(struct nosv_task);
+
+	return NULL;
 }
 
 nosv_task_type_t nosv_get_task_type(nosv_task_t task)
