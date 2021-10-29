@@ -29,7 +29,7 @@
 		ovni_clock_update();       \
 		struct ovni_ev ev = {0};   \
 		ovni_ev_set_mcv(&ev, mcv); \
-		ovni_ev(&ev);              \
+		ovni_ev_emit(&ev);              \
 	}
 
 #define INSTR_1ARG(name, mcv, ta, a)                             \
@@ -39,7 +39,7 @@
 		struct ovni_ev ev = {0};                         \
 		ovni_ev_set_mcv(&ev, mcv);                       \
 		ovni_payload_add(&ev, (uint8_t *)&a, sizeof(a)); \
-		ovni_ev(&ev);                                    \
+		ovni_ev_emit(&ev);                                    \
 	}
 
 #define INSTR_2ARG(name, mcv, ta, a, tb, b)                      \
@@ -50,7 +50,7 @@
 		ovni_ev_set_mcv(&ev, mcv);                       \
 		ovni_payload_add(&ev, (uint8_t *)&a, sizeof(a)); \
 		ovni_payload_add(&ev, (uint8_t *)&b, sizeof(b)); \
-		ovni_ev(&ev);                                    \
+		ovni_ev_emit(&ev);                                    \
 	}
 
 #define INSTR_3ARG(name, mcv, ta, a, tb, b, tc, c)               \
@@ -62,7 +62,7 @@
 		ovni_payload_add(&ev, (uint8_t *)&a, sizeof(a)); \
 		ovni_payload_add(&ev, (uint8_t *)&b, sizeof(b)); \
 		ovni_payload_add(&ev, (uint8_t *)&c, sizeof(c)); \
-		ovni_ev(&ev);                                    \
+		ovni_ev_emit(&ev);                                    \
 	}
 #else // ENABLE_INSTRUMENTATION
 #define INSTR_0ARG(name, mcv)         \
@@ -167,7 +167,7 @@ static inline void instr_type_create(uint32_t typeid, const char *label)
 
 	struct ovni_ev ev = {0};
 	ovni_ev_set_mcv(&ev, "VYc");
-	ovni_ev_jumbo(&ev, buf, bufsize);
+	ovni_ev_jumbo_emit(&ev, buf, bufsize);
 }
 
 #else // ENABLE_INSTRUMENTATION
@@ -207,7 +207,7 @@ static inline void instr_thread_end(void)
 	struct ovni_ev ev = {0};
 
 	ovni_ev_set_mcv(&ev, "OHe");
-	ovni_ev(&ev);
+	ovni_ev_emit(&ev);
 
 	// Flush the events to disk before killing the thread
 	ovni_flush();
