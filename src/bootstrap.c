@@ -27,7 +27,7 @@ int nosv_init(void)
 	instr_thread_init();
 	instr_thread_execute(-1, -1, NULL);
 
-	/* Generate some events to measure the latency */
+	// Generate some events to measure the latency
 	instr_gen_bursts();
 
 	locality_init();

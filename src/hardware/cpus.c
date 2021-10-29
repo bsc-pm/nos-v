@@ -47,7 +47,7 @@ void cpus_init(int initialize)
 	}
 	cpumanager->system_to_logical = salloc(sizeof(int) * (maxcpu + 1), 0);
 
-	/* Inform the instrumentation of all available CPUs */
+	// Inform the instrumentation of all available CPUs
 	instr_cpu_count(cnt, maxcpu);
 
 	i = 0;
@@ -61,7 +61,7 @@ void cpus_init(int initialize)
 			cpumanager->cpus[i].numa_node = locality_get_cpu_numa(curr);
 			cpumanager->system_to_logical[curr] = i;
 
-			/* Inform the instrumentation of a new CPU */
+			// Inform the instrumentation of a new CPU
 			instr_cpu_id(i, curr);
 
 			++i;

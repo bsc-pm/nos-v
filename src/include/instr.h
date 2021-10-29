@@ -86,7 +86,7 @@
 	}
 #endif // ENABLE_INSTRUMENTATION
 
-/* ----------------------- nOS-V events  --------------------------- */
+// ----------------------- nOS-V events  ---------------------------
 
 INSTR_0ARG(instr_code_enter, "VC[")
 INSTR_0ARG(instr_code_exit, "VC]")
@@ -126,7 +126,7 @@ INSTR_1ARG(instr_task_end, "VTe", uint32_t, task_id)
 
 #ifdef ENABLE_INSTRUMENTATION
 
-/* A jumbo event is needed to encode a large label */
+// A jumbo event is needed to encode a large label
 static inline void instr_type_create(uint32_t typeid, const char *label)
 {
 	ovni_clock_update();
@@ -182,7 +182,7 @@ static inline void instr_type_create(uint32_t typeid, const char *label)
 
 #endif // ENABLE_INSTRUMENTATION
 
-/* ----------------------- Ovni events  --------------------------- */
+// ----------------------- Ovni events  ---------------------------
 
 INSTR_0ARG(instr_burst, "OB.")
 
@@ -213,7 +213,7 @@ static inline void instr_thread_end(void)
 	ovni_ev_set_mcv(&ev, "OHe");
 	ovni_ev(&ev);
 
-	/* Flush the events to disk before killing the thread */
+	// Flush the events to disk before killing the thread
 	ovni_flush();
 }
 
@@ -229,7 +229,7 @@ static inline void instr_proc_init(void)
 		nosv_abort("Could not get hostname while initializing instrumentation");
 	}
 
-	/* gethostname() may not null-terminate the buffer */
+	// gethostname() may not null-terminate the buffer
 	hostname[HOST_NAME_MAX] = '\0';
 
 	if ((appid_str = getenv("NOSV_APPID")) == NULL) {
