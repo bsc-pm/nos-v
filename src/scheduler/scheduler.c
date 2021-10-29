@@ -531,7 +531,7 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
 
 	nosv_task_t task = NULL;
 
-	if (!dtlock_lock_or_delegate(&scheduler->dtlock, (uint64_t)cpu, (void *)&task)) {
+	if (!dtlock_lock_or_delegate(&scheduler->dtlock, (uint64_t)cpu, (void **)&task)) {
 		// Served item
 		if (task)
 			instr_sched_recv();
