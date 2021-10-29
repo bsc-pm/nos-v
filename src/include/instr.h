@@ -132,7 +132,6 @@ static inline void instr_type_create(uint32_t typeid, const char *label)
 	ovni_clock_update();
 
 	size_t bufsize, label_len, size_left;
-	struct ovni_ev ev = {0};
 	uint8_t buf[1024], *p;
 
 	p = buf;
@@ -166,6 +165,7 @@ static inline void instr_type_create(uint32_t typeid, const char *label)
 	*p = '\0';
 	bufsize += 1;
 
+	struct ovni_ev ev = {0};
 	ovni_ev_set_mcv(&ev, "VYc");
 	ovni_ev_jumbo(&ev, buf, bufsize);
 }
