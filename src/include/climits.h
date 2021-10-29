@@ -16,7 +16,7 @@
 #define NR_CPUS 256
 
 // Maximum number of concurrent nOS-V processes
-#define MAX_PIDS 128
+#define MAX_PIDS 512
 
 // Cacheline Size
 #define CACHELINE_SIZE 64
