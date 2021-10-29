@@ -339,7 +339,6 @@ void worker_block(void)
 	cpu_t *cpu = current_worker->cpu;
 
 	if (!cpu) {
-		instr_affinity_set(-1);
 		cpu_set_current(-1);
 	} else if (cpu != oldcpu) {
 		cpu_set_current(cpu->logic_id);
