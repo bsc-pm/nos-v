@@ -19,8 +19,10 @@
 #include <string.h>
 #include <sys/errno.h>
 
-static atomic_uint64_t task_count = 0;
-static atomic_uint32_t task_type_count = 0;
+// Start the taskid and typeid counters at 1 so we have the same
+// identifiers in Paraver. It is also used to check for overflows.
+static atomic_uint64_t taskid_counter = 1;
+static atomic_uint32_t typeid_counter = 1;
 
 #define LABEL_MAX_CHAR 128
 
@@ -50,7 +52,7 @@ int nosv_type_init(
 	res->completed_callback = completed_callback;
 	res->metadata = metadata;
 	res->pid = logical_pid;
-	res->typeid = atomic_fetch_add_explicit(&task_type_count, 1, memory_order_relaxed);
+	res->typeid = atomic_fetch_add_explicit(&typeid_counter, 1, memory_order_relaxed);
 
 	if (label) {
 		res->label = strndup(label, LABEL_MAX_CHAR - 1);
@@ -124,7 +126,7 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	res->deadline = 0;
 	res->yield = 0;
 	res->wakeup = NULL;
-	res->taskid = atomic_fetch_add_explicit(&task_count, 1, memory_order_relaxed);
+	res->taskid = atomic_fetch_add_explicit(&taskid_counter, 1, memory_order_relaxed);
 
 	*task = res;
 
