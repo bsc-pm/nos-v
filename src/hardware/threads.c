@@ -32,7 +32,7 @@ static inline void *delegate_routine(void *args)
 
 	instr_thread_init();
 	instr_thread_execute(-1, threadmanager->creator_tid, (uint64_t) args);
-	instr_code_enter();
+	instr_delegate_enter();
 
 	event_queue_t *queue = &threadmanager->thread_creation_queue;
 	creation_event_t event;
@@ -49,7 +49,7 @@ static inline void *delegate_routine(void *args)
 		worker_create_local(threadmanager, event.cpu, event.task);
 	}
 
-	instr_code_exit();
+	instr_delegate_exit();
 	instr_thread_end();
 
 	return NULL;
@@ -207,7 +207,7 @@ static inline void *worker_start_routine(void *arg)
 
 	instr_thread_init();
 	instr_thread_execute(current_worker->cpu->logic_id, current_worker->creator_tid, (uint64_t) arg);
-	instr_code_enter();
+	instr_worker_enter();
 
 	// At the initialization, we signal the instrumentation to state
 	// that we are looking for work.
@@ -260,7 +260,7 @@ static inline void *worker_start_routine(void *arg)
 	clist_add(&current_process_manager->shutdown_threads, &current_worker->list_hook);
 	nosv_spin_unlock(&current_process_manager->shutdown_spinlock);
 
-	instr_code_exit();
+	instr_worker_exit();
 	instr_thread_end();
 
 	return NULL;

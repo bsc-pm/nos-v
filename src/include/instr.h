@@ -88,8 +88,10 @@
 
 // ----------------------- nOS-V events  ---------------------------
 
-INSTR_0ARG(instr_code_enter, "VC[")
-INSTR_0ARG(instr_code_exit, "VC]")
+INSTR_0ARG(instr_worker_enter, "VHw")
+INSTR_0ARG(instr_worker_exit, "VHW")
+INSTR_0ARG(instr_delegate_enter, "VHd")
+INSTR_0ARG(instr_delegate_exit, "VHD")
 
 INSTR_0ARG(instr_sched_recv, "VSr")
 INSTR_0ARG(instr_sched_send, "VSs")
@@ -261,14 +263,26 @@ static inline void instr_thread_init(void)
 
 static inline void instr_thread_attach(void)
 {
+	struct ovni_ev ev = {0};
+
 	if (!ovni_thread_isready())
 		nosv_abort("The current thread is not instrumented in nosv_attach()");
+
+	ovni_clock_update();
+	ovni_ev_set_mcv(&ev, "VHa");
+	ovni_ev_emit(&ev);
 }
 
 static inline void instr_thread_detach(void)
 {
-	if (!ovni_thread_isready())
-		nosv_abort("The current thread is not instrumented in nosv_detach()");
+	struct ovni_ev ev = {0};
+
+	ovni_clock_update();
+	ovni_ev_set_mcv(&ev, "VHA");
+	ovni_ev_emit(&ev);
+
+	// Flush the events to disk before detaching the thread
+	ovni_flush();
 }
 
 #else // ENABLE_INSTRUMENTATION

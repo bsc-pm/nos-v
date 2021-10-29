@@ -546,8 +546,6 @@ int nosv_detach(
 	if (!worker->task)
 		return -EINVAL;
 
-	instr_thread_detach();
-
 	instr_task_end((uint32_t)worker->task->taskid);
 
 	// First free the task
@@ -568,6 +566,8 @@ int nosv_detach(
 
 	// Then resume a thread on the current cpu
 	worker_wake_idle(logical_pid, cpu, NULL);
+
+	instr_thread_detach();
 
 	return 0;
 }
