@@ -19,8 +19,8 @@
 #include <string.h>
 #include <sys/errno.h>
 
-__internal atomic_uint32_t task_count = 0;
-__internal atomic_uint32_t task_type_count = 0;
+static atomic_uint32_t task_count = 0;
+static atomic_uint32_t task_type_count = 0;
 
 #define LABEL_MAX_CHAR 128
 
