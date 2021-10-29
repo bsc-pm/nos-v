@@ -529,7 +529,7 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
 {
 	assert(cpu >= 0);
 
-	nosv_task_t task;
+	nosv_task_t task = NULL;
 
 	if (!dtlock_lock_or_delegate(&scheduler->dtlock, (uint64_t)cpu, (void *)&task)) {
 		// Served item
@@ -540,9 +540,6 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
 	}
 
 	instr_sched_server_enter();
-
-	// Lock acquired
-	task = NULL;
 
 	// Whether the thread can block serving tasks
 	const int blocking = !(flags & SCHED_GET_NONBLOCKING);
