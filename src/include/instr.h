@@ -248,9 +248,7 @@ static inline void instr_proc_fini(void)
 
 static inline void instr_gen_bursts(void)
 {
-	int i;
-
-	for (i = 0; i < 100; i++)
+	for (int i = 0; i < 100; i++)
 		instr_burst();
 }
 
@@ -261,13 +259,13 @@ static inline void instr_thread_init(void)
 
 static inline void instr_thread_attach(void)
 {
-	if(!ovni_thread_isready())
+	if (!ovni_thread_isready())
 		nosv_abort("The current thread is not instrumented in nosv_attach()");
 }
 
 static inline void instr_thread_detach(void)
 {
-	if(!ovni_thread_isready())
+	if (!ovni_thread_isready())
 		nosv_abort("The current thread is not instrumented in nosv_detach()");
 }
 
