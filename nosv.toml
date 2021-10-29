@@ -44,6 +44,20 @@
 	# A good value should be a multiple of queue_batch
 	in_queue_size = 256
 
+# CPU Governor configuration
+# Controls the policy that nOS-V follows to block idle CPUs to save energy and resources
+[governor]
+	# There is a choice between three different governor policies:
+	# - hybrid: CPUs will spin for governor.spins before going to sleep when no work is available
+	# - idle: CPUs will sleep immediately when no work is available
+	# - busy: CPUs will never sleep
+	# In general, use idle when targeting minimum power usage, and busy when targeting maximum performance
+	# The default is hybrid as it provides a good balance between power and performance.
+	policy = "hybrid"
+	# Number of times a CPU will spin without sleeping in the "hybrid" policy.
+	# When "idle" or "busy" are selected, this setting is ignored
+	spins = 10000
+
 # Debug options
 [debug]
 	# Dump all the configuration options nOS-V is running with, its final parsed values and the

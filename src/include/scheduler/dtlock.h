@@ -17,6 +17,8 @@
 #include "generic/arch.h"
 #include "generic/bitset.h"
 #include "memory/slab.h"
+#include "scheduler/cpubitset.h"
+#include "scheduler/governor.h"
 
 typedef atomic_uint_fast64_t atomic_uint64_t;
 
@@ -26,18 +28,21 @@ struct dtlock_node {
 };
 
 struct dtlock_item {
-	atomic_char signal __cacheline_aligned;
+	atomic_uchar signal __cacheline_aligned;
+	unsigned char flags;
 	uint64_t ticket;
 	void *item;
 };
 
-BITSET_DEFINE(dtlock_mask, NR_CPUS)
-typedef struct dtlock_mask dtlock_mask_t;
-
 #define ITEM_DTLOCK_EAGAIN ((void *) 1)
+#define ITEM_DTLOCK_SLEEP ((void *) 2)
+
 #define DTLOCK_EAGAIN 2
 #define DTLOCK_SERVER 1
 #define DTLOCK_SERVED 0
+
+#define DTLOCK_FLAGS_NONE 0x0
+#define DTLOCK_FLAGS_NONBLOCK 0x1
 
 typedef struct delegation_lock {
 	atomic_uint64_t head __cacheline_aligned;
@@ -45,7 +50,6 @@ typedef struct delegation_lock {
 	uint64_t next __cacheline_aligned;
 	struct dtlock_node *waitqueue;
 	struct dtlock_item *items;
-	dtlock_mask_t mask;
 } delegation_lock_t;
 
 static inline void dtlock_init(delegation_lock_t *dtlock, int size)
@@ -58,18 +62,29 @@ static inline void dtlock_init(delegation_lock_t *dtlock, int size)
 	dtlock->waitqueue = (struct dtlock_node *)salloc(sizeof(struct dtlock_node) * size, -1);
 	dtlock->items = (struct dtlock_item *)salloc(sizeof(struct dtlock_item) * size, -1);
 
-	// Allocate mask
-	BIT_ZERO(size, &dtlock->mask);
-
 	for (int i = 0; i < size; ++i) {
 		atomic_init(&dtlock->waitqueue[i].cpu, 0);
 		atomic_init(&dtlock->waitqueue[i].ticket, 0);
 		atomic_init(&dtlock->items[i].signal, 0);
 		dtlock->items[i].ticket = 0;
 		dtlock->items[i].item = 0;
+		dtlock->items[i].flags = DTLOCK_FLAGS_NONE;
 	}
 
 	atomic_store_explicit(&dtlock->waitqueue[0].ticket, size, memory_order_seq_cst);
+}
+
+static inline int dtlock_try_lock(delegation_lock_t *dtlock)
+{
+	uint64_t head = atomic_load_explicit(&dtlock->head, memory_order_relaxed);
+	const uint64_t id = head % dtlock->size;
+
+	if (atomic_load_explicit(&dtlock->waitqueue[id].ticket, memory_order_relaxed) != head)
+		return 0;
+
+	int res = atomic_compare_exchange_weak_explicit(&dtlock->head, &head, head + 1, memory_order_acquire, memory_order_relaxed);
+
+	return res;
 }
 
 static inline void dtlock_lock(delegation_lock_t *dtlock)
@@ -85,15 +100,18 @@ static inline void dtlock_lock(delegation_lock_t *dtlock)
 	atomic_thread_fence(memory_order_acquire);
 }
 
-static inline int dtlock_lock_or_delegate(delegation_lock_t *dtlock, const uint64_t cpu_index, void **item)
+static inline int dtlock_lock_or_delegate(delegation_lock_t *dtlock, governor_t *governor, const uint64_t cpu_index, void **item, const int blocking)
 {
-	const char signal = atomic_load_explicit(&dtlock->items[cpu_index].signal, memory_order_acquire);
+	unsigned char recv_signal;
+	const unsigned char signal = atomic_load_explicit(&dtlock->items[cpu_index].signal, memory_order_acquire);
 	const uint64_t head = atomic_fetch_add_explicit(&dtlock->head, 1, memory_order_relaxed);
 	const uint64_t id = head % dtlock->size;
 
 	assert(cpu_index < dtlock->size);
 	assert(id < dtlock->size);
-	atomic_store_explicit(&dtlock->waitqueue[id].cpu, head + cpu_index, memory_order_relaxed);
+
+	dtlock->items[cpu_index].flags = blocking ? DTLOCK_FLAGS_NONBLOCK : DTLOCK_FLAGS_NONE;
+	atomic_store_explicit(&dtlock->waitqueue[id].cpu, head + cpu_index, memory_order_release);
 
 	while (atomic_load_explicit(&dtlock->waitqueue[id].ticket, memory_order_relaxed) < head)
 		spin_wait();
@@ -112,12 +130,27 @@ static inline int dtlock_lock_or_delegate(delegation_lock_t *dtlock, const uint6
 	// Guarantee the write to ticket isn't seen out of order with the items
 	atomic_thread_fence(memory_order_acquire);
 
+	void *recieved_item = dtlock->items[cpu_index].item;
+
+	// We re-check the recieved signal here
+	// We may have missed an ITEM_DTLOCK_SLEEP sent to us, which means that recv_signal - signal = 2
+	// In that case, we will enter the governor_sleep, but we will not block, just to reset the futex for the next process.
+	recv_signal = atomic_load_explicit(&dtlock->items[cpu_index].signal, memory_order_acquire);
+
 	// Delegated and served
+	// We may be asked to sleep
+	if (recieved_item == ITEM_DTLOCK_SLEEP || (recv_signal - signal > 1)) {
+		assert(blocking);
+		governor_sleep(governor, (int) cpu_index);
+		recieved_item = dtlock->items[cpu_index].item;
+		assert(recieved_item != ITEM_DTLOCK_SLEEP);
+	}
+
 	// It might happen that we raced against the thread serving
-	if (dtlock->items[cpu_index].item == ITEM_DTLOCK_EAGAIN)
+	if (recieved_item == ITEM_DTLOCK_EAGAIN)
 		return DTLOCK_EAGAIN;
 
-	*item = dtlock->items[cpu_index].item;
+	*item = recieved_item;
 
 	return DTLOCK_SERVED;
 }
@@ -161,22 +194,19 @@ static inline void dtlock_set_item(delegation_lock_t *dtlock, const uint64_t cpu
 	assert(cpu < dtlock->size);
 	dtlock->items[cpu].item = item;
 
-	// Remove the cpu from the waiter list
-	BIT_CLR(dtlock->size, cpu, &dtlock->mask);
-
 	// Unlock the thread
 	atomic_fetch_add_explicit(&dtlock->items[cpu].signal, 1, memory_order_release);
 }
 
 // Must be called with lock acquired
-static inline int dtlock_get_waiters(delegation_lock_t *dtlock)
+static inline int dtlock_get_waiters(delegation_lock_t *dtlock, cpu_bitset_t *bitset)
 {
-	int waiters = BIT_COUNT(dtlock->size, &dtlock->mask);
+	int waiters = cpu_bitset_count(bitset);
 
 	while (!dtlock_empty(dtlock)) {
 		uint64_t cpu = dtlock_front(dtlock);
-		assert(!BIT_ISSET(dtlock->size, cpu, &dtlock->mask));
-		BIT_SET(dtlock->size, cpu, &dtlock->mask);
+		assert(!cpu_bitset_isset(bitset, cpu));
+		cpu_bitset_set(bitset, (int) cpu);
 		dtlock_popfront_wait(dtlock, cpu);
 		waiters++;
 	}
@@ -185,29 +215,15 @@ static inline int dtlock_get_waiters(delegation_lock_t *dtlock)
 }
 
 // Must be called with lock acquired
-// Return the 1-index of the first cpu waiting
-static inline int dtlock_get_next_waiter(delegation_lock_t *dtlock, int start)
+static inline void dtlock_unlock(delegation_lock_t *dtlock)
 {
-	int waiter = BIT_FFS_AT(dtlock->size, &dtlock->mask, start);
-	return waiter;
+	dtlock_popfront(dtlock);
 }
 
 // Must be called with lock acquired
-static inline void dtlock_unlock(delegation_lock_t *dtlock)
+static inline int dtlock_blocking(const delegation_lock_t *dtlock, const int cpu)
 {
-	// Check if the DTLock is empty currently
-	if (dtlock_empty(dtlock)) {
-		// If it is, check if we have any pending waiter in the secondary
-		// per-cpu waitqueue
-		int waiter = dtlock_get_next_waiter(dtlock, 0);
-
-		// If there is, unlock it so it can go back into the scheduler
-		// Do so with a special "try again" value
-		if (waiter) {
-			dtlock_set_item(dtlock, waiter - 1, ITEM_DTLOCK_EAGAIN);
-		}
-	}
-	dtlock_popfront(dtlock);
+	return !(dtlock->items[cpu].flags & DTLOCK_FLAGS_NONBLOCK);
 }
 
 #endif // DTLOCK_H

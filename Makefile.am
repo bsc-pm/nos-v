@@ -51,6 +51,7 @@ libnosv_la_SOURCES = \
 	src/monitoring/cpumonitor.c \
 	src/monitoring/cpustats.c \
 	src/monitoring/monitoring.c \
+	src/scheduler/governor.c \
 	src/scheduler/scheduler.c \
 	src/system/tasks.c
 
@@ -82,6 +83,7 @@ noinst_HEADERS = \
 	src/include/generic/bitset.h \
 	src/include/generic/clock.h \
 	src/include/generic/condvar.h \
+	src/include/generic/futex.h \
 	src/include/generic/heap.h \
 	src/include/generic/list.h \
 	src/include/generic/mutex.h \
@@ -110,10 +112,12 @@ noinst_HEADERS = \
 	src/include/monitoring/taskmonitor.h \
 	src/include/monitoring/taskstats.h \
 	src/include/monitoring/tasktypestats.h \
+	src/include/scheduler/cpubitset.h \
 	src/include/scheduler/dtlock.h \
 	src/include/scheduler/mpsc.h \
 	src/include/scheduler/scheduler.h \
 	src/include/scheduler/spsc.h \
+	src/include/scheduler/governor.h \
 	src/include/system/tasks.h \
 	tests/common/tap.h \
 	tests/include/test.h

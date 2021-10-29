@@ -50,6 +50,9 @@ static inline void config_init(rt_config_t *config)
 	config->shm_size = SHM_SIZE;
 	config->shm_start = SHM_START_ADDR;
 
+	config->governor_policy = strdup("hybrid");
+	config->governor_spins = 10000;
+
 	config->debug_dump_config = 0;
 
 	config->hwcounters_verbose = HWCOUNTERS_VERBOSE;
@@ -89,6 +92,10 @@ static inline int config_check(rt_config_t *config)
 	sanity_check(config->shm_size > (10 * 2 * 1024 * 1024), "Small shared memory sizes (less than 10 pages) are not supported");
 	sanity_check(((uintptr_t)config->shm_start) >= 4096, "Mapping shared memory at page 0 is not allowed");
 
+	sanity_check(config->governor_policy, "Governor policy cannot be empty");
+	const int gov_policy_ok = !strcmp(config->governor_policy, "hybrid") || !strcmp(config->governor_policy, "busy") || !strcmp(config->governor_policy, "idle");
+	sanity_check(gov_policy_ok, "Governor policy must be one of: hybrid, idle or busy");
+	
 	sanity_check(
 		!strcmp(config->hwcounters_backend, "none") ||
 		!strcmp(config->hwcounters_backend, "papi"),
