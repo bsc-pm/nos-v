@@ -556,12 +556,11 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
 			dtlock_set_item(&scheduler->dtlock, cpu_delegated, task);
 			dtlock_popfront(&scheduler->dtlock);
 
-			if (task)
-				instr_sched_send();
-
 			served++;
 			if (!task)
 				break;
+
+			instr_sched_send();
 		}
 
 		// Work for myself
