@@ -46,7 +46,7 @@ struct nosv_task {
 	heap_node_t heap_hook;
 
 	nosv_task_t wakeup;
-	uint32_t taskid;
+	uint64_t taskid;
 };
 
 #endif // NOSV_INTERNAL_H

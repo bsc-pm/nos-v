@@ -19,7 +19,7 @@
 #include <string.h>
 #include <sys/errno.h>
 
-static atomic_uint32_t task_count = 0;
+static atomic_uint64_t task_count = 0;
 static atomic_uint32_t task_type_count = 0;
 
 #define LABEL_MAX_CHAR 128
@@ -128,7 +128,7 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 
 	*task = res;
 
-	instr_task_create(res->taskid, res->type->typeid);
+	instr_task_create((uint32_t)res->taskid, res->type->typeid);
 
 	return 0;
 }
@@ -266,7 +266,7 @@ int nosv_pause(
 	nosv_task_t task = worker_current_task();
 	assert(task);
 
-	instr_task_pause(task->taskid);
+	instr_task_pause((uint32_t)task->taskid);
 	instr_pause_enter();
 
 	uint32_t count = atomic_fetch_add_explicit(&task->blocking_count, 1, memory_order_relaxed) + 1;
@@ -276,7 +276,7 @@ int nosv_pause(
 		worker_yield();
 
 	instr_pause_exit();
-	instr_task_resume(task->taskid);
+	instr_task_resume((uint32_t)task->taskid);
 
 	return 0;
 }
@@ -293,7 +293,7 @@ int nosv_waitfor(
 	nosv_task_t task = worker_current_task();
 	assert(task);
 
-	instr_task_pause(task->taskid);
+	instr_task_pause((uint32_t)task->taskid);
 	instr_waitfor_enter();
 
 	const uint64_t start_ns = clock_ns();
@@ -312,7 +312,7 @@ int nosv_waitfor(
 		*actual_ns = clock_ns() - start_ns;
 
 	instr_waitfor_exit();
-	instr_task_resume(task->taskid);
+	instr_task_resume((uint32_t)task->taskid);
 
 	return 0;
 }
@@ -328,7 +328,7 @@ int nosv_yield(
 	nosv_task_t task = worker_current_task();
 	assert(task);
 
-	instr_task_pause(task->taskid);
+	instr_task_pause((uint32_t)task->taskid);
 	instr_yield_enter();
 
 	task->yield = -1;
@@ -336,7 +336,7 @@ int nosv_yield(
 	worker_yield();
 
 	instr_yield_exit();
-	instr_task_resume(task->taskid);
+	instr_task_resume((uint32_t)task->taskid);
 
 	return 0;
 }
@@ -353,7 +353,7 @@ int nosv_schedpoint(
 	nosv_task_t task = worker_current_task();
 	assert(task);
 
-	instr_task_pause(task->taskid);
+	instr_task_pause((uint32_t)task->taskid);
 	instr_schedpoint_enter();
 
 	cpuid = cpu_get_current();
@@ -374,7 +374,7 @@ int nosv_schedpoint(
 	}
 
 	instr_schedpoint_exit();
-	instr_task_resume(task->taskid);
+	instr_task_resume((uint32_t)task->taskid);
 
 	return 0;
 }
@@ -407,7 +407,7 @@ static inline void task_complete(nosv_task_t task)
 
 void task_execute(nosv_task_t task)
 {
-	instr_task_execute(task->taskid);
+	instr_task_execute((uint32_t)task->taskid);
 
 	atomic_thread_fence(memory_order_acquire);
 	task->type->run_callback(task);
@@ -424,7 +424,7 @@ void task_execute(nosv_task_t task)
 		task_complete(task);
 	}
 
-	instr_task_end(task->taskid);
+	instr_task_end((uint32_t)task->taskid);
 }
 
 /* Events API */
@@ -523,7 +523,7 @@ int nosv_attach(
 
 	// Inform the instrumentation about the new task being in
 	// execution, as it won't pass via task_execute()
-	instr_task_execute(t->taskid);
+	instr_task_execute((uint32_t)t->taskid);
 
 	return 0;
 }
@@ -546,7 +546,7 @@ int nosv_detach(
 
 	instr_thread_detach();
 
-	instr_task_end(worker->task->taskid);
+	instr_task_end((uint32_t)worker->task->taskid);
 
 	// First free the task
 	nosv_destroy(worker->task, NOSV_DESTROY_NONE);
