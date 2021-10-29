@@ -31,7 +31,7 @@ static inline void *delegate_routine(void *args)
 	thread_manager_t *threadmanager = (thread_manager_t *)args;
 
 	instr_thread_init();
-	instr_thread_execute(-1, threadmanager->creator_tid, args);
+	instr_thread_execute(-1, threadmanager->creator_tid, (uint64_t) args);
 	instr_code_enter();
 
 	event_queue_t *queue = &threadmanager->thread_creation_queue;
@@ -58,7 +58,9 @@ static inline void *delegate_routine(void *args)
 static inline void delegate_thread_create(thread_manager_t *threadmanager)
 {
 	// TODO Standalone should have affinity here?
-	instr_thread_create(-1, threadmanager);
+	// We use the address of the threadmanager structure as it
+	// provides a unique tag known to this thread and the delegate.
+	instr_thread_create(-1, (uint64_t) threadmanager);
 	int ret = pthread_create(&threadmanager->delegate_thread, NULL, delegate_routine, threadmanager);
 	if (ret)
 		nosv_abort("Cannot create pthread");
@@ -204,7 +206,7 @@ static inline void *worker_start_routine(void *arg)
 	current_worker->tid = gettid();
 
 	instr_thread_init();
-	instr_thread_execute(current_worker->cpu->logic_id, current_worker->creator_tid, arg);
+	instr_thread_execute(current_worker->cpu->logic_id, current_worker->creator_tid, (uint64_t) arg);
 	instr_code_enter();
 
 	// At the initialization, we signal the instrumentation to state
@@ -412,7 +414,10 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 
 	pthread_attr_setaffinity_np(&attr, sizeof(cpu->cpuset), &cpu->cpuset);
 
-	instr_thread_create(cpu->logic_id, worker);
+	// We use the address of the worker structure as the tag of the
+	// thread create event, as it provides a unique value known to
+	// both threads.
+	instr_thread_create(cpu->logic_id, (uint64_t) worker);
 
 	ret = pthread_create(&worker->kthread, &attr, worker_start_routine, worker);
 	if (ret)

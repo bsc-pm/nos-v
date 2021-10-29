@@ -187,8 +187,8 @@ INSTR_2ARG(instr_affinity_remote, "OAr", int32_t, cpu, int32_t, tid)
 
 INSTR_2ARG(instr_cpu_count, "OCn", int32_t, count, int32_t, maxcpu)
 
-INSTR_2ARG(instr_thread_create, "OHC", int32_t, cpu, void *, arg)
-INSTR_3ARG(instr_thread_execute, "OHx", int32_t, cpu, int32_t, creator_tid, void *, arg)
+INSTR_2ARG(instr_thread_create, "OHC", int32_t, cpu, uint64_t, tag)
+INSTR_3ARG(instr_thread_execute, "OHx", int32_t, cpu, int32_t, creator_tid, uint64_t, tag)
 INSTR_0ARG(instr_thread_pause, "OHp")
 INSTR_0ARG(instr_thread_resume, "OHr")
 INSTR_0ARG(instr_thread_cool, "OHc")

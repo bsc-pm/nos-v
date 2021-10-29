@@ -21,7 +21,7 @@ static void *start_routine(void *arg)
 	// The thread must be instrumented *outside* nosv, before it
 	// calls any external nosv function which may emit events.
 	instr_thread_init();
-	instr_thread_execute(-1, -1, NULL);
+	instr_thread_execute(-1, -1, 0);
 #endif
 	nosv_attach(&task, type, 0, NULL, NOSV_ATTACH_NONE);
 	test_ok(&test, "External thread can attach");
