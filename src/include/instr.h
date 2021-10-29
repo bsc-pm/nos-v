@@ -229,13 +229,15 @@ static inline void instr_proc_init(void)
 	hostname[HOST_NAME_MAX] = '\0';
 
 	if ((appid_str = getenv("NOSV_APPID")) == NULL) {
-		nosv_warn("NOSV_APPID not set, using 0 as default");
-		appid = 0;
+		nosv_warn("NOSV_APPID not set, using 1 as default");
+		appid = 1;
 	} else {
 		errno = 0;
 		appid = strtol(appid_str, NULL, 10);
 		if (errno != 0)
 			nosv_abort("strtol() failed to parse NOSV_APPID as a number");
+		if (appid <= 0)
+			nosv_abort("NOSV_APPID must be larger than 0");
 	}
 
 	ovni_proc_init(appid, hostname, getpid());
