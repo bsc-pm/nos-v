@@ -8,6 +8,7 @@ AM_CFLAGS = -I$(top_srcdir)/tests/include $(PTHREAD_CFLAGS) -I$(top_srcdir)/api 
 AM_LDFLAGS = -L$(top_builddir)/.libs -rpath $(abs_top_builddir)/.libs $(top_builddir)/libnosv.la $(ovni_LIBS)
 
 a_tests = basic-init.test \
+	basic-init-procs.test \
 	basic-mix.test \
 	basic-crash.test \
 	basic-inline.test \
@@ -22,6 +23,10 @@ TESTS = $(a_tests)
 basic_init_test_SOURCES = basic/init.c
 basic_init_test_CFLAGS = $(AM_CFLAGS)
 basic_init_test_LDFLAGS = $(AM_LDFLAGS)
+
+basic_init_procs_test_SOURCES = basic/init-procs.c
+basic_init_procs_test_CFLAGS = $(AM_CFLAGS) -I$(top_srcdir)/src/include
+basic_init_procs_test_LDFLAGS = $(AM_LDFLAGS)
 
 basic_mix_test_SOURCES = basic/mix.c
 basic_mix_test_CFLAGS = $(AM_CFLAGS)
