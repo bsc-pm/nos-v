@@ -302,8 +302,13 @@ int worker_yield_if_needed(nosv_task_t current_task)
 	cpu_t *cpu = current_worker->cpu;
 	assert(cpu);
 
+	instr_sched_hungry();
+
 	// Try to get a ready task without blocking
 	nosv_task_t new_task = scheduler_get(cpu->logic_id, SCHED_GET_NONBLOCKING);
+
+	instr_sched_fill();
+
 	if (!new_task)
 		return 0;
 
