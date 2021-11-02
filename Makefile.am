@@ -78,6 +78,7 @@ noinst_HEADERS = \
 	src/include/system/config.h \
 	src/include/system/tasks.h \
 	tests/common/tap.h \
+	tests/common/utils.h \
 	tests/include/test.h
 
 subincludedir = $(includedir)/nosv

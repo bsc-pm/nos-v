@@ -38,8 +38,8 @@ void task_run(nosv_task_t task)
 
 		// Now we should yield the CPU and wait until it's our next turn
 		do {
-			// Yield the CPU if the quantum has been exceeded
-			nosv_schedpoint(NOSV_SCHEDPOINT_NONE);
+			// Yield the CPU to other ready tasks
+			nosv_yield(NOSV_YIELD_NONE);
 
 			// Consume quantum without wasting resources
 			usleep(time_us);

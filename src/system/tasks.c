@@ -333,9 +333,14 @@ int nosv_yield(
 	instr_task_pause((uint32_t)task->taskid);
 	instr_yield_enter();
 
+	// Mark the task as yield
 	task->yield = -1;
-	scheduler_submit(task);
-	worker_yield();
+
+	// Yield the CPU if there is available work in the scheduler
+	worker_yield_if_needed(task);
+
+	// Unmark the task as yield
+	task->yield = 0;
 
 	instr_yield_exit();
 	instr_task_resume((uint32_t)task->taskid);
