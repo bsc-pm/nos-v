@@ -10,16 +10,16 @@
 #include <unistd.h>
 
 #include "common.h"
+#include "compat.h"
 #include "compiler.h"
 #include "hardware/cpus.h"
-#include "hardware/threads.h"
 #include "hardware/pids.h"
+#include "hardware/threads.h"
+#include "instr.h"
 #include "memory/sharedmemory.h"
 #include "memory/slab.h"
 #include "scheduler/scheduler.h"
 #include "system/tasks.h"
-
-#define gettid() syscall(SYS_gettid)
 
 __internal thread_local nosv_worker_t *current_worker = NULL;
 __internal thread_manager_t *current_process_manager = NULL;
@@ -29,11 +29,18 @@ __internal atomic_int threads_shutdown_signal;
 static inline void *delegate_routine(void *args)
 {
 	thread_manager_t *threadmanager = (thread_manager_t *)args;
+
+	instr_thread_init();
+	instr_thread_execute(-1, threadmanager->delegate_creator_tid, (uint64_t) args);
+	instr_delegate_enter();
+
 	event_queue_t *queue = &threadmanager->thread_creation_queue;
 	creation_event_t event;
 
 	while (1) {
+		instr_thread_pause();
 		event_queue_pull(queue, &event);
+		instr_thread_resume();
 
 		if (event.type == Shutdown)
 			break;
@@ -42,12 +49,18 @@ static inline void *delegate_routine(void *args)
 		worker_create_local(threadmanager, event.cpu, event.task);
 	}
 
+	instr_delegate_exit();
+	instr_thread_end();
+
 	return NULL;
 }
 
 static inline void delegate_thread_create(thread_manager_t *threadmanager)
 {
 	// TODO Standalone should have affinity here?
+	// We use the address of the threadmanager structure as it
+	// provides a unique tag known to this thread and the delegate.
+	instr_thread_create(-1, (uint64_t) threadmanager);
 	int ret = pthread_create(&threadmanager->delegate_thread, NULL, delegate_routine, threadmanager);
 	if (ret)
 		nosv_abort("Cannot create pthread");
@@ -60,6 +73,7 @@ static inline void worker_wake_internal(nosv_worker_t *worker, cpu_t *cpu)
 
 	if (cpu && worker->pid == logical_pid) {
 		// Remotely set thread affinity before waking up, to prevent disturbing another CPU
+		instr_affinity_remote(cpu->logic_id, worker->tid);
 		pthread_setaffinity_np(worker->kthread, sizeof(cpu->cpuset), &cpu->cpuset);
 	} else if (cpu && worker->pid != logical_pid) {
 		cpu_set_pid(cpu, worker->pid);
@@ -77,6 +91,7 @@ void threadmanager_init(thread_manager_t *threadmanager)
 	nosv_spin_init(&threadmanager->idle_spinlock);
 	nosv_spin_init(&threadmanager->shutdown_spinlock);
 	event_queue_init(&threadmanager->thread_creation_queue);
+	threadmanager->delegate_creator_tid = gettid();
 
 	current_process_manager = threadmanager;
 
@@ -145,16 +160,19 @@ static inline void worker_execute_or_delegate(nosv_task_t task, cpu_t *cpu, int 
 	if (task->worker != NULL) {
 		// Another thread was already running the task, so we have to resume
 		// the execution of the thread
+		instr_thread_cool();
 		worker_wake_internal(task->worker, cpu);
 	} else if (task->type->pid != logical_pid) {
 		// The task has not started yet but it is from a PID other than the
-		// current one. Then, wake up an idle thread from the the task's PID
+		// current one. Then, wake up an idle thread from the task's PID
+		instr_thread_cool();
 		cpu_transfer(task->type->pid, cpu, task);
 	} else if (is_busy_worker) {
 		// The task has not started and it is from the current PID, but the
 		// current worker is busy and cannot execute directly the task. Then
 		// delegate the work and wake up an idle thread from this PID to
 		// execute the task
+		instr_thread_cool();
 		worker_wake_idle(logical_pid, cpu, task);
 	} else {
 		// Otherwise, start running the task because the current thread is
@@ -187,6 +205,14 @@ static inline void *worker_start_routine(void *arg)
 	cpu_set_current(current_worker->cpu->logic_id);
 	current_worker->tid = gettid();
 
+	instr_thread_init();
+	instr_thread_execute(current_worker->cpu->logic_id, current_worker->creator_tid, (uint64_t) arg);
+	instr_worker_enter();
+
+	// At the initialization, we signal the instrumentation to state
+	// that we are looking for work.
+	instr_sched_hungry();
+
 	while (!atomic_load_explicit(&threads_shutdown_signal, memory_order_relaxed)) {
 		nosv_task_t task = current_worker->task;
 
@@ -198,9 +224,30 @@ static inline void *worker_start_routine(void *arg)
 		if (!task && current_worker->cpu)
 			task = scheduler_get(cpu_get_current(), SCHED_GET_DEFAULT);
 
-		if (task)
+		if (task) {
+			// We can only reach this point in two cases:
+			// 1) When this thread requests a task as
+			// client, and is assigned one by another
+			// scheduler server thread.
+			// 2) When this thread is the scheduler server
+			// and exits the scheduler serving loop because
+			// it has a task assigned.
+			//
+			// Therefore, we are now filled with work.
+			instr_sched_fill();
+
 			worker_execute_or_delegate(task, current_worker->cpu, /* idle thread */ 0);
+
+			// As soon as the task is handled, we are now
+			// looking for more work, so we call here
+			// instr_sched_hungry only once, so avoid filling
+			// the tracing buffer with sched enter events.
+			instr_sched_hungry();
+		}
 	}
+
+	// After the main loop we are no longer hungry (for tasks)
+	instr_sched_fill();
 
 	assert(!worker_get_immediate());
 
@@ -212,6 +259,9 @@ static inline void *worker_start_routine(void *arg)
 	nosv_spin_lock(&current_process_manager->shutdown_spinlock);
 	clist_add(&current_process_manager->shutdown_threads, &current_worker->list_hook);
 	nosv_spin_unlock(&current_process_manager->shutdown_spinlock);
+
+	instr_worker_exit();
+	instr_thread_end();
 
 	return NULL;
 }
@@ -233,6 +283,11 @@ void worker_yield(void)
 {
 	assert(current_worker);
 
+	// Inform the instrumentation that this thread is going to be paused
+	// *before* we wake another thread. The thread is put in the cooling
+	// state, to prevent two threads in the running state in the same CPU.
+	instr_thread_cool();
+
 	// Block this thread and place another one. This is called on nosv_pause
 	// First, wake up another worker in this cpu, one from the same PID
 	worker_wake_idle(logical_pid, current_worker->cpu, NULL);
@@ -249,8 +304,13 @@ int worker_yield_if_needed(nosv_task_t current_task)
 	cpu_t *cpu = current_worker->cpu;
 	assert(cpu);
 
+	instr_sched_hungry();
+
 	// Try to get a ready task without blocking
 	nosv_task_t new_task = scheduler_get(cpu->logic_id, SCHED_GET_NONBLOCKING);
+
+	instr_sched_fill();
+
 	if (!new_task)
 		return 0;
 
@@ -267,17 +327,33 @@ int worker_yield_if_needed(nosv_task_t current_task)
 void worker_block(void)
 {
 	assert(current_worker);
+
+	instr_thread_pause();
+
 	// Blocking operation
 	nosv_condvar_wait(&current_worker->condvar);
+
+	// Inform the instrumentation that the current thread has been signaled
+	// to awake, but is not yet running, as it may need to switch its own
+	// CPU. Prevents two threads in running state at the same time in a
+	// single CPU.
+	instr_thread_warm();
+
 	// We are back. Update CPU in case of migration
 	// We use a different variable to detect cpu changes and prevent races
 	cpu_t *oldcpu = current_worker->cpu;
 	current_worker->cpu = current_worker->new_cpu;
 	cpu_t *cpu = current_worker->cpu;
-	if (cpu && cpu != oldcpu) {
+
+	if (!cpu) {
+		cpu_set_current(-1);
+	} else if (cpu != oldcpu) {
 		cpu_set_current(cpu->logic_id);
 		sched_setaffinity(current_worker->tid, sizeof(cpu->cpuset), &cpu->cpuset);
+		instr_affinity_set(cpu->logic_id);
 	}
+
+	instr_thread_resume();
 }
 
 static inline void worker_create_remote(thread_manager_t *threadmanager, cpu_t *cpu, nosv_task_t task)
@@ -328,6 +404,7 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 	worker->task = task;
 	worker->pid = logical_pid;
 	worker->immediate_successor = NULL;
+	worker->creator_tid = gettid();
 	nosv_condvar_init(&worker->condvar);
 
 	pthread_attr_t attr;
@@ -336,6 +413,11 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 		nosv_abort("Cannot create pthread attributes");
 
 	pthread_attr_setaffinity_np(&attr, sizeof(cpu->cpuset), &cpu->cpuset);
+
+	// We use the address of the worker structure as the tag of the
+	// thread create event, as it provides a unique value known to
+	// both threads.
+	instr_thread_create(cpu->logic_id, (uint64_t) worker);
 
 	ret = pthread_create(&worker->kthread, &attr, worker_start_routine, worker);
 	if (ret)
@@ -357,6 +439,7 @@ nosv_worker_t *worker_create_external(void)
 	nosv_condvar_init(&worker->condvar);
 	current_worker = worker;
 	worker->immediate_successor = NULL;
+	worker->creator_tid = -1;
 	sched_getaffinity(0, sizeof(worker->original_affinity), &worker->original_affinity);
 
 	return worker;

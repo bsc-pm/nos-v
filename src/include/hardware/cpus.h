@@ -7,6 +7,7 @@
 #ifndef CPUS_H
 #define CPUS_H
 
+#include <assert.h>
 #include <sched.h>
 
 #include "compiler.h"
@@ -20,10 +21,10 @@ typedef struct cpu {
 } cpu_t;
 
 typedef struct cpumanager {
-	int cpu_cnt; // Number of available CPUs in the system
-	int *pids_cpus; // Map from "Logical" PIDs to CPUs
+	int cpu_cnt;            // Number of available CPUs in the system
+	int *pids_cpus;	        // Map from "Logical" PIDs to CPUs
 	int *system_to_logical; // Map from system CPU ids to logical cpu ids
-	cpu_t cpus[]; // Flexible array
+	cpu_t cpus[];           // Flexible array
 } cpumanager_t;
 
 __internal void cpus_init(int initialize);

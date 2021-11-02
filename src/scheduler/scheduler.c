@@ -11,12 +11,13 @@
 #include "climits.h"
 #include "common.h"
 #include "compiler.h"
-#include "nosv-internal.h"
 #include "generic/clock.h"
 #include "hardware/cpus.h"
-#include "hardware/threads.h"
 #include "hardware/locality.h"
+#include "hardware/threads.h"
+#include "instr.h"
 #include "memory/sharedmemory.h"
+#include "nosv-internal.h"
 #include "scheduler/scheduler.h"
 
 __internal scheduler_t *scheduler;
@@ -207,6 +208,8 @@ void scheduler_submit(nosv_task_t task)
 
 	int success = 0;
 
+	instr_sched_submit_enter();
+
 	while (!success) {
 		success = mpsc_push(scheduler->in_queue, (void *)task, cpu_get_current());
 
@@ -218,6 +221,8 @@ void scheduler_submit(nosv_task_t task)
 			}
 		}
 	}
+
+	instr_sched_submit_exit();
 }
 
 static inline int scheduler_find_task_queue(scheduler_queue_t *queue, nosv_task_t *task /*out*/)
@@ -524,14 +529,17 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
 {
 	assert(cpu >= 0);
 
-	void *item;
-	if (!dtlock_lock_or_delegate(&scheduler->dtlock, (uint64_t)cpu, &item)) {
+	nosv_task_t task = NULL;
+
+	if (!dtlock_lock_or_delegate(&scheduler->dtlock, (uint64_t)cpu, (void **)&task)) {
 		// Served item
-		return (nosv_task_t)item;
+		if (task)
+			instr_sched_recv();
+
+		return task;
 	}
 
-	// Lock acquired
-	nosv_task_t task = NULL;
+	instr_sched_server_enter();
 
 	// Whether the thread can block serving tasks
 	const int blocking = !(flags & SCHED_GET_NONBLOCKING);
@@ -551,6 +559,8 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
 			served++;
 			if (!task)
 				break;
+
+			instr_sched_send();
 		}
 
 		// Work for myself
@@ -558,6 +568,11 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
 	} while (!task && blocking && !worker_should_shutdown());
 
 	dtlock_unlock(&scheduler->dtlock);
+
+	if (task)
+		instr_sched_self_assign();
+
+	instr_sched_server_exit();
 
 	return task;
 }

@@ -4,18 +4,25 @@
 	Copyright (C) 2021 Barcelona Supercomputing Center (BSC)
 */
 
-#include "nosv-internal.h"
 #include "generic/clock.h"
 #include "hardware/cpus.h"
-#include "hardware/threads.h"
 #include "hardware/pids.h"
+#include "hardware/threads.h"
+#include "instr.h"
 #include "memory/slab.h"
+#include "nosv-internal.h"
 #include "scheduler/scheduler.h"
 #include "system/tasks.h"
 
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/errno.h>
+
+// Start the taskid and typeid counters at 1 so we have the same
+// identifiers in Paraver. It is also used to check for overflows.
+static atomic_uint64_t taskid_counter = 1;
+static atomic_uint32_t typeid_counter = 1;
 
 #define LABEL_MAX_CHAR 128
 
@@ -45,6 +52,7 @@ int nosv_type_init(
 	res->completed_callback = completed_callback;
 	res->metadata = metadata;
 	res->pid = logical_pid;
+	res->typeid = atomic_fetch_add_explicit(&typeid_counter, 1, memory_order_relaxed);
 
 	if (label) {
 		res->label = strndup(label, LABEL_MAX_CHAR - 1);
@@ -52,6 +60,8 @@ int nosv_type_init(
 	} else {
 		res->label = NULL;
 	}
+
+	instr_type_create(res->typeid, res->label);
 
 	*type = res;
 	return 0;
@@ -89,7 +99,7 @@ int nosv_type_destroy(
 	nosv_flags_t flags)
 {
 	if (type->label)
-		free((void *) type->label);
+		free((void *)type->label);
 
 	sfree(type, sizeof(struct nosv_task_type), cpu_get_current());
 	return 0;
@@ -116,8 +126,11 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	res->deadline = 0;
 	res->yield = 0;
 	res->wakeup = NULL;
+	res->taskid = atomic_fetch_add_explicit(&taskid_counter, 1, memory_order_relaxed);
 
 	*task = res;
+
+	instr_task_create((uint32_t)res->taskid, res->type->typeid);
 
 	return 0;
 }
@@ -177,32 +190,29 @@ int nosv_submit(
 	if (unlikely(!task))
 		return -EINVAL;
 
-	if (flags & NOSV_SUBMIT_BLOCKING) {
-		// For now we don't support blocking submits outside a task context
+	const bool is_blocking = (flags & NOSV_SUBMIT_BLOCKING);
+	const bool is_immediate = (flags & NOSV_SUBMIT_IMMEDIATE);
+	const bool is_inline = (flags & NOSV_SUBMIT_INLINE);
+
+	// These submit modes are mutually exclusive
+	if (unlikely(is_immediate + is_blocking + is_inline > 1))
+		return -EINVAL;
+
+	if (is_immediate || is_blocking || is_inline) {
+		// These submit modes cannot be used from outside a task context
 		if (!worker_is_in_task())
 			return -EINVAL;
-
-		// Not compatible
-		if (unlikely(flags & NOSV_SUBMIT_IMMEDIATE))
-			return -EINVAL;
-		if (unlikely(flags & NOSV_SUBMIT_INLINE))
-			return -EINVAL;
-
-		task->wakeup = worker_current_task();
 	}
+
+	instr_submit_enter();
+
+	if (is_blocking)
+		task->wakeup = worker_current_task();
 
 	uint32_t count;
 
 	// If we have an immediate successor we don't place the task into the scheduler
-	if (flags & NOSV_SUBMIT_IMMEDIATE) {
-		// Must be from a worker
-		if (!worker_is_in_task())
-			return -EINVAL;
-
-		// Not compatible
-		if (unlikely(flags & NOSV_SUBMIT_INLINE))
-			return -EINVAL;
-
+	if (is_immediate) {
 		if (worker_get_immediate()) {
 			// Setting a new immediate successor, but there was already one.
 			// Place the new one and send the old one to the scheduler
@@ -214,11 +224,9 @@ int nosv_submit(
 
 		count = atomic_fetch_sub_explicit(&task->blocking_count, 1, memory_order_relaxed) - 1;
 		assert(count == 0);
-	} else if (flags & NOSV_SUBMIT_INLINE) {
+	} else if (is_inline) {
 		nosv_worker_t *worker = worker_current();
-		// We cannot execute tasks without a valid worker
-		if (unlikely(!worker))
-			return -EINVAL;
+		assert(worker);
 
 		count = atomic_fetch_sub_explicit(&task->blocking_count, 1, memory_order_relaxed) - 1;
 		assert(count == 0);
@@ -240,8 +248,10 @@ int nosv_submit(
 			scheduler_submit(task);
 	}
 
-	if (flags & NOSV_SUBMIT_BLOCKING)
+	if (is_blocking)
 		nosv_pause(NOSV_PAUSE_NONE);
+
+	instr_submit_exit();
 
 	return 0;
 }
@@ -258,11 +268,17 @@ int nosv_pause(
 	nosv_task_t task = worker_current_task();
 	assert(task);
 
+	instr_task_pause((uint32_t)task->taskid);
+	instr_pause_enter();
+
 	uint32_t count = atomic_fetch_add_explicit(&task->blocking_count, 1, memory_order_relaxed) + 1;
 
 	// If r < 1, we have already been unblocked
 	if (count > 0)
 		worker_yield();
+
+	instr_pause_exit();
+	instr_task_resume((uint32_t)task->taskid);
 
 	return 0;
 }
@@ -279,6 +295,9 @@ int nosv_waitfor(
 	nosv_task_t task = worker_current_task();
 	assert(task);
 
+	instr_task_pause((uint32_t)task->taskid);
+	instr_waitfor_enter();
+
 	const uint64_t start_ns = clock_ns();
 	task->deadline = start_ns + target_ns;
 
@@ -294,6 +313,9 @@ int nosv_waitfor(
 	if (actual_ns)
 		*actual_ns = clock_ns() - start_ns;
 
+	instr_waitfor_exit();
+	instr_task_resume((uint32_t)task->taskid);
+
 	return 0;
 }
 
@@ -306,9 +328,17 @@ int nosv_yield(
 		return -EINVAL;
 
 	nosv_task_t task = worker_current_task();
+	assert(task);
+
+	instr_task_pause((uint32_t)task->taskid);
+	instr_yield_enter();
+
 	task->yield = -1;
 	scheduler_submit(task);
 	worker_yield();
+
+	instr_yield_exit();
+	instr_task_resume((uint32_t)task->taskid);
 
 	return 0;
 }
@@ -324,6 +354,9 @@ int nosv_schedpoint(
 
 	nosv_task_t task = worker_current_task();
 	assert(task);
+
+	instr_task_pause((uint32_t)task->taskid);
+	instr_schedpoint_enter();
 
 	cpuid = cpu_get_current();
 	pid = cpu_get_pid(cpuid);
@@ -341,6 +374,9 @@ int nosv_schedpoint(
 		// to this same task directly if there are no other ready tasks
 		scheduler_reset_accounting(pid, cpuid);
 	}
+
+	instr_schedpoint_exit();
+	instr_task_resume((uint32_t)task->taskid);
 
 	return 0;
 }
@@ -373,6 +409,8 @@ static inline void task_complete(nosv_task_t task)
 
 void task_execute(nosv_task_t task)
 {
+	instr_task_execute((uint32_t)task->taskid);
+
 	atomic_thread_fence(memory_order_acquire);
 	task->type->run_callback(task);
 	atomic_thread_fence(memory_order_release);
@@ -387,6 +425,8 @@ void task_execute(nosv_task_t task)
 	if (!res) {
 		task_complete(task);
 	}
+
+	instr_task_end((uint32_t)task->taskid);
 }
 
 /* Events API */
@@ -452,6 +492,8 @@ int nosv_attach(
 	if (unlikely(type->run_callback || type->end_callback || type->completed_callback))
 		return -EINVAL;
 
+	instr_thread_attach();
+
 	nosv_worker_t *worker = worker_create_external();
 	assert(worker);
 
@@ -481,6 +523,10 @@ int nosv_attach(
 	worker_block();
 	// Now we have been scheduled, return
 
+	// Inform the instrumentation about the new task being in
+	// execution, as it won't pass via task_execute()
+	instr_task_execute((uint32_t)t->taskid);
+
 	return 0;
 }
 
@@ -500,6 +546,8 @@ int nosv_detach(
 	if (!worker->task)
 		return -EINVAL;
 
+	instr_task_end((uint32_t)worker->task->taskid);
+
 	// First free the task
 	nosv_destroy(worker->task, NOSV_DESTROY_NONE);
 
@@ -518,6 +566,8 @@ int nosv_detach(
 
 	// Then resume a thread on the current cpu
 	worker_wake_idle(logical_pid, cpu, NULL);
+
+	instr_thread_detach();
 
 	return 0;
 }

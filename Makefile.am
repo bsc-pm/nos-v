@@ -17,9 +17,9 @@ lib_age = 0
 lib_major = $(shell expr $(lib_current) - $(lib_age))
 lib_suffix = $(lib_major).$(lib_age).$(lib_revision)
 
-libnosv_la_CPPFLAGS=$(AM_CPPFLAGS)
+libnosv_la_CPPFLAGS=$(AM_CPPFLAGS) $(ovni_CPPFLAGS)
 libnosv_la_CFLAGS=$(PTHREAD_CFLAGS) $(libnuma_CFLAGS) $(nosv_CFLAGS)
-libnosv_la_LDFLAGS=$(PTHREAD_CFLAGS) $(PTHREAD_LIBS) $(libnuma_LIBS) $(shm_LIBS)
+libnosv_la_LDFLAGS=$(PTHREAD_CFLAGS) $(PTHREAD_LIBS) $(libnuma_LIBS) $(ovni_LIBS) $(shm_LIBS)
 
 lib_LTLIBRARIES = libnosv.la
 
@@ -45,7 +45,9 @@ include_HEADERS = \
 noinst_HEADERS = \
 	src/include/climits.h \
 	src/include/common.h \
+	src/include/compat.h \
 	src/include/compiler.h \
+	src/include/instr.h \
 	src/include/nosv-internal.h \
 	src/include/generic/arch.h \
 	src/include/generic/arch/arm64.h \

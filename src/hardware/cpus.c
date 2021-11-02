@@ -11,6 +11,7 @@
 #include "hardware/cpus.h"
 #include "hardware/locality.h"
 #include "hardware/threads.h"
+#include "instr.h"
 #include "memory/sharedmemory.h"
 #include "memory/slab.h"
 
@@ -46,6 +47,9 @@ void cpus_init(int initialize)
 	}
 	cpumanager->system_to_logical = salloc(sizeof(int) * (maxcpu + 1), 0);
 
+	// Inform the instrumentation of all available CPUs
+	instr_cpu_count(cnt, maxcpu);
+
 	i = 0;
 	int curr = 0;
 	while (i < cnt) {
@@ -56,6 +60,10 @@ void cpus_init(int initialize)
 			cpumanager->cpus[i].logic_id = i;
 			cpumanager->cpus[i].numa_node = locality_get_cpu_numa(curr);
 			cpumanager->system_to_logical[curr] = i;
+
+			// Inform the instrumentation of a new CPU
+			instr_cpu_id(i, curr);
+
 			++i;
 		} else {
 			cpumanager->system_to_logical[curr] = -1;

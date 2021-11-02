@@ -8,12 +8,13 @@
 
 #include "common.h"
 #include "compiler.h"
-#include "nosv.h"
 #include "hardware/locality.h"
-#include "hardware/threads.h"
 #include "hardware/pids.h"
+#include "hardware/threads.h"
+#include "instr.h"
 #include "memory/sharedmemory.h"
 #include "memory/slab.h"
+#include "nosv.h"
 
 __internal int library_initialized = 0;
 
@@ -21,6 +22,13 @@ int nosv_init(void)
 {
 	if (library_initialized != 0)
 		return 1;
+
+	instr_proc_init();
+	instr_thread_init();
+	instr_thread_execute(-1, -1, 0);
+
+	// Generate some events to measure the latency
+	instr_gen_bursts();
 
 	locality_init();
 	smem_initialize();
@@ -40,6 +48,11 @@ int nosv_shutdown(void)
 	locality_shutdown();
 
 	library_initialized = 0;
+
+	instr_thread_end();
+
+	instr_proc_fini();
+
 	return 0;
 }
 
