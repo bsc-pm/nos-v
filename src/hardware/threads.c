@@ -31,7 +31,7 @@ static inline void *delegate_routine(void *args)
 	thread_manager_t *threadmanager = (thread_manager_t *)args;
 
 	instr_thread_init();
-	instr_thread_execute(-1, threadmanager->creator_tid, (uint64_t) args);
+	instr_thread_execute(-1, threadmanager->delegate_creator_tid, (uint64_t) args);
 	instr_delegate_enter();
 
 	event_queue_t *queue = &threadmanager->thread_creation_queue;
@@ -91,7 +91,7 @@ void threadmanager_init(thread_manager_t *threadmanager)
 	nosv_spin_init(&threadmanager->idle_spinlock);
 	nosv_spin_init(&threadmanager->shutdown_spinlock);
 	event_queue_init(&threadmanager->thread_creation_queue);
-	threadmanager->creator_tid = gettid();
+	threadmanager->delegate_creator_tid = gettid();
 
 	current_process_manager = threadmanager;
 
