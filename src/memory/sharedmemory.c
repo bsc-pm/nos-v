@@ -83,7 +83,8 @@ static void smem_initialize_rest(void)
 		}
 	}
 
-	assert(pid_slot_config >= 0);
+	if (pid_slot_config < 0)
+		nosv_abort("Maximum number of concurrent nOS-V processes surpassed");
 
 	backbone_alloc_init(((char *)SMEM_START_ADDR) + sizeof(smem_config_t), SMEM_SIZE - sizeof(smem_config_t), 0);
 	cpus_init(0);
