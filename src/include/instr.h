@@ -15,7 +15,6 @@
 #include <ovni.h>
 #endif
 
-#include "api/nosv.h"
 #include "common.h"
 #include "compat.h"
 #include "hardware/pids.h"
