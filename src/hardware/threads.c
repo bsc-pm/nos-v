@@ -78,7 +78,7 @@ static inline void worker_wake_internal(nosv_worker_t *worker, cpu_t *cpu)
 	if (cpu) {
 		// if we are waking up a thread of a different process, keep
 		// track of the new running process in the cpumanager
-		if (worker->logic_pid != logical_pid)
+		if (worker->logic_pid != logic_pid)
 			cpu_set_pid(cpu, worker->logic_pid);
 
 		// if the worker was not previously bound to the core where it
@@ -177,7 +177,7 @@ static inline void worker_execute_or_delegate(nosv_task_t task, cpu_t *cpu, int 
 
 		worker_wake_internal(task->worker, cpu);
 		worker_block();
-	} else if (task->type->pid != logical_pid) {
+	} else if (task->type->pid != logic_pid) {
 		// The task has not started yet but it is from a PID other than the
 		// current one. Then, wake up an idle thread from the task's PID
 		instr_thread_cool();
@@ -192,7 +192,7 @@ static inline void worker_execute_or_delegate(nosv_task_t task, cpu_t *cpu, int 
 		// delegate the work and wake up an idle thread from this PID to
 		// execute the task
 		instr_thread_cool();
-		worker_wake_idle(logical_pid, cpu, task);
+		worker_wake_idle(logic_pid, cpu, task);
 		worker_block();
 	} else {
 		// Otherwise, start running the task because the current thread is
@@ -300,7 +300,7 @@ void worker_yield(void)
 
 	// Block this thread and place another one. This is called on nosv_pause
 	// First, wake up another worker in this cpu, one from the same PID
-	worker_wake_idle(logical_pid, current_worker->cpu, NULL);
+	worker_wake_idle(logic_pid, current_worker->cpu, NULL);
 
 	// Then, sleep and return once we have been woken up
 	worker_block();
@@ -391,7 +391,7 @@ void worker_wake_idle(int pid, cpu_t *cpu, nosv_task_t task)
 	}
 
 	// We need to create a new worker.
-	if (pid == logical_pid) {
+	if (pid == logic_pid) {
 		worker_create_local(threadmanager, cpu, task);
 	} else {
 		worker_create_remote(threadmanager, cpu, task);
@@ -407,7 +407,7 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 	nosv_worker_t *worker = (nosv_worker_t *)salloc(sizeof(nosv_worker_t), cpu_get_current());
 	worker->cpu = cpu;
 	worker->task = task;
-	worker->logic_pid = logical_pid;
+	worker->logic_pid = logic_pid;
 	worker->immediate_successor = NULL;
 	worker->creator_tid = gettid();
 	nosv_condvar_init(&worker->condvar);
@@ -440,7 +440,7 @@ nosv_worker_t *worker_create_external(void)
 	worker->task = NULL;
 	worker->kthread = pthread_self();
 	worker->tid = gettid();
-	worker->logic_pid = logical_pid;
+	worker->logic_pid = logic_pid;
 	nosv_condvar_init(&worker->condvar);
 	current_worker = worker;
 	worker->immediate_successor = NULL;

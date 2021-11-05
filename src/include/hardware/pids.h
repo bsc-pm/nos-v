@@ -26,7 +26,7 @@ typedef struct pid_manager {
 	pid_bitset_t pids_alloc;
 } pid_manager_t;
 
-__internal extern int logical_pid;
+__internal extern int logic_pid;
 __internal extern pid_t system_pid;
 
 __internal void pidmanager_init(int initialize);

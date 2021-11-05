@@ -51,7 +51,7 @@ int nosv_type_init(
 	res->end_callback = end_callback;
 	res->completed_callback = completed_callback;
 	res->metadata = metadata;
-	res->pid = logical_pid;
+	res->pid = logic_pid;
 	res->typeid = atomic_fetch_add_explicit(&typeid_counter, 1, memory_order_relaxed);
 
 	if (label) {
@@ -570,7 +570,7 @@ int nosv_detach(
 	worker_free_external(worker);
 
 	// Then resume a thread on the current cpu
-	worker_wake_idle(logical_pid, cpu, NULL);
+	worker_wake_idle(logic_pid, cpu, NULL);
 
 	instr_thread_detach();
 
