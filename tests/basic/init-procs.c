@@ -11,7 +11,7 @@
 #include <unistd.h>
 
 // Define the MAX_PIDS constant
-#include "climits.h"
+#include "defaults.h"
 
 atomic_int *counter;
 

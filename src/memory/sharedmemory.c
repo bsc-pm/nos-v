@@ -16,6 +16,7 @@
 #include <unistd.h>
 
 #include "common.h"
+#include "config/config.h"
 #include "hardware/cpus.h"
 #include "hardware/pids.h"
 #include "memory/sharedmemory.h"
@@ -63,7 +64,7 @@ static void smem_initialize_first(void)
 {
 	pid_slot_config = 0;
 	smem_config_initialize(st_config.config);
-	backbone_alloc_init(((char *)SMEM_START_ADDR) + sizeof(smem_config_t), SMEM_SIZE - sizeof(smem_config_t), 1);
+	backbone_alloc_init(((char *)nosv_config.shm_start) + sizeof(smem_config_t), nosv_config.shm_size - sizeof(smem_config_t), 1);
 	slab_init();
 	cpus_init(1);
 	pidmanager_init(1);
@@ -86,7 +87,7 @@ static void smem_initialize_rest(void)
 	if (pid_slot_config < 0)
 		nosv_abort("Maximum number of concurrent nOS-V processes surpassed");
 
-	backbone_alloc_init(((char *)SMEM_START_ADDR) + sizeof(smem_config_t), SMEM_SIZE - sizeof(smem_config_t), 0);
+	backbone_alloc_init(((char *)nosv_config.shm_start) + sizeof(smem_config_t), nosv_config.shm_size - sizeof(smem_config_t), 0);
 	cpus_init(0);
 	pidmanager_init(0);
 	scheduler_init(0);
@@ -120,7 +121,7 @@ static void segment_create(void)
 
 	st_config.smem_fd = 0;
 	while (!st_config.smem_fd) {
-		st_config.smem_fd = shm_open(SMEM_NAME, O_CREAT | O_RDWR, 0644);
+		st_config.smem_fd = shm_open(nosv_config.shm_name, O_CREAT | O_RDWR, 0644);
 
 		if (st_config.smem_fd < 0)
 			nosv_abort("Cannot open shared memory segment");
@@ -146,8 +147,8 @@ static void segment_create(void)
 
 			if (st.st_size != 0) {
 				// Pre-initialized segment
-				assert(st.st_size == SMEM_SIZE);
-				st_config.config = (smem_config_t *)mmap(SMEM_START_ADDR, SMEM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED_NOREPLACE, st_config.smem_fd, 0);
+				assert(st.st_size == nosv_config.shm_size);
+				st_config.config = (smem_config_t *)mmap(nosv_config.shm_start, nosv_config.shm_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED_NOREPLACE, st_config.smem_fd, 0);
 				if (st_config.config == MAP_FAILED)
 					nosv_abort("Cannot map shared memory");
 
@@ -156,11 +157,11 @@ static void segment_create(void)
 					// Unlink the segment and retry
 					nosv_warn("Detected stale shared memory");
 
-					ret = munmap(SMEM_START_ADDR, SMEM_SIZE);
+					ret = munmap(nosv_config.shm_start, nosv_config.shm_size);
 					if (ret)
 						nosv_abort("Cannot unmap shared memory");
 
-					ret = shm_unlink(SMEM_NAME);
+					ret = shm_unlink(nosv_config.shm_name);
 					if (ret)
 						nosv_abort("Cannot unlink shared memory");
 
@@ -171,8 +172,8 @@ static void segment_create(void)
 					smem_initialize_rest();
 				}
 			} else {
-				ftruncate(st_config.smem_fd, SMEM_SIZE);
-				st_config.config = (smem_config_t *)mmap(SMEM_START_ADDR, SMEM_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED_NOREPLACE, st_config.smem_fd, 0);
+				ftruncate(st_config.smem_fd, (off_t) nosv_config.shm_size);
+				st_config.config = (smem_config_t *)mmap(nosv_config.shm_start, nosv_config.shm_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED_NOREPLACE, st_config.smem_fd, 0);
 				if (st_config.config == MAP_FAILED)
 					nosv_abort("Cannot map shared memory");
 
@@ -201,12 +202,12 @@ static void segment_unregister(void)
 	int cnt = --(st_config.config->count);
 	st_config.config->processes[pid_slot_config].pid = 0;
 
-	ret = munmap(SMEM_START_ADDR, SMEM_SIZE);
+	ret = munmap(nosv_config.shm_start, nosv_config.shm_size);
 	if (ret)
 		nosv_warn("Cannot unmap shared memory");
 
 	if (!cnt) {
-		ret = shm_unlink(SMEM_NAME);
+		ret = shm_unlink(nosv_config.shm_name);
 		if (ret)
 			nosv_warn("Cannot unlink shared memory");
 	}

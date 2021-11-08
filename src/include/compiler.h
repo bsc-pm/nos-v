@@ -7,7 +7,7 @@
 #ifndef COMPILER_H
 #define COMPILER_H
 
-#include "climits.h"
+#include "defaults.h"
 
 #define __cacheline_aligned __attribute__((aligned(CACHELINE_SIZE)))
 
@@ -30,7 +30,15 @@
 // we may need to support older compilers
 #define thread_local _Thread_local
 
-#define fallthrough __attribute__((fallthrough))
+// Fallthrough signals a situation in a switch statement where the lack of a
+// break at the end of a case is intended.
+// For GCC < 7, the attribute is not present and it is instead substituted by an empty
+// statement.
+#if __has_attribute(fallthrough)
+	#define fallthrough __attribute__((fallthrough))
+#else
+	#define fallthrough do {} while (0)
+#endif
 
 // Define some wrappers for GNU extensions in ISO C
 #ifndef typeof

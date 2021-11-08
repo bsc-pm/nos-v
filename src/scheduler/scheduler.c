@@ -8,25 +8,28 @@
 #include <stddef.h>
 #include <stdio.h>
 
-#include "climits.h"
+#include "defaults.h"
 #include "common.h"
 #include "compiler.h"
+#include "nosv-internal.h"
+#include "config/config.h"
 #include "generic/clock.h"
 #include "hardware/cpus.h"
 #include "hardware/locality.h"
 #include "hardware/threads.h"
 #include "instr.h"
 #include "memory/sharedmemory.h"
-#include "nosv-internal.h"
 #include "scheduler/scheduler.h"
 
 __internal scheduler_t *scheduler;
 __internal thread_local process_scheduler_t *last;
-
-#define __SCHED_BATCH 64
+__internal nosv_task_t *task_batch_buffer;
 
 void scheduler_init(int initialize)
 {
+	task_batch_buffer = malloc(sizeof(nosv_task_t) * nosv_config.sched_batch_size);
+	assert(task_batch_buffer);
+
 	if (!initialize) {
 		scheduler = (scheduler_t *)st_config.config->scheduler_ptr;
 		return;
@@ -39,7 +42,7 @@ void scheduler_init(int initialize)
 	st_config.config->scheduler_ptr = scheduler;
 
 	dtlock_init(&scheduler->dtlock, cpu_count * 2);
-	scheduler->in_queue = mpsc_alloc(cpu_count, IN_QUEUE_SIZE);
+	scheduler->in_queue = mpsc_alloc(cpu_count, nosv_config.sched_in_queue_size);
 	list_init(&scheduler->queues);
 	scheduler->tasks = 0;
 	scheduler->served_tasks = 0;
@@ -54,16 +57,12 @@ void scheduler_init(int initialize)
 		scheduler->timestamps[i].ts_ns = 0;
 	}
 
-	scheduler->quantum_ns = DEFAULT_QUANTUM_NS;
+	scheduler->quantum_ns = nosv_config.sched_quantum_ns;
+}
 
-	const char *quantum = getenv("NOSV_QUANTUM_US");
-	if (quantum != NULL) {
-		scheduler->quantum_ns = strtoull(quantum, NULL, 10) * 1000ULL;
-		if (!scheduler->quantum_ns) {
-			nosv_warn("Quantum must be an integer greater than zero. Using default...");
-			scheduler->quantum_ns = DEFAULT_QUANTUM_NS;
-		}
-	}
+void scheduler_shutdown(void)
+{
+	free(task_batch_buffer);
 }
 
 static inline void scheduler_init_queue(scheduler_queue_t *queue)
@@ -124,30 +123,31 @@ static inline int deadline_cmp(heap_node_t *a, heap_node_t *b)
 // Must be called inside the dtlock
 static inline void scheduler_process_ready_tasks(void)
 {
-	nosv_task_t task[__SCHED_BATCH];
+	const uint64_t batch_size = nosv_config.sched_batch_size;
 	size_t cnt = 0;
 
 	// TODO maybe we want to limit how many tasks we pop
-	while ((cnt = mpsc_pop_batch(scheduler->in_queue, (void **)task, __SCHED_BATCH))) {
+	while ((cnt = mpsc_pop_batch(scheduler->in_queue, (void **)task_batch_buffer, batch_size))) {
 		for (size_t i = 0; i < cnt; ++i) {
-			assert(task[i]);
-			int pid = task[i]->type->pid;
+			assert(task_batch_buffer[i]);
+			nosv_task_t task = task_batch_buffer[i];
+			int pid = task->type->pid;
 			process_scheduler_t *pidqueue = scheduler->queues_direct[pid];
 
 			if (!pidqueue)
 				pidqueue = scheduler_init_pid(pid);
 
-			if (task[i]->yield) {
-				assert(!task[i]->deadline);
+			if (task->yield) {
+				assert(!task->deadline);
 				// This yield task will be executed when either all
 				// tasks in the global scheduler have been run or when
 				// there is no more work to do other than yield tasks
-				task[i]->yield = scheduler->served_tasks + scheduler->tasks;
-				list_add_tail(&pidqueue->yield_tasks.tasks, &task[i]->list_hook);
-			} else if (task[i]->deadline) {
-				heap_insert(&pidqueue->deadline_tasks, &task[i]->heap_hook, &deadline_cmp);
+				task->yield = scheduler->served_tasks + scheduler->tasks;
+				list_add_tail(&pidqueue->yield_tasks.tasks, &task->list_hook);
+			} else if (task->deadline) {
+				heap_insert(&pidqueue->deadline_tasks, &task->heap_hook, &deadline_cmp);
 			} else {
-				list_add_tail(&pidqueue->queue.tasks, &task[i]->list_hook);
+				list_add_tail(&pidqueue->queue.tasks, &task->list_hook);
 			}
 
 			pidqueue->tasks++;

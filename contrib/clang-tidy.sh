@@ -8,5 +8,5 @@ find $SCRIPT_DIR/../src -name *.[c] -print0 | \
 while IFS= read -rd '' f;
 do
 	clang-tidy $f --config-file="${SCRIPT_DIR}/clang-tidy-config" \
-		-- -DHAVE_CONFIG_H -I.  -I${SCRIPT_DIR}/../src/include -I${SCRIPT_DIR}/../api -pthread -D_GNU_SOURCE -Wall -Wpedantic -Werror-implicit-function-declaration -g -std=c11
+		-- -DHAVE_CONFIG_H -I.  -I${SCRIPT_DIR}/../src/include -I${SCRIPT_DIR}/../api -DINSTALLED_CONFIG_DIR="\"\"" -pthread -D_GNU_SOURCE -Wall -Wpedantic -Werror-implicit-function-declaration -g -std=c11
 done

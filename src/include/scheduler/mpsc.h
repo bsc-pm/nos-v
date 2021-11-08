@@ -14,13 +14,9 @@
 
 #include "compiler.h"
 #include "spsc.h"
+#include "config/config.h"
 #include "generic/spinlock.h"
 #include "memory/slab.h"
-
-// This parameter can be tuned to define how many CPUs share a single queue
-// 1 means each CPU has its own queue, 4 means there is a lock-protected queue
-// each 4 CPUs
-#define __MSPC_CPU_BATCH 1
 
 /*
 	This is a queue that can accept multiple producers and a single consumer.
@@ -35,6 +31,7 @@ typedef struct mpsc_subqueue {
 
 typedef struct mpsc_queue {
 	size_t nqueues;
+	size_t cpus_per_queue;
 	size_t current;
 	mspc_subqueue_t *queues;
 } mpsc_queue_t;
@@ -43,7 +40,7 @@ static inline mpsc_queue_t *mpsc_alloc(size_t nqueues, size_t slots)
 {
 	mpsc_queue_t *queue = (mpsc_queue_t *)salloc(sizeof(mpsc_queue_t), -1);
 	assert(queue);
-	nqueues = (nqueues + __MSPC_CPU_BATCH - 1) / __MSPC_CPU_BATCH;
+	nqueues = (nqueues + nosv_config.sched_cpus_per_queue - 1) / nosv_config.sched_cpus_per_queue;
 	queue->queues = (mspc_subqueue_t *)salloc(sizeof(mspc_subqueue_t) * (nqueues + 1), -1);
 
 	assert(nqueues > 0);
@@ -54,6 +51,7 @@ static inline mpsc_queue_t *mpsc_alloc(size_t nqueues, size_t slots)
 	}
 
 	queue->nqueues = nqueues;
+	queue->cpus_per_queue = nosv_config.sched_cpus_per_queue;
 	queue->current = 0;
 
 	return queue;
@@ -68,8 +66,8 @@ static inline int mpsc_push(mpsc_queue_t *queue, void *value, int cpu)
 	if (unlikely(cpu < 0)) {
 		q = queue->nqueues;
 	} else {
-		assert(cpu < queue->nqueues * __MSPC_CPU_BATCH);
-		q = cpu / __MSPC_CPU_BATCH;
+		assert(cpu < queue->nqueues * queue->cpus_per_queue);
+		q = cpu / queue->cpus_per_queue;
 	}
 
 	nosv_spin_lock(&queue->queues[q].qspin);
