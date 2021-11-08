@@ -62,6 +62,11 @@ static inline void nosv_signal_mutex_signal(nosv_signal_mutex_t *smutex)
 	pthread_cond_signal(&smutex->condvar);
 }
 
+static inline void nosv_signal_mutex_broadcast(nosv_signal_mutex_t *smutex)
+{
+	pthread_cond_broadcast(&smutex->condvar);
+}
+
 static inline void nosv_signal_mutex_lock(nosv_signal_mutex_t *smutex)
 {
 	pthread_mutex_lock(&smutex->mutex);
