@@ -474,7 +474,8 @@ void task_execute(nosv_task_t task)
 	// Task is about to execute, update runtime counters
 	hwcounters_update_runtime_counters();
 
-	instr_task_execute((uint32_t)task->taskid);
+	const uint32_t taskid = (uint32_t) task->taskid;
+	instr_task_execute(taskid);
 
 	nosv_worker_t *worker = worker_current();
 	assert(worker);
@@ -500,8 +501,9 @@ void task_execute(nosv_task_t task)
 	if (!res) {
 		task_complete(task);
 	}
+	// Warning: from this point forward, "task" may have been freed, and thus it is not safe to access
 
-	instr_task_end((uint32_t)task->taskid);
+	instr_task_end(taskid);
 }
 
 /* Events API */
