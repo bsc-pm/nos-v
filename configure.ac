@@ -25,6 +25,9 @@ AC_CANONICAL_TARGET
 # Prepare compilation flags before AC_PROG_CC
 AX_PREPARE_CC_FLAGS
 
+# Parse ASAN options
+AX_PREPARE_ASAN_FLAGS
+
 # Look for a valid C compiler
 AC_PROG_CC
 
@@ -81,8 +84,8 @@ _AS_ECHO([])
 _AS_ECHO([])
 _AS_ECHO([Configuration summary:])
 _AS_ECHO([   Compiler version... ${CC_VERSION}])
-_AS_ECHO([   Compiler CPPFLAGS... ${nosv_CPPFLAGS} ${CPPFLAGS}])
-_AS_ECHO([   Compiler CFLAGS... ${nosv_CFLAGS} ${CFLAGS}])
+_AS_ECHO([   Compiler CPPFLAGS... ${nosv_CPPFLAGS} ${asan_CPPFLAGS} ${CPPFLAGS}])
+_AS_ECHO([   Compiler CFLAGS... ${nosv_CFLAGS} ${asan_CFLAGS} ${CFLAGS}])
 
 _AS_ECHO([])
 _AS_ECHO_N([   Ovni is enabled... ])

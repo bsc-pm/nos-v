@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <stdint.h>
 
+#include "memory/asan.h"
 #include "memory/backbone.h"
 
 #define align_to(n, x) (((x) + (n) - 1) & ~((n) - 1))
@@ -56,6 +57,7 @@ void backbone_alloc_init(void *start, size_t size, int initialize)
 	for (size_t i = 0; i < backbone_pages; ++i) {
 		list_add(&backbone_header->free_pages, &(backbone_metadata_start[i].list_hook));
 		backbone_metadata_start[i].addr = (void *)page;
+		asan_poison(page, PAGE_SIZE);
 #ifndef ARCH_HAS_DWCAS
 		nosv_spin_init(&backbone_metadata_start[i].lock);
 #endif

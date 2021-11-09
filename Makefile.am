@@ -17,9 +17,9 @@ lib_age = 0
 lib_major = $(shell expr $(lib_current) - $(lib_age))
 lib_suffix = $(lib_major).$(lib_age).$(lib_revision)
 
-libnosv_la_CPPFLAGS=$(AM_CPPFLAGS) $(ovni_CPPFLAGS) -DINSTALLED_CONFIG_DIR=\"$(datadir)\"
-libnosv_la_CFLAGS=$(PTHREAD_CFLAGS) $(libnuma_CFLAGS) $(nosv_CFLAGS)
-libnosv_la_LDFLAGS=$(PTHREAD_CFLAGS) $(PTHREAD_LIBS) $(libnuma_LIBS) $(ovni_LIBS) $(shm_LIBS)
+libnosv_la_CPPFLAGS=$(AM_CPPFLAGS) $(ovni_CPPFLAGS) -DINSTALLED_CONFIG_DIR=\"$(datadir)\" $(asan_CPPFLAGS)
+libnosv_la_CFLAGS=$(PTHREAD_CFLAGS) $(libnuma_CFLAGS) $(nosv_CFLAGS) $(asan_CFLAGS)
+libnosv_la_LDFLAGS=$(PTHREAD_CFLAGS) $(PTHREAD_LIBS) $(libnuma_LIBS) $(ovni_LIBS) $(shm_LIBS) $(asan_LDFLAGS)
 
 # Hardware counters
 if HAVE_PAPI
@@ -96,6 +96,7 @@ noinst_HEADERS = \
 	src/include/hwcounters/supportedhwcounters.h \
 	src/include/hwcounters/taskhwcounters.h \
 	src/include/hwcounters/threadhwcounters.h \
+	src/include/memory/asan.h \
 	src/include/memory/backbone.h \
 	src/include/memory/sharedmemory.h \
 	src/include/memory/slab.h \

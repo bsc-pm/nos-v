@@ -19,6 +19,31 @@ AC_DEFUN([AX_CHECK_CC_VERSION], [
 	AC_SUBST([CC_VERSION])
 ])
 
+AC_DEFUN([AX_PREPARE_ASAN_FLAGS], [
+	AC_MSG_CHECKING([if we should enable ASAN])
+
+	AC_ARG_ENABLE([asan], [AS_HELP_STRING([--enable-asan],
+		[Enables address sanitizing @<:@default=disabled@:>@])])
+
+	AS_IF([test "$enable_asan" = yes],[
+		# ASAN enabled
+		asan_CPPFLAGS="-fsanitize=address"
+		asan_LDFLAGS="-fsanitize=address"
+		asan_CFLAGS="-fsanitize=address"
+		AC_MSG_RESULT([yes])
+	],[
+		# ASAN disabled
+		asan_CPPFLAGS=""
+		asan_LDFLAGS=""
+		asan_CFLAGS=""
+		AC_MSG_RESULT([no])
+	])
+
+	AC_SUBST(asan_LDFLAGS)
+	AC_SUBST(asan_CPPFLAGS)
+	AC_SUBST(asan_CFLAGS)
+])
+
 AC_DEFUN([AX_PREPARE_CC_FLAGS], [
 	AC_ARG_ENABLE([debug], [AS_HELP_STRING([--enable-debug],
 		[Adds compiler debug flags and enables additional internal debugging mechanisms @<:@default=disabled@:>@])])

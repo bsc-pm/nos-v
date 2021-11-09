@@ -4,8 +4,8 @@
 
 .NOTPARALLEL:
 
-AM_CFLAGS = -I$(top_srcdir)/tests/include $(PTHREAD_CFLAGS) -I$(top_srcdir)/src/include -I$(top_srcdir)/api $(ovni_CPPFLAGS)
-AM_LDFLAGS = -L$(top_builddir)/.libs -rpath $(abs_top_builddir)/.libs $(top_builddir)/libnosv.la $(ovni_LIBS)
+AM_CFLAGS = $(asan_CFLAGS) -I$(top_srcdir)/tests/include $(PTHREAD_CFLAGS) -I$(top_srcdir)/src/include -I$(top_srcdir)/api $(ovni_CPPFLAGS)
+AM_LDFLAGS = $(asan_LDFLAGS) -L$(top_builddir)/.libs -rpath $(abs_top_builddir)/.libs $(top_builddir)/libnosv.la $(ovni_LIBS)
 
 a_tests = basic-init.test \
 	basic-init-procs.test \
