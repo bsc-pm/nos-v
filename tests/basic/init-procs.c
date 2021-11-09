@@ -12,8 +12,14 @@
 
 // Define the MAX_PIDS constant
 #include "defaults.h"
+#include "generic/signalmutex.h"
 
-atomic_int *counter;
+typedef struct shmem_data {
+	volatile int counter;
+	nosv_signal_mutex_t smutex;
+} shmem_data_t;
+
+shmem_data_t *data;
 
 int subprocess_body(void)
 {
@@ -22,13 +28,19 @@ int subprocess_body(void)
 	if (err)
 		return err;
 
-	// Decrease counter of initializers
-	atomic_fetch_sub(counter, 1);
+	nosv_signal_mutex_lock(&data->smutex);
 
-	// Wait until all subprocesses initialize
-	while (atomic_load(counter) > 0) {
-		usleep(1000);
+	// Decrease counter of initializers
+	int cnt = --data->counter;
+
+	if (cnt == 0) {
+		nosv_signal_mutex_broadcast(&data->smutex);
+	} else if (cnt > 0) {
+		nosv_signal_mutex_wait(&data->smutex);
+	} else {
+		// The counter may be negative if any process failed
 	}
+	nosv_signal_mutex_unlock(&data->smutex);
 
 	// Shutdown nOS-V
 	err = nosv_shutdown();
@@ -56,8 +68,8 @@ int create_subprocesses(size_t nprocs, pid_t pids[nprocs])
 			// Execute the subprocess body
 			int err = subprocess_body();
 
-			// Unmap the counter memory
-			munmap(counter, sizeof(atomic_int));
+			// Unmap the shared memory data
+			munmap(data, sizeof(shmem_data_t));
 
 			exit(err);
 		}
@@ -88,7 +100,10 @@ int wait_subprocesses(size_t nprocs)
 		if (!failed && (!WIFEXITED(status) || WEXITSTATUS(status))) {
 			// One of the processes failed for some reason. Let the rest of processes
 			// exit normally and wait for them to finish
-			atomic_store(counter, 0);
+			nosv_signal_mutex_lock(&data->smutex);
+			data->counter = 0;
+			nosv_signal_mutex_broadcast(&data->smutex);
+			nosv_signal_mutex_unlock(&data->smutex);
 			failed = 1;
 		}
 	}
@@ -101,12 +116,14 @@ int main() {
 
 	pid_t pids[nprocs];
 
-	// Allocate memory for a shared atomic counter between processes
-	counter = mmap(NULL, sizeof(atomic_int), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-	assert(counter != MAP_FAILED);
+	// Allocate memory for the shared data between processes
+	data = mmap(NULL, sizeof(shmem_data_t), PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+	assert(data != MAP_FAILED);
 
-	// Initialize the atomic counter
-	*counter = nprocs;
+	// Initialize the shared counter
+	data->counter = nprocs;
+
+	nosv_signal_mutex_init(&data->smutex);
 
 	// Create all nOS-V subprocesses
 	int err = create_subprocesses(nprocs, pids);
@@ -128,8 +145,10 @@ int main() {
 
 	test_check(&test, !err, "All nOS-V subprocesses finished correctly");
 
-	// Unmap the counter memory
-	munmap(counter, sizeof(atomic_int));
+	nosv_signal_mutex_destroy(&data->smutex);
+
+	// Unmap the shared memory data
+	munmap(data, sizeof(shmem_data_t));
 
 	return 0;
 }
