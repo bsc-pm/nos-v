@@ -50,7 +50,7 @@ static inline int page_metadata_cmpxchg_double(
 #endif
 }
 
-static inline int cpubucket_alloc(cpu_cache_bucket_t *cpubucket, void **obj, size_t obj_size)
+static inline int cpubucket_alloc(cpu_cache_bucket_t *cpubucket, void **obj, size_t size)
 {
 	// The freelist is a linked list of blocks, which are in essence void * to the next block.
 	// Here we advance the freelist and return the first element.
@@ -58,7 +58,7 @@ static inline int cpubucket_alloc(cpu_cache_bucket_t *cpubucket, void **obj, siz
 		void *ret = cpubucket->freelist;
 
 		// Unpoison the chunk we're going to allocate
-		asan_unpoison(ret, obj_size);
+		asan_unpoison(ret, size);
 		void *next = *((void **) ret);
 		cpubucket->freelist = next;
 
@@ -193,11 +193,12 @@ static inline void bucket_init(cache_bucket_t *bucket, size_t bucket_index)
 	nosv_spin_init(&bucket->slow_bucket_lock);
 }
 
-static inline void *bucket_alloc(cache_bucket_t *bucket, int cpu)
+static inline void *bucket_alloc(cache_bucket_t *bucket, int cpu, size_t original_size)
 {
 	void *obj = NULL;
 
 	assert(cpu < NR_CPUS);
+	assert(original_size <= bucket->obj_size);
 
 	cpu_cache_bucket_t *cpubucket = &bucket->cpubuckets[cpu];
 
@@ -210,7 +211,7 @@ static inline void *bucket_alloc(cache_bucket_t *bucket, int cpu)
 	}
 
 	// Try to allocate from cached page
-	if (cpubucket_alloc(cpubucket, &obj, bucket->obj_size)) {
+	if (cpubucket_alloc(cpubucket, &obj, original_size)) {
 		if (unlikely(cpu < 0))
 			nosv_spin_unlock(&bucket->slow_bucket_lock);
 
@@ -220,7 +221,7 @@ static inline void *bucket_alloc(cache_bucket_t *bucket, int cpu)
 	// Slower, there are no available chunks in the CPU cache and we have to refill
 	bucket_refill_cpu_cache(bucket, cpubucket);
 
-	__maybe_unused int ret = cpubucket_alloc(cpubucket, &obj, bucket->obj_size);
+	__maybe_unused int ret = cpubucket_alloc(cpubucket, &obj, original_size);
 	assert(ret);
 	assert(obj);
 
@@ -315,7 +316,7 @@ void *salloc(size_t size, int cpu)
 
 	cache_bucket_t *bucket = &backbone_header->buckets[allocsize - SLAB_ALLOC_MIN];
 
-	ret = bucket_alloc(bucket, cpu);
+	ret = bucket_alloc(bucket, cpu, size);
 
 end:
 	instr_salloc_exit();

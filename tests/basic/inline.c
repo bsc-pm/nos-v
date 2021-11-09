@@ -48,10 +48,11 @@ int main() {
 
 	tid = gettid();
 	nosv_submit(worker_task, NOSV_SUBMIT_INLINE);
+	nosv_type_destroy(worker, NOSV_TYPE_DESTROY_NONE);
 
 	test_check(&test, exec == 1, "Execution order respected");
-	nosv_type_destroy(ext, NOSV_TYPE_DESTROY_NONE);
 	nosv_detach(NOSV_DETACH_NONE);
+	nosv_type_destroy(ext, NOSV_TYPE_DESTROY_NONE);
 
 	nosv_shutdown();
 }
