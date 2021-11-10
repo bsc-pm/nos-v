@@ -17,7 +17,7 @@ typedef pthread_spinlock_t nosv_spinlock_t;
 
 static inline void nosv_spin_init(nosv_spinlock_t *spinlock)
 {
-	pthread_spin_init(spinlock, 1);
+	pthread_spin_init(spinlock, PTHREAD_PROCESS_SHARED);
 }
 
 static inline void nosv_spin_destroy(nosv_spinlock_t *spinlock)

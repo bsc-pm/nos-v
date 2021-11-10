@@ -58,8 +58,8 @@ typedef struct nosv_worker {
 	pid_t tid;
 	// Linux Thread ID of the creator thread (-1 if unknown)
 	pid_t creator_tid;
-	// Process ID parent of this thread
-	int pid;
+	// Logic process ID of this thread
+	int logic_pid;
 	// Original CPU Set (used for external workers)
 	cpu_set_t original_affinity;
 } nosv_worker_t;
@@ -70,7 +70,7 @@ __internal void threadmanager_shutdown(thread_manager_t *threadmanager);
 __internal void worker_yield(void);
 __internal int worker_yield_if_needed(nosv_task_t current_task);
 __internal void worker_block(void);
-__internal void worker_idle(void);
+__internal void worker_add_to_idle_list(void);
 __internal nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, nosv_task_t task);
 __internal nosv_worker_t *worker_create_external(void);
 __internal void worker_free_external(nosv_worker_t *worker);

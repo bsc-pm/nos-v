@@ -17,7 +17,7 @@
 
 __internal pid_manager_t *pidmanager;
 
-__internal int logical_pid;
+__internal int logic_pid;
 __internal pid_t system_pid;
 
 void pidmanager_register(void)
@@ -32,27 +32,27 @@ void pidmanager_register(void)
 	BIT_XOR(MAX_PIDS, &set, &pidmanager->pids_alloc);
 	// Now find the first set bit, being the first free logical PID
 	// Its a 1-index, so we have to substract one
-	logical_pid = BIT_FFS(MAX_PIDS, &set) - 1;
+	logic_pid = BIT_FFS(MAX_PIDS, &set) - 1;
 
-	if (logical_pid == -1)
+	if (logic_pid == -1)
 		nosv_abort("Maximum number of concurrent nOS-V processes surpassed");
 
 	// Set both as PID allocated and as ready
-	BIT_SET(MAX_PIDS, logical_pid, &pidmanager->pids_alloc);
-	BIT_SET(MAX_PIDS, logical_pid, &pidmanager->pids);
+	BIT_SET(MAX_PIDS, logic_pid, &pidmanager->pids_alloc);
+	BIT_SET(MAX_PIDS, logic_pid, &pidmanager->pids);
 
 	// Initialize PID-local structures
 	pid_structures_t *local = (pid_structures_t *) salloc(sizeof(pid_structures_t), cpu_get_current());
 	threadmanager_init(&local->threadmanager);
-	PID_STR(logical_pid) = local;
+	PID_STR(logic_pid) = local;
 
 	// While holding this lock, we have to check if there are free CPUs that we have to occupy
 	cpu_t *free_cpu;
-	free_cpu = cpu_pop_free(logical_pid);
+	free_cpu = cpu_pop_free(logic_pid);
 
 	while(free_cpu) {
 		worker_create_local(&local->threadmanager, free_cpu, NULL);
-		free_cpu = cpu_pop_free(logical_pid);
+		free_cpu = cpu_pop_free(logic_pid);
 	}
 
 	nosv_mutex_unlock(&pidmanager->lock);
@@ -63,11 +63,11 @@ void pidmanager_shutdown(void)
 	nosv_mutex_lock(&pidmanager->lock);
 
 	// Unregister this process, and make it available
-	BIT_CLR(MAX_PIDS, logical_pid, &pidmanager->pids);
+	BIT_CLR(MAX_PIDS, logic_pid, &pidmanager->pids);
 
-	pid_structures_t *local = (pid_structures_t *)PID_STR(logical_pid);
+	pid_structures_t *local = (pid_structures_t *)PID_STR(logic_pid);
 	assert(local);
-	PID_STR(logical_pid) = NULL;
+	PID_STR(logic_pid) = NULL;
 
 	nosv_mutex_unlock(&pidmanager->lock);
 
@@ -78,7 +78,7 @@ void pidmanager_shutdown(void)
 	// Now deallocate the PID. We do this in two phases to prevent an ABA problem
 	// with logical PIDs
 	nosv_mutex_lock(&pidmanager->lock);
-	BIT_CLR(MAX_PIDS, logical_pid, &pidmanager->pids_alloc);
+	BIT_CLR(MAX_PIDS, logic_pid, &pidmanager->pids_alloc);
 	nosv_mutex_unlock(&pidmanager->lock);
 }
 
@@ -110,11 +110,12 @@ void pidmanager_transfer_to_idle(cpu_t *cpu)
 	nosv_mutex_lock(&pidmanager->lock);
 	int pid = BIT_FFS(MAX_PIDS, &pidmanager->pids) - 1;
 
-	assert(pid != logical_pid);
+	assert(pid != logic_pid);
 
 	if (pid >= 0) {
+		worker_add_to_idle_list();
 		cpu_transfer(pid, cpu, NULL);
-		worker_idle();
+		worker_block();
 	} else {
 		cpu_mark_free(cpu);
 	}
