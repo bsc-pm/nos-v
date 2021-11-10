@@ -207,7 +207,7 @@ static inline int toml_parse_uint64(uint64_t *ptr, toml_table_t *table, const ch
 {
 	toml_datum_t datum = toml_int_in(table, name);
 
-	if (datum.ok && datum.u.i > 0) {
+	if (datum.ok && datum.u.i >= 0) {
 		*ptr = ((uint64_t)datum.u.i);
 		return 0;
 	}
