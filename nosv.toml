@@ -12,7 +12,7 @@
 	# in the same system. Generally this has to remain unchanged
 	name = "nosv"
 	# Size of the shared memory section. Choose powers of two
-	size = "1G"
+	size = "2G"
 	# Start of the shared memory mapping
 	# This option should be memory address codified in hexadecimal (start with 0x)
 	start = 0x0000200000000000
