@@ -42,8 +42,11 @@ struct nosv_task {
 
 	// Maybe this could be on-demand allocated
 	deadline_t deadline;
-	yield_t yield;
-	heap_node_t heap_hook;
+
+	union {
+		yield_t yield;
+		heap_node_t heap_hook;
+	};
 
 	nosv_task_t wakeup;
 	uint64_t taskid;
