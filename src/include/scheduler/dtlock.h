@@ -9,6 +9,7 @@
 
 #include <assert.h>
 #include <stdatomic.h>
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "common.h"
@@ -27,15 +28,26 @@ struct dtlock_node {
 	atomic_uint64_t cpu;
 };
 
-struct dtlock_item {
-	atomic_uchar signal __cacheline_aligned;
-	unsigned char flags;
-	uint64_t ticket;
-	void *item;
+union dtlock_signal {
+	atomic_uint val;
+	unsigned int raw_val;
+	struct {
+		unsigned char signal_flags : 1;
+		int signal_cnt : 31;
+	};
 };
 
+struct dtlock_item {
+	uint64_t ticket __cacheline_aligned;
+	void *item;
+	union dtlock_signal signal;
+	unsigned int next;
+	unsigned char flags;
+};
+
+#define DTLOCK_SIGNAL_SLEEP 1
+
 #define ITEM_DTLOCK_EAGAIN ((void *) 1)
-#define ITEM_DTLOCK_SLEEP ((void *) 2)
 
 #define DTLOCK_EAGAIN 2
 #define DTLOCK_SERVER 1
@@ -65,7 +77,7 @@ static inline void dtlock_init(delegation_lock_t *dtlock, int size)
 	for (int i = 0; i < size; ++i) {
 		atomic_init(&dtlock->waitqueue[i].cpu, 0);
 		atomic_init(&dtlock->waitqueue[i].ticket, 0);
-		atomic_init(&dtlock->items[i].signal, 0);
+		atomic_init(&dtlock->items[i].signal.val, 0);
 		dtlock->items[i].ticket = 0;
 		dtlock->items[i].item = 0;
 		dtlock->items[i].flags = DTLOCK_FLAGS_NONE;
@@ -102,8 +114,8 @@ static inline void dtlock_lock(delegation_lock_t *dtlock)
 
 static inline int dtlock_lock_or_delegate(delegation_lock_t *dtlock, governor_t *governor, const uint64_t cpu_index, void **item, const int blocking)
 {
-	unsigned char recv_signal;
-	const unsigned char signal = atomic_load_explicit(&dtlock->items[cpu_index].signal, memory_order_acquire);
+	union dtlock_signal prev_signal, signal;
+	prev_signal.raw_val = atomic_load_explicit(&dtlock->items[cpu_index].signal.val, memory_order_acquire);
 	const uint64_t head = atomic_fetch_add_explicit(&dtlock->head, 1, memory_order_relaxed);
 	const uint64_t id = head % dtlock->size;
 
@@ -117,42 +129,34 @@ static inline int dtlock_lock_or_delegate(delegation_lock_t *dtlock, governor_t 
 		spin_wait();
 	spin_wait_release();
 
-	atomic_thread_fence(memory_order_acquire);
-
 	// Lock acquired
-	if (dtlock->items[cpu_index].ticket != head)
+	if (dtlock->items[cpu_index].ticket != head) {
+		atomic_thread_fence(memory_order_acquire);
 		return DTLOCK_SERVER;
+	}
 
-	while (atomic_load_explicit(&dtlock->items[cpu_index].signal, memory_order_relaxed) == signal)
+	while ((signal.raw_val = atomic_load_explicit(&dtlock->items[cpu_index].signal.val, memory_order_relaxed), signal.signal_cnt) == prev_signal.signal_cnt)
 		spin_wait();
 	spin_wait_release();
 
-	// Guarantee the write to ticket isn't seen out of order with the items
-	atomic_thread_fence(memory_order_acquire);
-
-	void *recieved_item = dtlock->items[cpu_index].item;
-
-	// We re-check the recieved signal here
-	// We may have missed an ITEM_DTLOCK_SLEEP sent to us, which means that recv_signal - signal = 2
-	// In that case, we will enter the governor_sleep, but we will not block, just to reset the futex for the next process.
-	recv_signal = atomic_load_explicit(&dtlock->items[cpu_index].signal, memory_order_acquire);
-
 	// Delegated and served
 	// We may be asked to sleep
-	if (recieved_item == ITEM_DTLOCK_SLEEP || (recv_signal - signal > 1)) {
+	if (unlikely(signal.signal_flags & DTLOCK_SIGNAL_SLEEP)) {
 		assert(blocking);
 		governor_sleep(governor, (int) cpu_index);
-		recieved_item = dtlock->items[cpu_index].item;
-		assert(recieved_item != ITEM_DTLOCK_SLEEP);
+	} else {
+		atomic_thread_fence(memory_order_acquire);
 	}
 
-	// It might happen that we raced against the thread serving
-	if (recieved_item == ITEM_DTLOCK_EAGAIN)
+	void *recv_item = dtlock->items[cpu_index].item;
+
+	if(recv_item == ITEM_DTLOCK_EAGAIN) {
+		// It might happen that we raced against the thread serving
 		return DTLOCK_EAGAIN;
-
-	*item = recieved_item;
-
-	return DTLOCK_SERVED;
+	} else {
+		*item = recv_item;
+		return DTLOCK_SERVED;
+	}
 }
 
 // Must be called with lock acquired
@@ -193,9 +197,16 @@ static inline void dtlock_set_item(delegation_lock_t *dtlock, const uint64_t cpu
 {
 	assert(cpu < dtlock->size);
 	dtlock->items[cpu].item = item;
+}
+
+static inline void dtlock_send_signal(delegation_lock_t *dtlock, const uint64_t cpu, bool sleep)
+{
+	union dtlock_signal signal;
+	signal.signal_cnt = ++dtlock->items[cpu].next;
+	signal.signal_flags = sleep;
 
 	// Unlock the thread
-	atomic_fetch_add_explicit(&dtlock->items[cpu].signal, 1, memory_order_release);
+	atomic_store_explicit(&dtlock->items[cpu].signal.val, signal.raw_val, memory_order_release);
 }
 
 // Must be called with lock acquired

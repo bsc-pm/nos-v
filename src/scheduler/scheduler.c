@@ -567,6 +567,7 @@ static inline size_t scheduler_serve_batch(int *skip)
 			*skip = 1;
 		} else {
 			dtlock_set_item(&scheduler->dtlock, cpu_delegated, task);
+			dtlock_send_signal(&scheduler->dtlock, cpu_delegated, false);
 			governor_waiter_served(&scheduler->governor, cpu_delegated);
 			instr_sched_send();
 		}
