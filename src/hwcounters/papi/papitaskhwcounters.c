@@ -16,13 +16,11 @@ void papi_taskhwcounters_initialize(papi_taskhwcounters_t *counters)
 	assert(counters != NULL);
 
 	const size_t num_counters = papi_hwcounters_get_num_enabled_counters();
-	counters->delta =       (long long *) ((char *) counters + (sizeof(long long *) * 2));
+	counters->delta =       (long long *) ((char *) counters + sizeof(*counters));
 	counters->accumulated = (long long *) ((char *) counters->delta + (num_counters * sizeof(long long)));
 
-	for (size_t i = 0; i < num_counters; ++i) {
-		counters->delta[i] = 0;
-		counters->accumulated[i] = 0;
-	}
+	memset(counters->delta,       0, sizeof(long long) * num_counters);
+	memset(counters->accumulated, 0, sizeof(long long) * num_counters);
 }
 
 void papi_taskhwcounters_read_counters(papi_taskhwcounters_t *counters, int event_set)
@@ -33,14 +31,16 @@ void papi_taskhwcounters_read_counters(papi_taskhwcounters_t *counters, int even
 	int ret = PAPI_read(event_set, counters->delta);
 	if (ret != PAPI_OK) {
 		char error_string[256];
-		sprintf(error_string, "Failed reading a PAPI event set - Code: %d - %s", ret, PAPI_strerror(ret));
+		snprintf(error_string, sizeof(error_string),
+			"Failed reading a PAPI event set - Code: %d - %s", ret, PAPI_strerror(ret));
 		nosv_abort(error_string);
 	}
 
 	ret = PAPI_reset(event_set);
 	if (ret != PAPI_OK) {
 		char error_string[256];
-		sprintf(error_string, "Failed resetting a PAPI event set - Code: %d - %s", ret, PAPI_strerror(ret));
+		snprintf(error_string, sizeof(error_string),
+			"Failed resetting a PAPI event set - Code: %d - %s", ret, PAPI_strerror(ret));
 		nosv_abort(error_string);
 	}
 

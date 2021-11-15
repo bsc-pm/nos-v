@@ -6,6 +6,7 @@
 
 #include <assert.h>
 #include <papi.h>
+#include <string.h>
 
 #include "common.h"
 #include "hwcounters/papi/papicpuhwcounters.h"
@@ -15,9 +16,7 @@ void papi_cpuhwcounters_initialize(papi_cpuhwcounters_t *counters)
 {
 	assert(counters != NULL);
 
-	for (size_t i = 0; i < HWC_PAPI_NUM_EVENTS; ++i) {
-		counters->delta[i] = 0;
-	}
+	memset(&counters->delta, 0, sizeof(long long) * HWC_PAPI_NUM_EVENTS);
 }
 
 void papi_cpuhwcounters_read_counters(papi_cpuhwcounters_t *counters, int event_set)
@@ -28,14 +27,16 @@ void papi_cpuhwcounters_read_counters(papi_cpuhwcounters_t *counters, int event_
 	int ret = PAPI_read(event_set, counters->delta);
 	if (ret != PAPI_OK) {
 		char error_string[256];
-		sprintf(error_string, "Code %d - Failed reading a PAPI event set - %s", ret, PAPI_strerror(ret));
+		snprintf(error_string, sizeof(error_string),
+			"Code %d - Failed reading a PAPI event set - %s", ret, PAPI_strerror(ret));
 		nosv_abort(error_string);
 	}
 
 	ret = PAPI_reset(event_set);
 	if (ret != PAPI_OK) {
 		char error_string[256];
-		sprintf(error_string, "Code %d - Failed resetting a PAPI event set - %s", ret, PAPI_strerror(ret));
+		snprintf(error_string, sizeof(error_string),
+			"Code %d - Failed resetting a PAPI event set - %s", ret, PAPI_strerror(ret));
 		nosv_abort(error_string);
 	}
 }

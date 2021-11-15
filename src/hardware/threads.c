@@ -223,7 +223,7 @@ static inline void *worker_start_routine(void *arg)
 	current_worker->tid = gettid();
 
 	// Initialize hardware counters for the thread
-	hwcounters_thread_initialized(current_worker);
+	hwcounters_thread_initialize(current_worker);
 
 	instr_thread_init();
 	instr_thread_execute(current_worker->cpu->logic_id, current_worker->creator_tid, (uint64_t) arg);
@@ -450,7 +450,7 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 	pthread_attr_destroy(&attr);
 
 	// Initialize hardware counters for the thread
-	hwcounters_thread_initialized(worker);
+	hwcounters_thread_initialize(worker);
 
 	return worker;
 }
@@ -471,7 +471,7 @@ nosv_worker_t *worker_create_external(void)
 	sched_getaffinity(0, sizeof(worker->original_affinity), &worker->original_affinity);
 
 	// Initialize hardware counters for the thread
-	hwcounters_thread_initialized(worker);
+	hwcounters_thread_initialize(worker);
 
 	return worker;
 }

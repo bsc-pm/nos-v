@@ -56,7 +56,7 @@ __internal size_t hwcounters_get_num_enabled_counters();
 
 //! \brief Initialize hardware counter structures for a new thread
 //! \param[in,out] thread The current worker thread
-__internal void hwcounters_thread_initialized(nosv_worker_t *thread);
+__internal void hwcounters_thread_initialize(nosv_worker_t *thread);
 
 //! \brief Destroy the hardware counter structures of a thread
 __internal void hwcounters_thread_shutdown();
@@ -69,8 +69,8 @@ __internal void hwcounters_task_created(nosv_task_t task, short enabled);
 //! \brief Read and update hardware counters for a task
 //! This function should be called right before a task stops/ends executing
 //! its user code, in all the runtime points where it does, so that counters
-//! can be read and accumulated and from that point on the counters belong
-//! to runtime-related operations
+//! can be read and accumulated. After a tasks stops, the subsequent values
+//! accumulated in the counters belong to runtime-related operations
 //! \param[out] task The task to read hardware counters for
 __internal void hwcounters_update_task_counters(nosv_task_t task);
 

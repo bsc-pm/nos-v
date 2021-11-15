@@ -61,6 +61,7 @@ void load_configuration()
 
 	if (!counter_added) {
 		nosv_warn("PAPI enabled but no counters enabled, disabling the backend!");
+		hwcbackend.enabled[PAPI_BACKEND] = 0;
 	}
 
 	hwcbackend.any_backend_enabled = hwcbackend.enabled[PAPI_BACKEND];
@@ -144,7 +145,7 @@ size_t hwcounters_get_num_enabled_counters()
 	return hwcbackend.num_enabled_counters;
 }
 
-void hwcounters_thread_initialized(nosv_worker_t *thread)
+void hwcounters_thread_initialize(nosv_worker_t *thread)
 {
 	assert(thread != NULL);
 
@@ -172,22 +173,25 @@ void hwcounters_task_created(nosv_task_t task, short enabled)
 void hwcounters_update_task_counters(nosv_task_t task)
 {
 	if (hwcbackend.any_backend_enabled) {
-		nosv_worker_t *thread = worker_current();
-		assert(thread != NULL);
 		assert(task != NULL);
 
-		__maybe_unused thread_hwcounters_t *thread_counters = &(thread->counters);
-		__maybe_unused task_hwcounters_t *task_counters = task->counters;
- 		if (hwcbackend.enabled[PAPI_BACKEND]) {
-#if HAVE_PAPI
-			assert(thread_counters != NULL);
-			assert(task_counters != NULL);
+		task_hwcounters_t *task_counters = task->counters;
+		if (counters->enabled) {
+			nosv_worker_t *thread = worker_current();
+			assert(thread != NULL);
 
-			papi_threadhwcounters_t *papi_thread = thread_counters->papi_counters;
-			papi_taskhwcounters_t *papi_task = task_counters->papi_counters;
-			papi_hwcounters_update_task_counters(papi_thread, papi_task);
+			__maybe_unused thread_hwcounters_t *thread_counters = &(thread->counters);
+			if (hwcbackend.enabled[PAPI_BACKEND]) {
+#if HAVE_PAPI
+				assert(thread_counters != NULL);
+				assert(task_counters != NULL);
+
+				papi_threadhwcounters_t *papi_thread = thread_counters->papi_counters;
+				papi_taskhwcounters_t *papi_task = task_counters->papi_counters;
+				papi_hwcounters_update_task_counters(papi_thread, papi_task);
 #endif
- 		}
+			}
+		}
 	}
 }
 

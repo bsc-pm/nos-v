@@ -28,11 +28,12 @@ typedef struct task_hwcounters {
 
 
 //! \brief Initialize and construct all the task counters with previously allocated space
-//! \param[in,out] counters The address of the task counters
+//! \param[in,out] counters A pointer to the task's counters
 //! \param[in] enabled Whether hardware counters are enabled for the task
 __internal void taskhwcounters_initialize(task_hwcounters_t *counters, short enabled);
 
 //! \brief Check whether hardware counter monitoring is enabled for this task
+//! \param[in,out] counters A pointer to the task's counters
 __internal short taskhwcounters_enabled(task_hwcounters_t *counters);
 
 //! \brief Get the delta value of a HW counter

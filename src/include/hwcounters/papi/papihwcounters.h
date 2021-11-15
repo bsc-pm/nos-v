@@ -49,7 +49,7 @@ typedef struct papi_backend {
 	//!     ID (HWC_PAPI_L1_DCM == 201) to the real position it should
 	//!     occupy in a vector with only enabled PAPI events (0 for instance if
 	//!     this is the only PAPI enabled event)
-	//! _idMap[HWC_PAPI_L1_DCM(201) - HWC_PAPI_MIN_EVENT(200)] = 0
+	//! id_table[HWC_PAPI_L1_DCM(201) - HWC_PAPI_MIN_EVENT(200)] = 0
 	int id_table[HWC_PAPI_NUM_EVENTS];
 } papi_backend_t;
 

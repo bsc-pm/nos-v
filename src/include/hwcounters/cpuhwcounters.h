@@ -25,6 +25,7 @@ typedef struct cpu_hwcounters {
 } cpu_hwcounters_t;
 
 
+//! \brief Initialize hardware counters for a CPU
 __internal void cpuhwcounters_initialize(cpu_hwcounters_t *counters);
 
 //! \brief Get the delta value of a HW counter

@@ -11,7 +11,7 @@
 void cpuhwcounters_initialize(cpu_hwcounters_t *counters)
 {
 #if HAVE_PAPI
-	papi_cpuhwcounters_initialize(&(counters->papi_counters));
+	papi_cpuhwcounters_initialize(&counters->papi_counters);
 #endif
 }
 
@@ -19,7 +19,7 @@ uint64_t cpuhwcounters_get_delta(cpu_hwcounters_t *counters, enum counters_t typ
 {
 	if (type >= HWC_PAPI_MIN_EVENT && type <= HWC_PAPI_MAX_EVENT) {
 #if HAVE_PAPI
-		return papi_cpuhwcounters_get_delta(&(counters->papi_counters), type);
+		return papi_cpuhwcounters_get_delta(&counters->papi_counters, type);
 #endif
 	}
 

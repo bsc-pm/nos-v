@@ -111,7 +111,12 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	size_t metadata_size,
 	nosv_flags_t flags)
 {
-	nosv_task_t res = salloc(sizeof(struct nosv_task) + hwcounters_get_task_size() + metadata_size, cpu_get_current());
+	nosv_task_t res = salloc(
+		sizeof(struct nosv_task) +   /* Size of the struct itself */
+		hwcounters_get_task_size() + /* Size needed to allocate hardware counter for the task */
+		metadata_size,               /* The size needed to allocate the task's metadata */
+		cpu_get_current()
+	);
 
 	if (!res)
 		return -ENOMEM;
