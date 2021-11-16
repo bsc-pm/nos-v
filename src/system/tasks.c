@@ -198,7 +198,7 @@ int nosv_submit(
 	if (unlikely(is_immediate + is_blocking + is_inline > 1))
 		return -EINVAL;
 
-	if (is_immediate || is_blocking || is_inline) {
+	if (is_blocking || is_inline) {
 		// These submit modes cannot be used from outside a task context
 		if (!worker_is_in_task())
 			return -EINVAL;
@@ -206,13 +206,16 @@ int nosv_submit(
 
 	instr_submit_enter();
 
+	nosv_worker_t *worker = worker_current();
 	if (is_blocking)
-		task->wakeup = worker_current_task();
+		task->wakeup = worker->task;
 
 	uint32_t count;
 
 	// If we have an immediate successor we don't place the task into the scheduler
-	if (is_immediate) {
+	// However, if we're not in a worker context, or we are currently executing a task,
+	// we will ignore the request, as it would hang the program.
+	if (is_immediate && worker && !worker->in_task_body) {
 		if (worker_get_immediate()) {
 			// Setting a new immediate successor, but there was already one.
 			// Place the new one and send the old one to the scheduler
@@ -220,10 +223,10 @@ int nosv_submit(
 			scheduler_submit(worker_get_immediate());
 		}
 
-		worker_set_immediate(task);
-
 		count = atomic_fetch_sub_explicit(&task->blocking_count, 1, memory_order_relaxed) - 1;
 		assert(count == 0);
+
+		worker_set_immediate(task);
 	} else if (is_inline) {
 		nosv_worker_t *worker = worker_current();
 		assert(worker);
@@ -416,9 +419,16 @@ void task_execute(nosv_task_t task)
 {
 	instr_task_execute((uint32_t)task->taskid);
 
+	nosv_worker_t *worker = worker_current();
+	assert(worker);
+
+	worker->in_task_body = 1;
+
 	atomic_thread_fence(memory_order_acquire);
 	task->type->run_callback(task);
 	atomic_thread_fence(memory_order_release);
+
+	worker->in_task_body = 0;
 
 	if (task->type->end_callback) {
 		atomic_thread_fence(memory_order_acquire);

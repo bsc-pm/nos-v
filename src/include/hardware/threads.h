@@ -62,6 +62,8 @@ typedef struct nosv_worker {
 	int logic_pid;
 	// Original CPU Set (used for external workers)
 	cpu_set_t original_affinity;
+	// Worker is in task body
+	int in_task_body;
 } nosv_worker_t;
 
 __internal void threadmanager_init(thread_manager_t *threadmanager);
