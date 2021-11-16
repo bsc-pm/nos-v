@@ -152,9 +152,8 @@ void hwcounters_thread_initialize(nosv_worker_t *thread)
 	threadhwcounters_initialize(&(thread->counters));
 }
 
-void hwcounters_thread_shutdown()
+void hwcounters_thread_shutdown(nosv_worker_t *thread)
 {
-	nosv_worker_t *thread = worker_current();
 	assert(thread != NULL);
 
 	threadhwcounters_shutdown(&(thread->counters));
@@ -175,6 +174,10 @@ void hwcounters_update_task_counters(nosv_task_t task)
 	if (hwcbackend.any_backend_enabled) {
 		assert(task != NULL);
 
+		//! NOTE: We only read counters if they are enabled for the task. This
+		//! is due to performance, and it leads to having incorrect CPU-wise
+		//! counters if tasks are being skipped (as we're not resetting counters
+		//! and they are all aggregated in the CPU counters)
 		task_hwcounters_t *task_counters = task->counters;
 		if (counters->enabled) {
 			nosv_worker_t *thread = worker_current();

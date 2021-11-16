@@ -118,8 +118,6 @@ void pidmanager_transfer_to_idle(cpu_t *cpu)
 		cpu_transfer(pid, cpu, NULL);
 		worker_block();
 	} else {
-		hwcounters_update_runtime_counters();
-
 		cpu_mark_free(cpu);
 	}
 

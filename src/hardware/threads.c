@@ -91,10 +91,9 @@ static inline void worker_wake_internal(nosv_worker_t *worker, cpu_t *cpu)
 		}
 	}
 
-	// Before resuming execution of a task, update runtime counters
-	if (worker->task != NULL) {
-		hwcounters_update_runtime_counters();
-	}
+	// Before resuming the thread's execution, update runtime counters
+	hwcounters_update_runtime_counters();
+
 	// Now wake up the thread
 	nosv_condvar_signal(&worker->condvar);
 }
@@ -222,9 +221,6 @@ static inline void *worker_start_routine(void *arg)
 	cpu_set_current(current_worker->cpu->logic_id);
 	current_worker->tid = gettid();
 
-	// Initialize hardware counters for the thread
-	hwcounters_thread_initialize(current_worker);
-
 	instr_thread_init();
 	instr_thread_execute(current_worker->cpu->logic_id, current_worker->creator_tid, (uint64_t) arg);
 	instr_worker_enter();
@@ -271,20 +267,19 @@ static inline void *worker_start_routine(void *arg)
 
 	assert(!worker_get_immediate());
 
-	// Before transfering the active CPU, update runtime counters
-	if (current_worker->cpu)
-		hwcounters_update_runtime_counters();
-
-	hwcounters_thread_shutdown();
-
 	// Before shutting down, we have to transfer our active CPU if we still have one
 	// We don't have one if we were woken up from the idle thread pool direcly
-	if (current_worker->cpu)
+	// Before transfering it, update runtime counters
+	if (current_worker->cpu) {
+		hwcounters_update_runtime_counters();
 		pidmanager_transfer_to_idle(current_worker->cpu);
+	}
 
 	nosv_spin_lock(&current_process_manager->shutdown_spinlock);
 	clist_add(&current_process_manager->shutdown_threads, &current_worker->list_hook);
 	nosv_spin_unlock(&current_process_manager->shutdown_spinlock);
+
+	hwcounters_thread_shutdown(current_worker);
 
 	instr_worker_exit();
 	instr_thread_end();
@@ -438,6 +433,9 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 
 	pthread_attr_setaffinity_np(&attr, sizeof(cpu->cpuset), &cpu->cpuset);
 
+	// Initialize hardware counters for the thread
+	hwcounters_thread_initialize(worker);
+
 	// We use the address of the worker structure as the tag of the
 	// thread create event, as it provides a unique value known to
 	// both threads.
@@ -448,9 +446,6 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 		nosv_abort("Cannot create pthread");
 
 	pthread_attr_destroy(&attr);
-
-	// Initialize hardware counters for the thread
-	hwcounters_thread_initialize(worker);
 
 	return worker;
 }
@@ -479,14 +474,20 @@ nosv_worker_t *worker_create_external(void)
 void worker_free_external(nosv_worker_t *worker)
 {
 	assert(worker);
+
+	hwcounters_thread_shutdown(worker);
+
 	nosv_condvar_destroy(&worker->condvar);
 	sfree(worker, sizeof(nosv_worker_t), cpu_get_current());
 	assert(worker == current_worker);
+
 	current_worker = NULL;
 }
 
 void worker_join(nosv_worker_t *worker)
 {
+	// NOTE: No need to shutdown hwcounters here, as it is done in worker_start_routine
+
 	int ret = pthread_join(worker->kthread, NULL);
 	if (ret)
 		nosv_abort("Cannot join pthread");

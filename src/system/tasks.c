@@ -111,6 +111,12 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	size_t metadata_size,
 	nosv_flags_t flags)
 {
+	// Update the counters of the current task if it exists, as we don't want
+	// the creation to be accounted in this task's counters
+	nosv_task_t current_task = worker_current_task();
+	if (current_task)
+		hwcounters_update_task_counters(current_task);
+
 	nosv_task_t res = salloc(
 		sizeof(struct nosv_task) +   /* Size of the struct itself */
 		hwcounters_get_task_size() + /* Size needed to allocate hardware counter for the task */
@@ -139,6 +145,9 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	hwcounters_task_created(res, /* enabled */ 1);
 
 	*task = res;
+
+	if (current_task)
+		hwcounters_update_task_counters(current_task);
 
 	instr_task_create((uint32_t)res->taskid, res->type->typeid);
 
@@ -214,6 +223,12 @@ int nosv_submit(
 			return -EINVAL;
 	}
 
+	// If we're in a task context, update task counters now since we don't want
+	// the creation to be added to the counters of the task
+	nosv_task_t current_task = worker_current_task();
+	if (current_task)
+		hwcounters_update_task_counters(current_task);
+
 	instr_submit_enter();
 
 	nosv_worker_t *worker = worker_current();
@@ -264,6 +279,9 @@ int nosv_submit(
 	if (is_blocking)
 		nosv_pause(NOSV_PAUSE_NONE);
 
+	if (current_task)
+		hwcounters_update_runtime_counters();
+
 	instr_submit_exit();
 
 	return 0;
@@ -281,6 +299,9 @@ int nosv_pause(
 	nosv_task_t task = worker_current_task();
 	assert(task);
 
+	// Thread might yield, read and accumulate hardware counters for the task
+	hwcounters_update_task_counters(task);
+
 	instr_task_pause((uint32_t)task->taskid);
 	instr_pause_enter();
 
@@ -288,11 +309,10 @@ int nosv_pause(
 
 	// If r < 1, we have already been unblocked
 	if (count > 0) {
-		// Thread is gonna yield, read and accumulate hardware counters for the task
-		hwcounters_update_task_counters(task);
-
 		worker_yield();
-	}
+
+	// Thread might have been resumed here, read and accumulate hardware counters for the CPU
+	hwcounters_update_runtime_counters();
 
 	instr_pause_exit();
 	instr_task_resume((uint32_t)task->taskid);
@@ -333,6 +353,9 @@ int nosv_waitfor(
 	if (actual_ns)
 		*actual_ns = clock_ns() - start_ns;
 
+	// Thread has been resumed, read and accumulate hardware counters for the CPU
+	hwcounters_update_runtime_counters();
+
 	instr_waitfor_exit();
 	instr_task_resume((uint32_t)task->taskid);
 
@@ -350,6 +373,9 @@ int nosv_yield(
 	nosv_task_t task = worker_current_task();
 	assert(task);
 
+	// Thread is gonna yield, read and accumulate hardware counters for the task
+	hwcounters_update_task_counters(task);
+
 	instr_task_pause((uint32_t)task->taskid);
 	instr_yield_enter();
 
@@ -361,6 +387,9 @@ int nosv_yield(
 
 	// Unmark the task as yield
 	task->yield = 0;
+
+	// Thread has been resumed, read and accumulate hardware counters for the CPU
+	hwcounters_update_runtime_counters();
 
 	instr_yield_exit();
 	instr_task_resume((uint32_t)task->taskid);
@@ -379,6 +408,9 @@ int nosv_schedpoint(
 
 	nosv_task_t task = worker_current_task();
 	assert(task);
+
+	// Thread is gonna yield, read and accumulate hardware counters for the task
+	hwcounters_update_task_counters(task);
 
 	instr_task_pause((uint32_t)task->taskid);
 	instr_schedpoint_enter();
@@ -399,6 +431,9 @@ int nosv_schedpoint(
 		// to this same task directly if there are no other ready tasks
 		scheduler_reset_accounting(pid, cpuid);
 	}
+
+	// Thread has been resumed, read and accumulate hardware counters for the CPU
+	hwcounters_update_runtime_counters();
 
 	instr_schedpoint_exit();
 	instr_task_resume((uint32_t)task->taskid);
@@ -456,13 +491,13 @@ void task_execute(nosv_task_t task)
 		atomic_thread_fence(memory_order_release);
 	}
 
-	// Task just completed, read and accumulate hardware counters for the task
-	hwcounters_update_task_counters(task);
-
 	uint64_t res = atomic_fetch_sub_explicit(&task->event_count, 1, memory_order_relaxed) - 1;
 	if (!res) {
 		task_complete(task);
 	}
+
+	// Task just completed, read and accumulate hardware counters for the task
+	hwcounters_update_task_counters(task);
 
 	instr_task_end((uint32_t)task->taskid);
 }
@@ -560,6 +595,9 @@ int nosv_attach(
 	// Block the worker
 	worker_block();
 	// Now we have been scheduled, return
+
+	// Task is about to execute, update runtime counters
+	hwcounters_update_runtime_counters();
 
 	// Inform the instrumentation about the new task being in
 	// execution, as it won't pass via task_execute()

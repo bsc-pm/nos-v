@@ -15,7 +15,7 @@ enum backends_t {
 enum counters_t {
 	HWC_NULL_EVENT = -1,
 	//    PAPI EVENTS    //
-	HWC_PAPI_MIN_EVENT = 100,             // PAPI: Minimum event id
+	HWC_PAPI_MIN_EVENT = 0,               // PAPI: Minimum event id
 	HWC_PAPI_L1_DCM = HWC_PAPI_MIN_EVENT, // PAPI: Level 1 data cache misses
 	HWC_PAPI_L1_ICM,                      // PAPI: Level 1 instruction cache misses
 	HWC_PAPI_L2_DCM,                      // PAPI: Level 2 data cache misses

@@ -23,7 +23,7 @@ typedef struct hwcounters_backend {
 	//! Whether each backend is enabled
 	short enabled[NUM_BACKENDS];
 	//! An array in which each position tells whether the 'i-th' event is enabled
-	enum counters_t enabled_counters[HWC_MAX_EVENT_ID];
+	enum counters_t enabled_counters[HWC_MAX_EVENT_ID + 1];
 	//! The number of enabled counters
 	size_t num_enabled_counters;
 } hwcounters_backend_t;
