@@ -410,6 +410,7 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 	worker->logic_pid = logic_pid;
 	worker->immediate_successor = NULL;
 	worker->creator_tid = gettid();
+	worker->in_task_body = 0;
 	nosv_condvar_init(&worker->condvar);
 
 	pthread_attr_t attr;
@@ -445,6 +446,7 @@ nosv_worker_t *worker_create_external(void)
 	current_worker = worker;
 	worker->immediate_successor = NULL;
 	worker->creator_tid = -1;
+	worker->in_task_body = 1;
 	sched_getaffinity(0, sizeof(worker->original_affinity), &worker->original_affinity);
 
 	return worker;

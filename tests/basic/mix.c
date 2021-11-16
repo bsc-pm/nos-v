@@ -48,10 +48,21 @@ void complete_deadline(nosv_task_t task)
 
 void run_immediate(nosv_task_t task)
 {
+	// Placeholder, as magic is done from the completed
+}
+
+void completed_imm(nosv_task_t task)
+{
 	test = 1;
 	nosv_submit(task_immediate, NOSV_SUBMIT_IMMEDIATE);
 	usleep(5000);
 	test = 2;
+
+	// printf("Event %x\n", task);
+	nosv_destroy(task, NOSV_DESTROY_NONE);
+
+	int r = atomic_fetch_sub_explicit(&tasks_run, 1, memory_order_relaxed) - 1;
+	assert(r);
 }
 
 void run_immediate_2(nosv_task_t task)
@@ -133,7 +144,7 @@ int main()
 	test_ok(&t, "Task unlocked from submit blocking");
 
 	nosv_task_type_t imm1, imm2;
-	res = nosv_type_init(&imm1, &run_immediate, NULL, &completed, NULL, NULL, NOSV_TYPE_INIT_NONE);
+	res = nosv_type_init(&imm1, &run_immediate, NULL, &completed_imm, NULL, NULL, NOSV_TYPE_INIT_NONE);
 	assert(!res);
 	res = nosv_type_init(&imm2, &run_immediate_2, NULL, &completed, NULL, NULL, NOSV_TYPE_INIT_NONE);
 	assert(!res);
