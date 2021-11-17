@@ -14,8 +14,8 @@ AC_DEFUN([AC_CHECK_OVNI],
 		AC_MSG_CHECKING([the ovni installation prefix])
 		if test x"${ac_use_ovni_prefix}" != x"" ; then
 			AC_MSG_RESULT([${ac_use_ovni_prefix}])
-			ovni_LIBS="-L${ac_use_ovni_prefix}"
-			ovni_CPPFLAGS="-I${ac_use_ovni_prefix} -DENABLE_INSTRUMENTATION"
+			ovni_LIBS="-L${ac_use_ovni_prefix}/lib"
+			ovni_CPPFLAGS="-I${ac_use_ovni_prefix}/include -DENABLE_INSTRUMENTATION"
 
 			ac_save_CPPFLAGS="${CPPFLAGS}"
 			ac_save_LIBS="${LIBS}"
@@ -26,7 +26,7 @@ AC_DEFUN([AC_CHECK_OVNI],
 			AC_CHECK_HEADERS([ovni.h], [], [AC_MSG_ERROR([ovni ovni.h header file not found])])
 			AC_CHECK_LIB([ovni],
 				[ovni_proc_init],
-				[ovni_LIBS="${ovni_LIBS} -lovni -Wl,-rpath=${ac_use_ovni_prefix}"],
+				[ovni_LIBS="${ovni_LIBS} -lovni -Wl,-rpath=${ac_use_ovni_prefix}/lib"],
 				[AC_MSG_ERROR([ovni cannot be found])],
 				[${ac_save_LIBS}]
 			)
