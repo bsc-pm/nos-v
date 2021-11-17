@@ -89,6 +89,12 @@ static inline void worker_wake_internal(nosv_worker_t *worker, cpu_t *cpu)
 			if (unlikely(sched_setaffinity(worker->tid, sizeof(cpu->cpuset), &cpu->cpuset)))
 				nosv_abort("Cannot change thread affinity");
 		}
+	} else {
+		// We're waking up a thread without a CPU, which may happen on nOS-V shutdown
+		// Reset its affinity to the original CPU mask
+		instr_affinity_remote(-1, worker->tid);
+		if (unlikely(sched_setaffinity(worker->tid, sizeof(cpumanager->all_cpu_set), &cpumanager->all_cpu_set)))
+			nosv_abort("Cannot change thread affinity");
 	}
 
 	// Now wake up the thread

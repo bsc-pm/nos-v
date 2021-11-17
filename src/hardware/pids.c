@@ -113,10 +113,13 @@ void pidmanager_transfer_to_idle(cpu_t *cpu)
 
 	assert(pid != logic_pid);
 
+
+	// Unconditionally reset our affinity during shutdown.
+	cpu_affinity_reset();
+
 	if (pid >= 0) {
-		worker_add_to_idle_list();
+		// Wake remote CPU
 		cpu_transfer(pid, cpu, NULL);
-		worker_block();
 	} else {
 		cpu_mark_free(cpu);
 	}
