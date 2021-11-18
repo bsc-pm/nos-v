@@ -91,9 +91,6 @@ static inline void worker_wake_internal(nosv_worker_t *worker, cpu_t *cpu)
 		}
 	}
 
-	// Before resuming the thread's execution, update runtime counters
-	hwcounters_update_runtime_counters();
-
 	// Now wake up the thread
 	nosv_condvar_signal(&worker->condvar);
 }
@@ -220,6 +217,9 @@ static inline void *worker_start_routine(void *arg)
 	assert(current_worker->cpu);
 	cpu_set_current(current_worker->cpu->logic_id);
 	current_worker->tid = gettid();
+
+	// Initialize hardware counters for the thread
+	hwcounters_thread_initialize(current_worker);
 
 	instr_thread_init();
 	instr_thread_execute(current_worker->cpu->logic_id, current_worker->creator_tid, (uint64_t) arg);
@@ -371,6 +371,9 @@ void worker_block(void)
 		cpu_set_current(cpu->logic_id);
 	}
 
+	// Before resuming the thread's execution, update runtime counters
+	hwcounters_update_runtime_counters();
+
 	instr_thread_resume();
 }
 
@@ -433,9 +436,6 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 
 	pthread_attr_setaffinity_np(&attr, sizeof(cpu->cpuset), &cpu->cpuset);
 
-	// Initialize hardware counters for the thread
-	hwcounters_thread_initialize(worker);
-
 	// We use the address of the worker structure as the tag of the
 	// thread create event, as it provides a unique value known to
 	// both threads.
@@ -475,6 +475,7 @@ void worker_free_external(nosv_worker_t *worker)
 {
 	assert(worker);
 
+	// Initialize hardware counters for the thread
 	hwcounters_thread_shutdown(worker);
 
 	nosv_condvar_destroy(&worker->condvar);

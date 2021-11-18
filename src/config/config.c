@@ -51,6 +51,10 @@ static inline void config_init(rt_config_t *config)
 	config->shm_start = SHM_START_ADDR;
 
 	config->debug_dump_config = 0;
+
+	config->hwcounters_verbose = HWCOUNTERS_VERBOSE;
+	config->hwcounters_backend = strdup(HWCOUNTERS_BACKEND);
+	config->hwcounters_papi_events = strdup(HWCOUNTERS_PAPI_EVENTS);
 }
 
 // Sanity checks for configuration options should be here
@@ -71,6 +75,17 @@ static inline int config_check(rt_config_t *config)
 	sanity_check(config->shm_name, "Shared memory name cannot be empty");
 	sanity_check(config->shm_size > (10 * 2 * 1024 * 1024), "Small shared memory sizes (less than 10 pages) are not supported");
 	sanity_check(((uintptr_t)config->shm_start) >= 4096, "Mapping shared memory at page 0 is not allowed");
+
+	sanity_check(
+		config->hwcounters_verbose == 0 ||
+		config->hwcounters_verbose == 1,
+		"Hardware counters' verbosity can only be enabled (1) or disabled (0)"
+	);
+	sanity_check(
+		!strcmp(config->hwcounters_backend, "none") ||
+		!strcmp(config->hwcounters_backend, "papi"),
+		"Currently available hardware counter backends: 'papi', 'none'"
+	);
 
 #undef sanity_check
 	return ret;

@@ -34,7 +34,8 @@ static void test_maximum_number_of_events()
 		char error_string[256];
 		snprintf(error_string, sizeof(error_string),
 			"Failed when registering the main thread into PAPI - Code: %d - %s", ret, PAPI_strerror(ret));
-		nosv_abort(error_string);
+		nosv_print(error_string);
+		nosv_abort("Failed when registering the main thread into PAPI");
 	}
 
 	int event_set = PAPI_NULL;
@@ -43,7 +44,8 @@ static void test_maximum_number_of_events()
 		char error_string[256];
 		snprintf(error_string, sizeof(error_string),
 			"Failed creating a PAPI event set for the main thread - Code: %d - %s", ret, PAPI_strerror(ret));
-		nosv_abort(error_string);
+		nosv_print(error_string);
+		nosv_abort("Failed creating a PAPI event set");
 	}
 
 	// After creating the event set and registering the main thread into PAPI
@@ -63,7 +65,8 @@ static void test_maximum_number_of_events()
 					char error_string[256];
 					snprintf(error_string, sizeof(error_string),
 						"Failed converting from PAPI code to PAPI event name - Code: %d - %s", ret, PAPI_strerror(ret));
-					nosv_abort(error_string);
+					nosv_print(error_string);
+					nosv_abort("Failed converting a PAPI code to a PAPI event name");
 				}
 
 				char print_string[256];
@@ -81,7 +84,8 @@ static void test_maximum_number_of_events()
 				snprintf(error_string, sizeof(error_string),
 					"Cannot simultaneously enable all the requested PAPI events due to incompatibilities - Code: %d - %s",
 					ret, PAPI_strerror(ret));
-				nosv_abort(error_string);
+				nosv_print(error_string);
+				nosv_abort("Failed simultaneously enabling PAPI events");
 			}
 		}
 	}
@@ -92,7 +96,8 @@ static void test_maximum_number_of_events()
 		char error_string[256];
 		snprintf(error_string, sizeof(error_string),
 			"Failed clearing the main thread's PAPI event set - Code: %d - %s", ret, PAPI_strerror(ret));
-		nosv_abort(error_string);
+		nosv_print(error_string);
+		nosv_abort("Failed clreaing the main thread's PAPI event set");
 	}
 
 	ret = PAPI_destroy_eventset(&event_set);
@@ -100,7 +105,8 @@ static void test_maximum_number_of_events()
 		char error_string[256];
 		snprintf(error_string, sizeof(error_string),
 			"Failed destroying the main thread's PAPI event set - Code: %d - %s", ret, PAPI_strerror(ret));
-		nosv_abort(error_string);
+		nosv_print(error_string);
+		nosv_abort("Failed destroying the main thread's PAPI event set");
 	}
 
 	ret = PAPI_unregister_thread();
@@ -108,7 +114,8 @@ static void test_maximum_number_of_events()
 		char error_string[256];
 		snprintf(error_string, sizeof(error_string),
 			"Failed unregistering the main thread from the PAPI library - Code: %d - %s", ret, PAPI_strerror(ret));
-		nosv_abort(error_string);
+		nosv_print(error_string);
+		nosv_abort("Failed unregistering the main thread");
 	}
 }
 
@@ -130,7 +137,8 @@ void papi_hwcounters_initialize(
 		char error_string[256];
 		snprintf(error_string, sizeof(error_string),
 			"Failed initializing the PAPI library - Code: %d - %s", ret, PAPI_strerror(ret));
-		nosv_abort(error_string);
+		nosv_print(error_string);
+		nosv_abort("Failed initializing PAPI");
 	}
 
 	// Initialize the PAPI library for threads, and the domain
@@ -139,7 +147,8 @@ void papi_hwcounters_initialize(
 		char error_string[256];
 		snprintf(error_string, sizeof(error_string),
 			"Failed initializing the PAPI library for threads - Code: %d - %s", ret, PAPI_strerror(ret));
-		nosv_abort(error_string);
+		nosv_print(error_string);
+		nosv_abort("Failed initializing PAPI for threads");
 	}
 
 	ret = PAPI_set_domain(PAPI_DOM_USER);
@@ -147,7 +156,8 @@ void papi_hwcounters_initialize(
 		char error_string[256];
 		snprintf(error_string, sizeof(error_string),
 			"Failed setting the default PAPI domain to user only - Code: %d - %s", ret, PAPI_strerror(ret));
-		nosv_abort(error_string);
+		nosv_print(error_string);
+		nosv_abort("Failed setting the default PAPI domanin");
 	}
 
 	// Now test the availability of all the requested events
@@ -165,7 +175,8 @@ void papi_hwcounters_initialize(
 				snprintf(error_string, sizeof(error_string),
 					"%s event not known by this version of PAPI - Code: %d - %s",
 					counter_descriptions[id - HWC_PAPI_MIN_EVENT].descr, ret, PAPI_strerror(ret));
-				nosv_abort(error_string);
+				nosv_print(error_string);
+				nosv_abort("Uknown PAPI event found");
 			}
 
 			ret = PAPI_query_event(code);
@@ -184,7 +195,7 @@ void papi_hwcounters_initialize(
 				snprintf(warn_string, sizeof(warn_string),
 					"Unknown event in this version of PAPI: %s - Code: %d - %s",
 					counter_descriptions[id - HWC_PAPI_MIN_EVENT].descr, ret, PAPI_strerror(ret));
-				nosv_warn(warn_string);
+				nosv_print(warn_string);
 
 				// Disable the event from the vector of enabled events
 				enabled_events[id] = 0;
@@ -211,7 +222,7 @@ void papi_hwcounters_initialize(
 		nosv_print("\n- Finished testing PAPI events availabilities");
 		char print_string[256];
 		snprintf(print_string, sizeof(print_string),
-			"- Number of PAPI events enabled: %d", backend.num_enabled_counters);
+			"- Number of PAPI events enabled: %zu", backend.num_enabled_counters);
 		nosv_print(print_string);
 		nosv_print("------------------------------------------------");
 	}
@@ -245,7 +256,8 @@ void papi_hwcounters_thread_initialize(papi_threadhwcounters_t *thread_counters)
 			char error_string[256];
 			snprintf(error_string, sizeof(error_string),
 				"Failed registering a new thread into PAPI - Code: %d - %s", ret, PAPI_strerror(ret));
-			nosv_abort(error_string);
+			nosv_print(error_string);
+			nosv_abort("Failed registering a new thread into PAPI");
 		}
 
 		int event_set = PAPI_NULL;
@@ -254,7 +266,8 @@ void papi_hwcounters_thread_initialize(papi_threadhwcounters_t *thread_counters)
 			char error_string[256];
 			snprintf(error_string, sizeof(error_string),
 				"Failed creating a PAPI event set - Code: %d - %s", ret, PAPI_strerror(ret));
-			nosv_abort(error_string);
+			nosv_print(error_string);
+			nosv_abort("Failed creating a PAPI event set");
 		}
 
 		// Add all the enabled events to the EventSet
@@ -263,7 +276,8 @@ void papi_hwcounters_thread_initialize(papi_threadhwcounters_t *thread_counters)
 			char error_string[256];
 			snprintf(error_string, sizeof(error_string),
 				"Failed initializing the PAPI event set of a new thread - Code: %d - %s", ret, PAPI_strerror(ret));
-			nosv_abort(error_string);
+			nosv_print(error_string);
+			nosv_abort("Failed initializing a PAPI event set");
 		}
 		assert(event_set != PAPI_NULL);
 
@@ -274,7 +288,8 @@ void papi_hwcounters_thread_initialize(papi_threadhwcounters_t *thread_counters)
 			char error_string[256];
 			snprintf(error_string, sizeof(error_string),
 				"Failed starting a PAPI event set - Code: %d - %s", ret, PAPI_strerror(ret));
-			nosv_abort(error_string);
+			nosv_print(error_string);
+			nosv_abort("Failed starting a new PAPI event set");
 		}
 	}
 }
@@ -287,7 +302,8 @@ void papi_hwcounters_thread_shutdown(__maybe_unused papi_threadhwcounters_t *cou
 			char error_string[256];
 			snprintf(error_string, sizeof(error_string),
 				"Failed unregistering a PAPI thread - Code: %d - %s", ret, PAPI_strerror(ret));
-			nosv_abort(error_string);
+			nosv_print(error_string);
+			nosv_abort("Failed unregistering a PAPI thread");
 		}
 	}
 }

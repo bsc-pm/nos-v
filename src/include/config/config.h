@@ -36,6 +36,11 @@ typedef struct rt_config {
 
 	// Debug
 	int debug_dump_config;
+
+	// Hardware Counters
+	int hwcounters_verbose;
+	const char *hwcounters_backend;
+	const char *hwcounters_papi_events;
 } rt_config_t;
 
 __internal extern rt_config_t nosv_config;

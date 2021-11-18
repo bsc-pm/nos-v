@@ -308,7 +308,7 @@ int nosv_pause(
 	uint32_t count = atomic_fetch_add_explicit(&task->blocking_count, 1, memory_order_relaxed) + 1;
 
 	// If r < 1, we have already been unblocked
-	if (count > 0) {
+	if (count > 0)
 		worker_yield();
 
 	// Thread might have been resumed here, read and accumulate hardware counters for the CPU

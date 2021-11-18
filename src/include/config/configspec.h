@@ -53,6 +53,9 @@ static config_spec_t config_spec_list[] = {
 	DECLARE_CONFIG(TYPE_PTR, "shared_memory.start", shm_start),
 	DECLARE_CONFIG(TYPE_SIZE, "shared_memory.size", shm_size),
 	DECLARE_CONFIG(TYPE_BOOL, "debug.dump_config", debug_dump_config),
+	DECLARE_CONFIG(TYPE_BOOL, "hwcounters.verbose", hwcounters_verbose),
+	DECLARE_CONFIG(TYPE_STR, "hwcounters.backend", hwcounters_backend),
+	DECLARE_CONFIG(TYPE_STR, "hwcounters.papi_events", hwcounters_papi_events),
 };
 
 #endif // CONFIG_PARSE_H

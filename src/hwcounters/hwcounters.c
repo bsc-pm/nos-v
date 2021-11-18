@@ -11,6 +11,7 @@
 #include "common.h"
 #include "compiler.h"
 #include "nosv-internal.h"
+#include "config/config.h"
 #include "hardware/threads.h"
 #include "hwcounters/cpuhwcounters.h"
 #include "hwcounters/hwcounters.h"
@@ -28,25 +29,24 @@ __internal hwcounters_backend_t hwcbackend;
 void load_configuration()
 {
 	// Check which backend is enabled
-	char *hwcounters_envvar = getenv("HWCOUNTERS_BACKEND");
-	if (hwcounters_envvar) {
-		if (!strcmp(hwcounters_envvar, "papi")) {
-			hwcbackend.enabled[PAPI_BACKEND] = 1;
-			hwcbackend.any_backend_enabled = 1;
-		}
+	char *hwcounters_envvar = strdup(nosv_config.hwcounters_backend);
+	assert(hwcounters_envvar);
+
+	if (!strcmp(hwcounters_envvar, "papi")) {
+		hwcbackend.enabled[PAPI_BACKEND] = 1;
+		hwcbackend.any_backend_enabled = 1;
 	}
 
+	free(hwcounters_envvar);
+
 	// Check if verbose is enabled
-	hwcounters_envvar = getenv("HWCOUNTERS_VERBOSE");
-	if (hwcounters_envvar) {
-		hwcbackend.verbose = (atoi(hwcounters_envvar) == 1);
-	}
+	hwcbackend.verbose = nosv_config.hwcounters_verbose;
 
 	// Get the list of enabled counters of each backend
 	short counter_added = 0;
-	hwcounters_envvar = getenv("HWCOUNTERS_PAPI");
-	if (hwcounters_envvar) {
-		char *counter_label = strtok(hwcounters_envvar, ",");
+	char *hwcounters_list = strdup(nosv_config.hwcounters_papi_events);
+	if (hwcounters_list) {
+		char *counter_label = strtok(hwcounters_list, ",");
 		while (counter_label != NULL) {
 			for (short i = HWC_PAPI_MIN_EVENT; i <= HWC_PAPI_MAX_EVENT; ++i) {
 				if (!strcmp(counter_descriptions[i - HWC_PAPI_MIN_EVENT].descr, counter_label)) {
@@ -57,6 +57,8 @@ void load_configuration()
 
 			counter_label = strtok(NULL, ",");
 		}
+
+		free(hwcounters_list);
 	}
 
 	if (!counter_added) {
@@ -179,7 +181,7 @@ void hwcounters_update_task_counters(nosv_task_t task)
 		//! counters if tasks are being skipped (as we're not resetting counters
 		//! and they are all aggregated in the CPU counters)
 		task_hwcounters_t *task_counters = task->counters;
-		if (counters->enabled) {
+		if (task_counters->enabled) {
 			nosv_worker_t *thread = worker_current();
 			assert(thread != NULL);
 

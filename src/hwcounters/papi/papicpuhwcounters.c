@@ -29,7 +29,8 @@ void papi_cpuhwcounters_read_counters(papi_cpuhwcounters_t *counters, int event_
 		char error_string[256];
 		snprintf(error_string, sizeof(error_string),
 			"Code %d - Failed reading a PAPI event set - %s", ret, PAPI_strerror(ret));
-		nosv_abort(error_string);
+		nosv_print(error_string);
+		nosv_abort("Failed reading a PAPI Event");
 	}
 
 	ret = PAPI_reset(event_set);
@@ -37,7 +38,8 @@ void papi_cpuhwcounters_read_counters(papi_cpuhwcounters_t *counters, int event_
 		char error_string[256];
 		snprintf(error_string, sizeof(error_string),
 			"Code %d - Failed resetting a PAPI event set - %s", ret, PAPI_strerror(ret));
-		nosv_abort(error_string);
+		nosv_print(error_string);
+		nosv_abort("Failed resetting a PAPI Event set");
 	}
 }
 

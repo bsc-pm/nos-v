@@ -33,7 +33,8 @@ void papi_taskhwcounters_read_counters(papi_taskhwcounters_t *counters, int even
 		char error_string[256];
 		snprintf(error_string, sizeof(error_string),
 			"Failed reading a PAPI event set - Code: %d - %s", ret, PAPI_strerror(ret));
-		nosv_abort(error_string);
+		nosv_print(error_string);
+		nosv_abort("Failed reading a PAPI event set");
 	}
 
 	ret = PAPI_reset(event_set);
@@ -41,7 +42,8 @@ void papi_taskhwcounters_read_counters(papi_taskhwcounters_t *counters, int even
 		char error_string[256];
 		snprintf(error_string, sizeof(error_string),
 			"Failed resetting a PAPI event set - Code: %d - %s", ret, PAPI_strerror(ret));
-		nosv_abort(error_string);
+		nosv_print(error_string);
+		nosv_abort("Failed resetting a PAPI event set");
 	}
 
 	const size_t num_counters = papi_hwcounters_get_num_enabled_counters();
