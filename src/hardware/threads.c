@@ -351,6 +351,9 @@ void worker_block(void)
 {
 	assert(current_worker);
 
+	// Before blocking the thread's execution, update runtime counters
+	hwcounters_update_runtime_counters();
+
 	instr_thread_pause();
 
 	// Blocking operation
@@ -370,9 +373,6 @@ void worker_block(void)
 	} else if (cpu != oldcpu) {
 		cpu_set_current(cpu->logic_id);
 	}
-
-	// Before resuming the thread's execution, update runtime counters
-	hwcounters_update_runtime_counters();
 
 	instr_thread_resume();
 }

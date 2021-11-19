@@ -111,12 +111,6 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	size_t metadata_size,
 	nosv_flags_t flags)
 {
-	// Update the counters of the current task if it exists, as we don't want
-	// the creation to be accounted in this task's counters
-	nosv_task_t current_task = worker_current_task();
-	if (current_task)
-		hwcounters_update_task_counters(current_task);
-
 	nosv_task_t res = salloc(
 		sizeof(struct nosv_task) +   /* Size of the struct itself */
 		hwcounters_get_task_size() + /* Size needed to allocate hardware counter for the task */
@@ -146,9 +140,6 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 
 	*task = res;
 
-	if (current_task)
-		hwcounters_update_task_counters(current_task);
-
 	instr_task_create((uint32_t)res->taskid, res->type->typeid);
 
 	return 0;
@@ -171,7 +162,18 @@ int nosv_create(
 	if (unlikely(metadata_size > NOSV_MAX_METADATA_SIZE))
 		return -EINVAL;
 
-	return nosv_create_internal(task, type, metadata_size, flags);
+	// Update the counters of the current task if it exists, as we don't want
+	// the creation to be accounted in this task's counters
+	nosv_task_t current_task = worker_current_task();
+	if (current_task)
+		hwcounters_update_task_counters(current_task);
+
+	int ret = nosv_create_internal(task, type, metadata_size, flags);
+
+	if (current_task)
+		hwcounters_update_runtime_counters();
+
+	return ret;
 }
 
 /* Getters and setters */
