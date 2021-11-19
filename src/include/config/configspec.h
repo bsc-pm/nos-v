@@ -16,12 +16,13 @@
 #define MAX_CONFIG_PATH PATH_MAX
 
 enum config_spec_type {
-	TYPE_INT64 	= 0, /* Signed 64-bit integer */
-	TYPE_PTR 	= 1, /* Pointer */
-	TYPE_UINT64	= 2, /* Unsigned 64-bit Integer */
-	TYPE_SIZE	= 3, /* Size in string mode */
-	TYPE_STR	= 4, /* String */
-	TYPE_BOOL 	= 5, /* Boolean */
+	TYPE_INT64    = 0, /* Signed 64-bit integer */
+	TYPE_PTR      = 1, /* Pointer */
+	TYPE_UINT64   = 2, /* Unsigned 64-bit Integer */
+	TYPE_SIZE     = 3, /* Size in string mode */
+	TYPE_STR      = 4, /* String */
+	TYPE_BOOL     = 5, /* Boolean */
+	TYPE_LIST_STR = 6, /* List of strings */
 };
 
 typedef struct config_spec {
@@ -55,7 +56,10 @@ static config_spec_t config_spec_list[] = {
 	DECLARE_CONFIG(TYPE_BOOL, "debug.dump_config", debug_dump_config),
 	DECLARE_CONFIG(TYPE_BOOL, "hwcounters.verbose", hwcounters_verbose),
 	DECLARE_CONFIG(TYPE_STR, "hwcounters.backend", hwcounters_backend),
-	DECLARE_CONFIG(TYPE_STR, "hwcounters.papi_events", hwcounters_papi_events),
+};
+
+static config_spec_t config_spec_array_list[] = {
+	DECLARE_CONFIG(TYPE_LIST_STR, "hwcounters.papi_events", hwcounters_papi_events),
 };
 
 #endif // CONFIG_PARSE_H

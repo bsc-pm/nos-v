@@ -44,21 +44,16 @@ void load_configuration()
 
 	// Get the list of enabled counters of each backend
 	short counter_added = 0;
-	char *hwcounters_list = strdup(nosv_config.hwcounters_papi_events);
-	if (hwcounters_list) {
-		char *counter_label = strtok(hwcounters_list, ",");
-		while (counter_label != NULL) {
-			for (short i = HWC_PAPI_MIN_EVENT; i <= HWC_PAPI_MAX_EVENT; ++i) {
-				if (!strcmp(counter_descriptions[i - HWC_PAPI_MIN_EVENT].descr, counter_label)) {
+	string_list_t hwcounters_list = nosv_config.hwcounters_papi_events;
+	if (hwcounters_list.num_strings > 0) {
+		for (int i = 0; i < hwcounters_list.num_strings; ++i) {
+			for (short j = HWC_PAPI_MIN_EVENT; j <= HWC_PAPI_MAX_EVENT; ++j) {
+				if (!strcmp(counter_descriptions[j - HWC_PAPI_MIN_EVENT].descr, hwcounters_list.strings[i])) {
 					counter_added = 1;
-					hwcbackend.enabled_counters[i] = 1;
+					hwcbackend.enabled_counters[j] = 1;
 				}
 			}
-
-			counter_label = strtok(NULL, ",");
 		}
-
-		free(hwcounters_list);
 	}
 
 	if (!counter_added) {
@@ -207,19 +202,19 @@ void hwcounters_update_runtime_counters()
 		assert(thread != NULL);
 
 		cpu_t *cpu = thread->cpu;;
-		assert(cpu != NULL);
-
-		__maybe_unused cpu_hwcounters_t *cpu_counters = &(cpu->counters);
-		__maybe_unused thread_hwcounters_t *thread_counters = &(thread->counters);
-		if (hwcbackend.enabled[PAPI_BACKEND]) {
+		if (cpu != NULL) {
+			__maybe_unused cpu_hwcounters_t *cpu_counters = &(cpu->counters);
+			__maybe_unused thread_hwcounters_t *thread_counters = &(thread->counters);
+			if (hwcbackend.enabled[PAPI_BACKEND]) {
 #if HAVE_PAPI
-			assert(cpu_counters != NULL);
-			assert(thread_counters != NULL);
+				assert(cpu_counters != NULL);
+				assert(thread_counters != NULL);
 
-			papi_cpuhwcounters_t *papi_cpu = &(cpu_counters->papi_counters);
-			papi_threadhwcounters_t *papi_thread = thread_counters->papi_counters;
-			papi_hwcounters_update_runtime_counters(papi_cpu, papi_thread);
+				papi_cpuhwcounters_t *papi_cpu = &(cpu_counters->papi_counters);
+				papi_threadhwcounters_t *papi_thread = thread_counters->papi_counters;
+				papi_hwcounters_update_runtime_counters(papi_cpu, papi_thread);
 #endif
+			}
 		}
 	}
 }

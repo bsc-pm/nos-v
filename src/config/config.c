@@ -54,7 +54,6 @@ static inline void config_init(rt_config_t *config)
 
 	config->hwcounters_verbose = HWCOUNTERS_VERBOSE;
 	config->hwcounters_backend = strdup(HWCOUNTERS_BACKEND);
-	config->hwcounters_papi_events = strdup(HWCOUNTERS_PAPI_EVENTS);
 }
 
 // Sanity checks for configuration options should be here
@@ -309,6 +308,44 @@ static inline int string_parse_bool(int *ptr, const char *value)
 	return 0;
 }
 
+static inline int toml_parse_list_str(string_list_t *ptr, toml_table_t *table, const char *name)
+{
+	toml_array_t *array = toml_array_in(table, name);
+	assert(array->kind == 'v');
+	assert(array->type == 's');
+
+	int nelems = array->nitem;
+	ptr->num_strings = nelems;
+	ptr->strings = (char **) malloc(sizeof(*(ptr->strings)) * nelems);
+	for (int i = 0; i < nelems; ++i) {
+		toml_datum_t datum = toml_string_at(array, i);
+		assert(datum.ok);
+
+		(ptr->strings)[i] = strdup(datum.u.s);
+		free(datum.u.s);
+	}
+
+	return 0;
+}
+
+static inline int string_parse_list_str(string_list_t *ptr, const char *value)
+{
+	// TODO: Parse 'value'
+// 	// Free the old string
+// 	if (*ptr)
+// 		free(*ptr);
+//
+// 	if (strlen(value) == 0) {
+// 		*ptr = NULL;
+// 	} else {
+// 		*ptr = strdup(value);
+// 		assert(*ptr);
+// 	}
+
+
+	return 0;
+}
+
 void config_free(void)
 {
 	size_t nconfig = sizeof(config_spec_list) / sizeof(config_spec_t);
@@ -318,6 +355,16 @@ void config_free(void)
 			void **opt = PTR_TO(void *, &nosv_config, config_spec_list[i].member_offset);
 			if (*opt)
 				free(*opt);
+		} else if (config_spec_list[i].type == TYPE_LIST_STR) {
+			string_list_t *opt = PTR_TO(string_list_t, &nosv_config, config_spec_list[i].member_offset);
+			if (opt->num_strings > 0) {
+				for (int i = 0; i < opt->num_strings; ++i) {
+					assert(opt->strings[i]);
+
+					free(opt->strings[i]);
+				}
+				free(opt->strings);
+			}
 		}
 	}
 }
@@ -408,6 +455,20 @@ static inline int config_parse_single_element(config_spec_t *spec, rt_config_t *
 	}
 }
 
+static inline int config_parse_single_element_array(config_spec_t *spec, rt_config_t *config, toml_table_t *table, const char *element_name)
+{
+	// Try to parse a single TOML array element
+	// This will be different depending on the type, which we have to be aware of to use the relevant method
+	// Note that on earlier versions of the TOML C99 library, we could use toml_raw_t, which is now deprecated
+
+	switch (spec->type) {
+		case TYPE_LIST_STR:
+			return toml_parse_list_str(PTR_TO(string_list_t, config, spec->member_offset), table, element_name);
+		default:
+			return 1;
+	}
+}
+
 static inline int config_parse_single_spec(config_spec_t *spec, rt_config_t *config, toml_table_t *table)
 {
 	int ret = 0;
@@ -459,6 +520,55 @@ empty:
 	return ret;
 }
 
+static inline int config_parse_single_spec_array(config_spec_t *spec, rt_config_t *config, toml_table_t *table)
+{
+	int ret = 0;
+
+	// First, traverse to the relevant toml section
+	// We could use strtok for this but we need to know which is the last token
+	char *orig_str = strdup(spec->name);
+	assert(orig_str);
+
+	char *curr_str = orig_str;
+	char *next_token;
+	toml_table_t *curr_table = table;
+
+	while ((next_token = strchr(curr_str, CONFIG_SECTION_TOKEN))) {
+		// There is a "next_token", hence we have a section name
+		// First, do the strtok dance to null-terminate the string
+		*next_token = '\0';
+
+		// Now, grab the relevant element
+		curr_table = toml_table_in(table, curr_str);
+
+		// Restore the token
+		*next_token = CONFIG_SECTION_TOKEN;
+
+		// If the array is NULL, we can return
+		if (!curr_table)
+			goto empty;
+
+		// Keep iterating
+		curr_str = (next_token + 1);
+	}
+
+	// We now should be at the last level, where we can already find the array
+	assert(curr_table);
+	assert(curr_str);
+	assert(*curr_str);
+
+	ret = config_parse_single_element_array(spec, config, curr_table, curr_str);
+
+	if (ret)
+		nosv_warn("Error parsing configuration option %s", orig_str);
+
+empty:
+
+	free(orig_str);
+
+	return ret;
+}
+
 static inline int config_populate(rt_config_t *config, toml_table_t *table)
 {
 	size_t nconfig = sizeof(config_spec_list) / sizeof(config_spec_t);
@@ -467,6 +577,12 @@ static inline int config_populate(rt_config_t *config, toml_table_t *table)
 	for (size_t i = 0; i < nconfig; ++i) {
 		config_spec_t *spec = &config_spec_list[i];
 		fail += config_parse_single_spec(spec, config, table);
+	}
+
+	nconfig = sizeof(config_spec_array_list) / sizeof(config_spec_t);
+	for (size_t i = 0; i < nconfig; ++i) {
+		config_spec_t *spec = &config_spec_array_list[i];
+		fail += config_parse_single_spec_array(spec, config, table);
 	}
 
 	return fail;
@@ -573,6 +689,8 @@ static inline int config_parse_single_override(rt_config_t *config, char *option
 			return string_parse_str(PTR_TO(char *, config, spec->member_offset), value);
 		case TYPE_BOOL:
 			return string_parse_bool(PTR_TO(int, config, spec->member_offset), value);
+// 		case TYPE_LIST_STR:
+// 			return string_parse_list_str(PTR_TO(string_list_t, config, spec->member_offset), value);
 		default:
 			return 1;
 	}

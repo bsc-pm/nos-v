@@ -30,7 +30,7 @@
 #ifndef TOML_H
 #define TOML_H
 
-
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdint.h>
 
@@ -97,6 +97,50 @@ struct toml_datum_t {
 		int64_t i; /* int value */
 		double  d; /* double value */
 	} u;
+};
+
+
+typedef struct toml_arritem_t toml_arritem_t;
+struct toml_arritem_t {
+	int valtype;		/* for value kind: 'i'nt, 'd'ouble, 'b'ool, 's'tring, 't'ime, 'D'ate, 'T'imestamp */
+	char* val;
+	toml_array_t* arr;
+	toml_table_t* tab;
+};
+
+
+struct toml_array_t {
+	const char* key;		/* key to this array */
+	int kind; /* element kind: 'v'alue, 'a'rray, or 't'able, 'm'ixed */
+	int type; /* for value kind: 'i'nt, 'd'ouble, 'b'ool, 's'tring, 't'ime, 'D'ate, 'T'imestamp, 'm'ixed */
+
+	int nitem;			/* number of elements */
+	toml_arritem_t* item;
+};
+
+typedef struct toml_keyval_t toml_keyval_t;
+struct toml_keyval_t {
+	const char* key;		/* key to this value */
+	const char* val;		/* the raw value */
+};
+
+
+struct toml_table_t {
+	const char* key;	/* key to this table */
+	bool implicit;		/* table was created implicitly */
+	bool readonly;		/* no more modification allowed */
+
+	/* key-values in the table */
+	int			nkval;
+	toml_keyval_t** kval;
+
+	/* arrays in the table */
+	int		   narr;
+	toml_array_t** arr;
+
+	/* tables in the table */
+	int		   ntab;
+	toml_table_t** tab;
 };
 
 /* on arrays: */

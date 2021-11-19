@@ -57,4 +57,7 @@
 	# The enabled HWCounter backends. Possible options: "papi", "none"
 	backend = "none"
 	# The list of PAPI counters to read. By default only "PAPI_TOT_INS" and "PAPI_TOT_CYC"
-	papi_events = "PAPI_TOT_INS,PAPI_TOT_CYC"
+	papi_events = [
+		"PAPI_TOT_INS",
+		"PAPI_TOT_CYC"
+	]
