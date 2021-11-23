@@ -81,7 +81,7 @@ __internal size_t papi_hwcounters_get_num_enabled_counters();
 
 __internal void papi_hwcounters_thread_initialize(papi_threadhwcounters_t *thread_counters);
 
-__internal void papi_hwcounters_thread_shutdown(papi_threadhwcounters_t *);
+__internal void papi_hwcounters_thread_shutdown(papi_threadhwcounters_t *thread_counters);
 
 __internal void papi_hwcounters_update_task_counters(
 	papi_threadhwcounters_t *thread_counters,

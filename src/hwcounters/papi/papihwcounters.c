@@ -97,7 +97,7 @@ static void test_maximum_number_of_events()
 		snprintf(error_string, sizeof(error_string),
 			"Failed clearing the main thread's PAPI event set - Code: %d - %s", ret, PAPI_strerror(ret));
 		nosv_print(error_string);
-		nosv_abort("Failed clreaing the main thread's PAPI event set");
+		nosv_abort("Failed clearing the main thread's PAPI event set");
 	}
 
 	ret = PAPI_destroy_eventset(&event_set);
@@ -294,7 +294,7 @@ void papi_hwcounters_thread_initialize(papi_threadhwcounters_t *thread_counters)
 	}
 }
 
-void papi_hwcounters_thread_shutdown(__maybe_unused papi_threadhwcounters_t *counters)
+void papi_hwcounters_thread_shutdown(papi_threadhwcounters_t *thread_counters)
 {
 	if (backend.enabled) {
 		int ret = PAPI_unregister_thread();

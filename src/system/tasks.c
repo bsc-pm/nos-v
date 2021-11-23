@@ -133,7 +133,7 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	res->yield = 0;
 	res->wakeup = NULL;
 	res->taskid = atomic_fetch_add_explicit(&taskid_counter, 1, memory_order_relaxed);
-	res->counters = (void *) (((char *) task) + sizeof(struct nosv_task) + metadata_size);
+	res->counters = (void *) (((char *) res) + sizeof(struct nosv_task) + metadata_size);
 
 	// Initialize hardware counters for the task
 	hwcounters_task_created(res, /* enabled */ 1);

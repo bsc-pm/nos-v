@@ -33,6 +33,8 @@ void threadhwcounters_shutdown(thread_hwcounters_t *counters)
 		assert(counters != NULL);
 		assert(counters->papi_counters != NULL);
 
+		papi_hwcounters_thread_shutdown(counters->papi_counters);
+
 		free(counters->papi_counters);
 	}
 #endif
