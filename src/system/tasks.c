@@ -112,9 +112,9 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	nosv_flags_t flags)
 {
 	nosv_task_t res = salloc(
-		sizeof(struct nosv_task) +   /* Size of the struct itself */
-		hwcounters_get_task_size() + /* Size needed to allocate hardware counter for the task */
-		metadata_size,               /* The size needed to allocate the task's metadata */
+		sizeof(struct nosv_task) +  /* Size of the struct itself */
+		metadata_size +             /* The size needed to allocate the task's metadata */
+		hwcounters_get_task_size(), /* Size needed to allocate hardware counter for the task */
 		cpu_get_current()
 	);
 
@@ -133,7 +133,7 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	res->yield = 0;
 	res->wakeup = NULL;
 	res->taskid = atomic_fetch_add_explicit(&taskid_counter, 1, memory_order_relaxed);
-	res->counters = (void *) (((char *) task) + sizeof(struct nosv_task));
+	res->counters = (void *) (((char *) task) + sizeof(struct nosv_task) + metadata_size);
 
 	// Initialize hardware counters for the task
 	hwcounters_task_created(res, /* enabled */ 1);
@@ -182,7 +182,7 @@ void *nosv_get_task_metadata(nosv_task_t task)
 {
 	// Check if any metadata was allocated
 	if (task->metadata)
-		return ((char *) task) + sizeof(struct nosv_task) + hwcounters_get_task_size();
+		return ((char *) task) + sizeof(struct nosv_task);
 
 	return NULL;
 }
@@ -451,7 +451,7 @@ int nosv_destroy(
 	if (unlikely(!task))
 		return -EINVAL;
 
-	sfree(task, sizeof(struct nosv_task) + task->metadata, cpu_get_current());
+	sfree(task, sizeof(struct nosv_task) + task->metadata + hwcounters_get_task_size(), cpu_get_current());
 
 	return 0;
 }

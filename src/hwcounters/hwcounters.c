@@ -161,7 +161,7 @@ void hwcounters_task_created(nosv_task_t task, short enabled)
 	if (hwcbackend.any_backend_enabled) {
 		assert(task != NULL);
 
-		task_hwcounters_t *counters = (task_hwcounters_t *) task->counters;
+		task_hwcounters_t *counters = task->counters;
 		taskhwcounters_initialize(counters, enabled);
 	}
 }
