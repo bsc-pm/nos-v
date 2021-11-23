@@ -282,10 +282,10 @@ static inline int toml_parse_bool(int *ptr, toml_table_t *table, const char *nam
 
 static inline int string_parse_bool(int *ptr, const char *value)
 {
-	// We can accept "true", "false", "0" and "1"
-	if (!strcasecmp(value, "true") || !strcmp(value, "1")) {
+	// We only accept "true" or "false" in lower-case
+	if (!strcmp(value, "true")) {
 		*ptr = 1;
-	} else if (!strcasecmp(value, "false") || !strcmp(value, "0")) {
+	} else if (!strcmp(value, "false")) {
 		*ptr = 0;
 	} else {
 		return 1;
