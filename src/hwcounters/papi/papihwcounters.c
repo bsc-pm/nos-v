@@ -297,7 +297,41 @@ void papi_hwcounters_thread_initialize(papi_threadhwcounters_t *thread_counters)
 void papi_hwcounters_thread_shutdown(papi_threadhwcounters_t *thread_counters)
 {
 	if (backend.enabled) {
-		int ret = PAPI_unregister_thread();
+		// NOTE: We pass NULL since we don't care about the returned values in
+		// PAPI_STOP and we don't want to allocate an array for nothing. This is
+		// allowed as of PAPI's supported version, but it may change in the future
+		void *values = NULL;
+		int event_set = papi_threadhwcounters_get_eventset(thread_counters);
+
+		// Stop counting events, remove events from the set, destroy it, and unregister the thread
+		int ret = PAPI_stop(event_set, values);
+		if (ret != PAPI_OK) {
+			char error_string[256];
+			snprintf(error_string, sizeof(error_string),
+				"Failed when stopping count on a thread's event set - Code: %d - %s", ret, PAPI_strerror(ret));
+			nosv_print(error_string);
+			nosv_abort("Failed when stopping count on a thread's event set");
+		}
+
+		ret = PAPI_cleanup_eventset(event_set);
+		if (ret != PAPI_OK) {
+			char error_string[256];
+			snprintf(error_string, sizeof(error_string),
+				"Failed clearing a thread's PAPI event set - Code: %d - %s", ret, PAPI_strerror(ret));
+			nosv_print(error_string);
+			nosv_abort("Failed clearing a thread's PAPI event set");
+		}
+
+		ret = PAPI_destroy_eventset(&event_set);
+		if (ret != PAPI_OK) {
+			char error_string[256];
+			snprintf(error_string, sizeof(error_string),
+				"Failed destroying a thread's PAPI event set - Code: %d - %s", ret, PAPI_strerror(ret));
+			nosv_print(error_string);
+			nosv_abort("Failed destroying a thread's PAPI event set");
+		}
+
+		ret = PAPI_unregister_thread();
 		if (ret != PAPI_OK) {
 			char error_string[256];
 			snprintf(error_string, sizeof(error_string),

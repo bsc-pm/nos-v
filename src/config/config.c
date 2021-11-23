@@ -328,24 +328,6 @@ static inline int toml_parse_list_str(string_list_t *ptr, toml_table_t *table, c
 	return 0;
 }
 
-static inline int string_parse_list_str(string_list_t *ptr, const char *value)
-{
-	// TODO: Parse 'value'
-// 	// Free the old string
-// 	if (*ptr)
-// 		free(*ptr);
-//
-// 	if (strlen(value) == 0) {
-// 		*ptr = NULL;
-// 	} else {
-// 		*ptr = strdup(value);
-// 		assert(*ptr);
-// 	}
-
-
-	return 0;
-}
-
 void config_free(void)
 {
 	size_t nconfig = sizeof(config_spec_list) / sizeof(config_spec_t);
@@ -689,8 +671,6 @@ static inline int config_parse_single_override(rt_config_t *config, char *option
 			return string_parse_str(PTR_TO(char *, config, spec->member_offset), value);
 		case TYPE_BOOL:
 			return string_parse_bool(PTR_TO(int, config, spec->member_offset), value);
-// 		case TYPE_LIST_STR:
-// 			return string_parse_list_str(PTR_TO(string_list_t, config, spec->member_offset), value);
 		default:
 			return 1;
 	}
