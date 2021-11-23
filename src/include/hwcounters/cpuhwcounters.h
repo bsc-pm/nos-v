@@ -7,6 +7,8 @@
 #ifndef CPUHWCOUNTERS_H
 #define CPUHWCOUNTERS_H
 
+#include <stdint.h>
+
 #include "compiler.h"
 #include "hwcounters/supportedhwcounters.h"
 
