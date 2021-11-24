@@ -18,20 +18,23 @@
 
 
 typedef struct cpu_hwcounters {
+union {
+struct {
 #if HAVE_PAPI
-	//! PAPI CPU hardware counters
+	// PAPI CPU hardware counters
 	papi_cpuhwcounters_t papi_counters;
 #endif
-	//! Due to C standard, structs cannot be empty, thus we leave an empty char
+};
+	// Due to C standard, structs cannot be empty, thus we leave an empty char
 	char nothing;
+};
 } cpu_hwcounters_t;
 
 
-//! \brief Initialize hardware counters for a CPU
+// Initialize hardware counters for a CPU
 __internal void cpuhwcounters_initialize(cpu_hwcounters_t *counters);
 
-//! \brief Get the delta value of a HW counter
-//! \param[in] counterType The type of counter to get the delta from
+// Get the delta value of a HW counter
 __internal uint64_t cpuhwcounters_get_delta(cpu_hwcounters_t *counters, enum counters_t type);
 
 #endif // CPUHWCOUNTERS_H

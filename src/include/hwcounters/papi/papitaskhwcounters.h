@@ -14,22 +14,19 @@
 #include "hwcounters/papi/papihwcounters.h"
 
 
-//! \brief Initialize PAPI hardware counters for a task
+// Initialize PAPI hardware counters for a task
 __internal void papi_taskhwcounters_initialize(papi_taskhwcounters_t *counters);
 
-//! \brief Read counters from an event set
-//! \param[in] event_set The event set specified
+// Read counters from an event set
 __internal void papi_taskhwcounters_read_counters(papi_taskhwcounters_t *counters, int event_set);
 
-//! \brief Get the delta value of a HW counter
-//! \param[in] type The type of counter to get the delta from
+// Get the delta value of a HW counter
 __internal uint64_t papi_taskhwcounters_get_delta(papi_taskhwcounters_t *counters, enum counters_t type);
 
-//! \brief Get the accumulated value of a HW counter
-//! \param[in] type The type of counter to get the accumulation from
+// Get the accumulated value of a HW counter
 __internal uint64_t papi_taskhwcounters_get_accumulated(papi_taskhwcounters_t *counters, enum counters_t type);
 
-//! \brief Retreive the size needed for hardware counters
+// Retreive the size needed for hardware counters
 __internal size_t papi_taskhwcounters_get_alloc_size();
 
 #endif // PAPITASKHWCOUNTERS_H

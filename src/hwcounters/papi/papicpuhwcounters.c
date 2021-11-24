@@ -26,20 +26,12 @@ void papi_cpuhwcounters_read_counters(papi_cpuhwcounters_t *counters, int event_
 
 	int ret = PAPI_read(event_set, counters->delta);
 	if (ret != PAPI_OK) {
-		char error_string[256];
-		snprintf(error_string, sizeof(error_string),
-			"Code %d - Failed reading a PAPI event set - %s", ret, PAPI_strerror(ret));
-		nosv_print(error_string);
-		nosv_abort("Failed reading a PAPI Event");
+		nosv_abort("Code %d - Failed reading a PAPI event set - %s", ret, PAPI_strerror(ret));
 	}
 
 	ret = PAPI_reset(event_set);
 	if (ret != PAPI_OK) {
-		char error_string[256];
-		snprintf(error_string, sizeof(error_string),
-			"Code %d - Failed resetting a PAPI event set - %s", ret, PAPI_strerror(ret));
-		nosv_print(error_string);
-		nosv_abort("Failed resetting a PAPI Event set");
+		nosv_abort("Code %d - Failed resetting a PAPI event set - %s", ret, PAPI_strerror(ret));
 	}
 }
 
@@ -50,6 +42,7 @@ uint64_t papi_cpuhwcounters_get_delta(papi_cpuhwcounters_t *counters, enum count
 
 	int id = papi_hwcounters_get_inner_identifier(type);
 	assert(id >= 0 && (size_t) id < papi_hwcounters_get_num_enabled_counters());
+	assert(counters->delta[id] >= 0);
 
 	return (uint64_t) counters->delta[id];
 }

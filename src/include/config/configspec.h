@@ -56,9 +56,6 @@ static config_spec_t config_spec_list[] = {
 	DECLARE_CONFIG(TYPE_BOOL, "debug.dump_config", debug_dump_config),
 	DECLARE_CONFIG(TYPE_BOOL, "hwcounters.verbose", hwcounters_verbose),
 	DECLARE_CONFIG(TYPE_STR, "hwcounters.backend", hwcounters_backend),
-};
-
-static config_spec_t config_spec_array_list[] = {
 	DECLARE_CONFIG(TYPE_LIST_STR, "hwcounters.papi_events", hwcounters_papi_events),
 };
 

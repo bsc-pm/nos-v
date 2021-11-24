@@ -29,15 +29,13 @@ __internal hwcounters_backend_t hwcbackend;
 void load_configuration()
 {
 	// Check which backend is enabled
-	char *hwcounters_envvar = strdup(nosv_config.hwcounters_backend);
+	const char *hwcounters_envvar = nosv_config.hwcounters_backend;
 	assert(hwcounters_envvar);
 
 	if (!strcmp(hwcounters_envvar, "papi")) {
 		hwcbackend.enabled[PAPI_BACKEND] = 1;
 		hwcbackend.any_backend_enabled = 1;
 	}
-
-	free(hwcounters_envvar);
 
 	// Check if verbose is enabled
 	hwcbackend.verbose = nosv_config.hwcounters_verbose;
@@ -181,16 +179,16 @@ void hwcounters_update_task_counters(nosv_task_t task)
 			assert(thread != NULL);
 
 			__maybe_unused thread_hwcounters_t *thread_counters = &(thread->counters);
-			if (hwcbackend.enabled[PAPI_BACKEND]) {
 #if HAVE_PAPI
+			if (hwcbackend.enabled[PAPI_BACKEND]) {
 				assert(thread_counters != NULL);
 				assert(task_counters != NULL);
 
 				papi_threadhwcounters_t *papi_thread = thread_counters->papi_counters;
 				papi_taskhwcounters_t *papi_task = task_counters->papi_counters;
 				papi_hwcounters_update_task_counters(papi_thread, papi_task);
-#endif
 			}
+#endif
 		}
 	}
 }
@@ -205,16 +203,16 @@ void hwcounters_update_runtime_counters()
 		if (cpu != NULL) {
 			__maybe_unused cpu_hwcounters_t *cpu_counters = &(cpu->counters);
 			__maybe_unused thread_hwcounters_t *thread_counters = &(thread->counters);
-			if (hwcbackend.enabled[PAPI_BACKEND]) {
 #if HAVE_PAPI
+			if (hwcbackend.enabled[PAPI_BACKEND]) {
 				assert(cpu_counters != NULL);
 				assert(thread_counters != NULL);
 
 				papi_cpuhwcounters_t *papi_cpu = &(cpu_counters->papi_counters);
 				papi_threadhwcounters_t *papi_thread = thread_counters->papi_counters;
 				papi_hwcounters_update_runtime_counters(papi_cpu, papi_thread);
-#endif
 			}
+#endif
 		}
 	}
 }

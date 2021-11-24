@@ -16,16 +16,16 @@
 
 typedef struct thread_hwcounters {
 #if HAVE_PAPI
-	//! Thread-related hardware counters for the PAPI backend
+	// Thread-related hardware counters for the PAPI backend
 	papi_threadhwcounters_t *papi_counters;
 #endif
 } thread_hwcounters_t;
 
 
-//! \brief Allocate and initialize all backend objects
+// Allocate and initialize all backend objects
 __internal void threadhwcounters_initialize(thread_hwcounters_t *counters);
 
-//! \brief Destroy all backend objects
+// Destroy all backend objects
 __internal void threadhwcounters_shutdown(thread_hwcounters_t *counters);
 
 #endif // THREADHWCOUNTERS_H

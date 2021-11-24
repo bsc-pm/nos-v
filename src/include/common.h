@@ -18,6 +18,8 @@
 
 #define _errstr(fmt, ...) fprintf(stderr, fmt "%s\n", ##__VA_ARGS__)
 
+#define _printstr(fmt, ...) printf(fmt "%s\n", ##__VA_ARGS__)
+
 #define nosv_warn(...) _nosv_warn(__VA_ARGS__, "")
 
 #define _nosv_warn(fmt, ...) \
@@ -34,10 +36,10 @@
 		exit(1);                                                                                   \
 	} while (0)
 
-static inline void nosv_print(const char *msg)
-{
-	printf("%s\n", msg);
-}
+#define nosv_print(...) _nosv_print(__VA_ARGS__, "")
+
+#define _nosv_print(fmt, ...) \
+	_printstr(fmt, ##__VA_ARGS__);
 
 static inline size_t next_power_of_two(uint64_t n)
 {
