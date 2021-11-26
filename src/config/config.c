@@ -54,6 +54,15 @@ static inline void config_init(rt_config_t *config)
 
 	config->hwcounters_verbose = HWCOUNTERS_VERBOSE;
 	config->hwcounters_backend = strdup(HWCOUNTERS_BACKEND);
+
+	uint64_t num_papi_events = 2;
+	config->hwcounters_papi_events.num_strings = num_papi_events;
+	config->hwcounters_papi_events.strings = (char **) malloc(sizeof(string_list_t));
+	for (int i = 0; i < num_papi_events; ++i) {
+		config->hwcounters_papi_events.strings[i] = (char *) malloc(sizeof(char) * 16);
+	}
+	sprintf(config->hwcounters_papi_events.strings[0], "PAPI_TOT_INS");
+	sprintf(config->hwcounters_papi_events.strings[1], "PAPI_TOT_CYC");
 }
 
 // Sanity checks for configuration options should be here
@@ -305,6 +314,14 @@ static inline int string_parse_bool(int *ptr, const char *value)
 
 static inline int toml_parse_list_str(string_list_t *ptr, toml_table_t *table, const char *name)
 {
+	if (ptr) {
+		int num_strings = ptr->num_strings;
+		for (int i = 0; i < num_strings; ++i) {
+			free(ptr->strings[i]);
+		}
+		free(ptr->strings);
+	}
+
 	toml_array_t *array = toml_array_in(table, name);
 	int nelems = toml_array_nelem(array);
 	ptr->num_strings = nelems;

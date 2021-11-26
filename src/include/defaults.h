@@ -57,7 +57,4 @@
 // The enabled HWCounter backend, "none" by default
 #define HWCOUNTERS_BACKEND "none"
 
-// A comma-separated list of PAPI events
-#define HWCOUNTERS_PAPI_EVENTS "PAPI_TOT_INS,PAPI_TOT_CYC"
-
 #endif // DEFAULTS_H

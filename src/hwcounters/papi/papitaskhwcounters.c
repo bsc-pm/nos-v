@@ -29,14 +29,10 @@ void papi_taskhwcounters_read_counters(papi_taskhwcounters_t *counters, int even
 	assert(event_set != PAPI_NULL);
 
 	int ret = PAPI_read(event_set, counters->delta);
-	if (ret != PAPI_OK) {
-		nosv_abort("Failed reading a PAPI event set - Code: %d - %s", ret, PAPI_strerror(ret));
-	}
+	assert(ret == PAPI_OK);
 
 	ret = PAPI_reset(event_set);
-	if (ret != PAPI_OK) {
-		nosv_abort("Failed resetting a PAPI event set - Code: %d - %s", ret, PAPI_strerror(ret));
-	}
+	assert(ret == PAPI_OK);
 
 	const size_t num_counters = papi_hwcounters_get_num_enabled_counters();
 	for (size_t i = 0; i < num_counters; ++i) {

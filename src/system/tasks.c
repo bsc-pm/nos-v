@@ -493,13 +493,13 @@ void task_execute(nosv_task_t task)
 		atomic_thread_fence(memory_order_release);
 	}
 
+	// Task just completed, read and accumulate hardware counters for the task
+	hwcounters_update_task_counters(task);
+
 	uint64_t res = atomic_fetch_sub_explicit(&task->event_count, 1, memory_order_relaxed) - 1;
 	if (!res) {
 		task_complete(task);
 	}
-
-	// Task just completed, read and accumulate hardware counters for the task
-	hwcounters_update_task_counters(task);
 
 	instr_task_end((uint32_t)task->taskid);
 }
