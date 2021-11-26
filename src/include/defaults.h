@@ -49,4 +49,12 @@
 // Size of each SPSC queue
 #define SCHED_IN_QUEUE_SIZE 256
 
+// HARDWARE COUNTERS
+
+// Whether to print verbose info of hwcounters, disabled by default
+#define HWCOUNTERS_VERBOSE 0
+
+// The enabled HWCounter backend, "none" by default
+#define HWCOUNTERS_BACKEND "none"
+
 #endif // DEFAULTS_H

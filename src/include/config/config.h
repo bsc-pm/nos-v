@@ -22,6 +22,11 @@ __internal void config_free(void);
 		- TYPE_BOOL = int
 */
 
+typedef struct string_list {
+	char **strings;
+	uint64_t num_strings;
+} string_list_t;
+
 typedef struct rt_config {
 	// Shared Memory
 	const char *shm_name;
@@ -36,6 +41,11 @@ typedef struct rt_config {
 
 	// Debug
 	int debug_dump_config;
+
+	// Hardware Counters
+	int hwcounters_verbose;
+	const char *hwcounters_backend;
+	string_list_t hwcounters_papi_events;
 } rt_config_t;
 
 __internal extern rt_config_t nosv_config;

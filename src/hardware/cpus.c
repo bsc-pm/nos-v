@@ -11,6 +11,7 @@
 #include "hardware/cpus.h"
 #include "hardware/locality.h"
 #include "hardware/threads.h"
+#include "hwcounters/cpuhwcounters.h"
 #include "instr.h"
 #include "memory/sharedmemory.h"
 #include "memory/slab.h"
@@ -60,6 +61,7 @@ void cpus_init(int initialize)
 			cpumanager->cpus[i].logic_id = i;
 			cpumanager->cpus[i].numa_node = locality_get_cpu_numa(curr);
 			cpumanager->system_to_logical[curr] = i;
+			cpuhwcounters_initialize(&(cpumanager->cpus[i].counters));
 
 			// Inform the instrumentation of a new CPU
 			instr_cpu_id(i, curr);

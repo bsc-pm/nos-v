@@ -13,11 +13,14 @@
 #include "compiler.h"
 #include "nosv.h"
 
+#include "hwcounters/cpuhwcounters.h"
+
 typedef struct cpu {
 	cpu_set_t cpuset;
 	int system_id;
 	int logic_id;
 	int numa_node;
+	cpu_hwcounters_t counters;
 } cpu_t;
 
 typedef struct cpumanager {

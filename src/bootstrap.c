@@ -13,6 +13,7 @@
 #include "hardware/locality.h"
 #include "hardware/pids.h"
 #include "hardware/threads.h"
+#include "hwcounters/hwcounters.h"
 #include "instr.h"
 #include "memory/sharedmemory.h"
 #include "memory/slab.h"
@@ -35,6 +36,7 @@ int nosv_init(void)
 	instr_gen_bursts();
 	locality_init();
 	smem_initialize();
+	hwcounters_initialize();
 	pidmanager_register();
 
 	library_initialized = 1;
@@ -48,6 +50,7 @@ int nosv_shutdown(void)
 
 	pidmanager_shutdown();
 	scheduler_shutdown();
+	hwcounters_shutdown();
 	smem_shutdown();
 	locality_shutdown();
 	config_free();

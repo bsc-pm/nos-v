@@ -51,6 +51,18 @@ static inline void config_init(rt_config_t *config)
 	config->shm_start = SHM_START_ADDR;
 
 	config->debug_dump_config = 0;
+
+	config->hwcounters_verbose = HWCOUNTERS_VERBOSE;
+	config->hwcounters_backend = strdup(HWCOUNTERS_BACKEND);
+
+	uint64_t num_papi_events = 2;
+	config->hwcounters_papi_events.num_strings = num_papi_events;
+	config->hwcounters_papi_events.strings = (char **) malloc(sizeof(string_list_t));
+	for (int i = 0; i < num_papi_events; ++i) {
+		config->hwcounters_papi_events.strings[i] = (char *) malloc(sizeof(char) * 16);
+	}
+	sprintf(config->hwcounters_papi_events.strings[0], "PAPI_TOT_INS");
+	sprintf(config->hwcounters_papi_events.strings[1], "PAPI_TOT_CYC");
 }
 
 // Sanity checks for configuration options should be here
@@ -71,6 +83,12 @@ static inline int config_check(rt_config_t *config)
 	sanity_check(config->shm_name, "Shared memory name cannot be empty");
 	sanity_check(config->shm_size > (10 * 2 * 1024 * 1024), "Small shared memory sizes (less than 10 pages) are not supported");
 	sanity_check(((uintptr_t)config->shm_start) >= 4096, "Mapping shared memory at page 0 is not allowed");
+
+	sanity_check(
+		!strcmp(config->hwcounters_backend, "none") ||
+		!strcmp(config->hwcounters_backend, "papi"),
+		"Currently available hardware counter backends: 'papi', 'none'"
+	);
 
 #undef sanity_check
 	return ret;
@@ -294,6 +312,31 @@ static inline int string_parse_bool(int *ptr, const char *value)
 	return 0;
 }
 
+static inline int toml_parse_list_str(string_list_t *ptr, toml_table_t *table, const char *name)
+{
+	if (ptr) {
+		int num_strings = ptr->num_strings;
+		for (int i = 0; i < num_strings; ++i) {
+			free(ptr->strings[i]);
+		}
+		free(ptr->strings);
+	}
+
+	toml_array_t *array = toml_array_in(table, name);
+	int nelems = toml_array_nelem(array);
+	ptr->num_strings = nelems;
+	ptr->strings = (char **) malloc(sizeof(*(ptr->strings)) * nelems);
+	for (int i = 0; i < nelems; ++i) {
+		toml_datum_t datum = toml_string_at(array, i);
+		if (!datum.ok) return 1;
+
+		(ptr->strings)[i] = strdup(datum.u.s);
+		free(datum.u.s);
+	}
+
+	return 0;
+}
+
 void config_free(void)
 {
 	size_t nconfig = sizeof(config_spec_list) / sizeof(config_spec_t);
@@ -303,6 +346,16 @@ void config_free(void)
 			void **opt = PTR_TO(void *, &nosv_config, config_spec_list[i].member_offset);
 			if (*opt)
 				free(*opt);
+		} else if (config_spec_list[i].type == TYPE_LIST_STR) {
+			string_list_t *opt = PTR_TO(string_list_t, &nosv_config, config_spec_list[i].member_offset);
+			if (opt->num_strings > 0) {
+				for (int i = 0; i < opt->num_strings; ++i) {
+					assert(opt->strings[i]);
+
+					free(opt->strings[i]);
+				}
+				free(opt->strings);
+			}
 		}
 	}
 }
@@ -388,6 +441,8 @@ static inline int config_parse_single_element(config_spec_t *spec, rt_config_t *
 			return toml_parse_str(PTR_TO(char *, config, spec->member_offset), table, element_name);
 		case TYPE_BOOL:
 			return toml_parse_bool(PTR_TO(int, config, spec->member_offset), table, element_name);
+		case TYPE_LIST_STR:
+			return toml_parse_list_str(PTR_TO(string_list_t, config, spec->member_offset), table, element_name);
 		default:
 			return 1;
 	}
@@ -431,7 +486,7 @@ static inline int config_parse_single_spec(config_spec_t *spec, rt_config_t *con
 
 	// Check if the key is actually present
 	// We have to resort to the old interface for this
-	if (!toml_raw_in(curr_table, curr_str))
+	if (!toml_raw_in(curr_table, curr_str) && !toml_array_in(curr_table, curr_str))
 		goto empty;
 
 	ret = config_parse_single_element(spec, config, curr_table, curr_str);

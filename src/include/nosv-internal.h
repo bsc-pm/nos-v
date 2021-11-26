@@ -18,6 +18,7 @@ struct nosv_worker;
 typedef atomic_uint_fast32_t atomic_uint32_t;
 typedef uint64_t deadline_t;
 typedef size_t yield_t;
+typedef struct task_hwcounters task_hwcounters_t;
 
 struct nosv_task_type {
 	nosv_task_run_callback_t run_callback;
@@ -50,6 +51,9 @@ struct nosv_task {
 
 	nosv_task_t wakeup;
 	uint64_t taskid;
+
+	// Hardware counters
+	task_hwcounters_t *counters;
 };
 
 #endif // NOSV_INTERNAL_H

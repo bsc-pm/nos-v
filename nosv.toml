@@ -49,3 +49,15 @@
 	# Dump all the configuration options nOS-V is running with, its final parsed values and the
 	# path of the config file being used
 	dump_config = false
+
+# Hardware Counters configuration
+[hwcounters]
+	# Whether to print verbose information if a backend is enabled
+	verbose = true
+	# The enabled HWCounter backends. Possible options: "papi", "none"
+	backend = "none"
+	# The list of PAPI counters to read. By default only "PAPI_TOT_INS" and "PAPI_TOT_CYC"
+	papi_events = [
+		"PAPI_TOT_INS",
+		"PAPI_TOT_CYC"
+	]

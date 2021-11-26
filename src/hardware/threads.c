@@ -15,6 +15,7 @@
 #include "hardware/cpus.h"
 #include "hardware/pids.h"
 #include "hardware/threads.h"
+#include "hwcounters/hwcounters.h"
 #include "instr.h"
 #include "memory/sharedmemory.h"
 #include "memory/slab.h"
@@ -89,6 +90,7 @@ static inline void worker_wake_internal(nosv_worker_t *worker, cpu_t *cpu)
 				nosv_abort("Cannot change thread affinity");
 		}
 	}
+
 	// Now wake up the thread
 	nosv_condvar_signal(&worker->condvar);
 }
@@ -216,6 +218,9 @@ static inline void *worker_start_routine(void *arg)
 	cpu_set_current(current_worker->cpu->logic_id);
 	current_worker->tid = gettid();
 
+	// Initialize hardware counters for the thread
+	hwcounters_thread_initialize(current_worker);
+
 	instr_thread_init();
 	instr_thread_execute(current_worker->cpu->logic_id, current_worker->creator_tid, (uint64_t) arg);
 	instr_worker_enter();
@@ -264,12 +269,17 @@ static inline void *worker_start_routine(void *arg)
 
 	// Before shutting down, we have to transfer our active CPU if we still have one
 	// We don't have one if we were woken up from the idle thread pool direcly
-	if (current_worker->cpu)
+	// Before transfering it, update runtime counters
+	if (current_worker->cpu) {
+		hwcounters_update_runtime_counters();
 		pidmanager_transfer_to_idle(current_worker->cpu);
+	}
 
 	nosv_spin_lock(&current_process_manager->shutdown_spinlock);
 	clist_add(&current_process_manager->shutdown_threads, &current_worker->list_hook);
 	nosv_spin_unlock(&current_process_manager->shutdown_spinlock);
+
+	hwcounters_thread_shutdown(current_worker);
 
 	instr_worker_exit();
 	instr_thread_end();
@@ -282,6 +292,9 @@ void worker_add_to_idle_list(void)
 	nosv_spin_lock(&current_process_manager->idle_spinlock);
 	list_add(&current_process_manager->idle_threads, &current_worker->list_hook);
 	nosv_spin_unlock(&current_process_manager->idle_spinlock);
+
+	// Before a thread blocks (idles), update runtime counters
+	hwcounters_update_runtime_counters();
 }
 
 int worker_should_shutdown(void)
@@ -337,6 +350,9 @@ int worker_yield_if_needed(nosv_task_t current_task)
 void worker_block(void)
 {
 	assert(current_worker);
+
+	// Before blocking the thread's execution, update runtime counters
+	hwcounters_update_runtime_counters();
 
 	instr_thread_pause();
 
@@ -449,20 +465,30 @@ nosv_worker_t *worker_create_external(void)
 	worker->in_task_body = 1;
 	sched_getaffinity(0, sizeof(worker->original_affinity), &worker->original_affinity);
 
+	// Initialize hardware counters for the thread
+	hwcounters_thread_initialize(worker);
+
 	return worker;
 }
 
 void worker_free_external(nosv_worker_t *worker)
 {
 	assert(worker);
+
+	// Initialize hardware counters for the thread
+	hwcounters_thread_shutdown(worker);
+
 	nosv_condvar_destroy(&worker->condvar);
 	sfree(worker, sizeof(nosv_worker_t), cpu_get_current());
 	assert(worker == current_worker);
+
 	current_worker = NULL;
 }
 
 void worker_join(nosv_worker_t *worker)
 {
+	// NOTE: No need to shutdown hwcounters here, as it is done in worker_start_routine
+
 	int ret = pthread_join(worker->kthread, NULL);
 	if (ret)
 		nosv_abort("Cannot join pthread");

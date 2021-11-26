@@ -21,6 +21,12 @@ libnosv_la_CPPFLAGS=$(AM_CPPFLAGS) $(ovni_CPPFLAGS) -DINSTALLED_CONFIG_DIR=\"$(d
 libnosv_la_CFLAGS=$(PTHREAD_CFLAGS) $(libnuma_CFLAGS) $(nosv_CFLAGS)
 libnosv_la_LDFLAGS=$(PTHREAD_CFLAGS) $(PTHREAD_LIBS) $(libnuma_LIBS) $(ovni_LIBS) $(shm_LIBS)
 
+# Hardware counters
+if HAVE_PAPI
+libnosv_la_CFLAGS += $(papi_CFLAGS) -DHAVE_PAPI
+libnosv_la_LDFLAGS += $(papi_LIBS)
+endif
+
 lib_LTLIBRARIES = libnosv.la
 
 # Install the pkg-config file; the directory is set using
@@ -35,11 +41,23 @@ libnosv_la_SOURCES = \
 	src/hardware/locality.c \
 	src/hardware/pids.c \
 	src/hardware/threads.c \
+	src/hwcounters/cpuhwcounters.c \
+	src/hwcounters/hwcounters.c \
+	src/hwcounters/taskhwcounters.c \
+	src/hwcounters/threadhwcounters.c \
 	src/memory/backbone.c \
 	src/memory/slab.c \
 	src/memory/sharedmemory.c \
 	src/scheduler/scheduler.c \
 	src/system/tasks.c
+
+if HAVE_PAPI
+libnosv_la_SOURCES += \
+	src/hwcounters/papi/papicpuhwcounters.c \
+	src/hwcounters/papi/papihwcounters.c \
+	src/hwcounters/papi/papitaskhwcounters.c \
+	src/hwcounters/papi/papithreadhwcounters.c
+endif
 
 include_HEADERS = \
     api/nosv.h
