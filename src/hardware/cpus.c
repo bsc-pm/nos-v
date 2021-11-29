@@ -79,6 +79,8 @@ void cpus_init(int initialize)
 	for (i = 0; i < cnt; ++i) {
 		cpumanager->pids_cpus[i] = -1;
 	}
+
+	cpumanager->all_cpu_set = set;
 }
 
 int cpu_system_to_logical(int cpu)
@@ -150,4 +152,10 @@ int nosv_get_current_system_cpu(void)
 	assert(cpu);
 
 	return cpu->system_id;
+}
+
+void cpu_affinity_reset(void)
+{
+	instr_affinity_set(-1);
+	sched_setaffinity(0, sizeof(cpumanager->all_cpu_set), &cpumanager->all_cpu_set);
 }

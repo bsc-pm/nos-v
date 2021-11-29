@@ -24,9 +24,10 @@ typedef struct cpu {
 } cpu_t;
 
 typedef struct cpumanager {
-	int cpu_cnt;            // Number of available CPUs in the system
-	int *pids_cpus;	        // Map from "Logical" PIDs to CPUs
+	cpu_set_t all_cpu_set;  // cpuset containing the original affinity mask
+	int *pids_cpus;			// Map from "Logical" PIDs to CPUs
 	int *system_to_logical; // Map from system CPU ids to logical cpu ids
+	int cpu_cnt;            // Number of available CPUs in the system
 	cpu_t cpus[];           // Flexible array
 } cpumanager_t;
 
@@ -38,6 +39,7 @@ __internal void cpu_set_pid(cpu_t *cpu, int pid);
 __internal void cpu_transfer(int destination_pid, cpu_t *cpu, nosv_task_t task);
 __internal void cpu_mark_free(cpu_t *cpu);
 __internal int cpu_system_to_logical(int cpu);
+__internal void cpu_affinity_reset(void);
 
 __internal extern thread_local int __current_cpu;
 __internal extern cpumanager_t *cpumanager;

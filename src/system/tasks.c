@@ -637,8 +637,11 @@ int nosv_detach(
 
 	// Restore the worker's affinity to its original value
 	// Optionally deactivated with the NOSV_DETACH_NO_RESTORE_AFFINITY flag
-	if (!(flags & NOSV_DETACH_NO_RESTORE_AFFINITY))
+	if (!(flags & NOSV_DETACH_NO_RESTORE_AFFINITY)) {
+		// This thread now goes to an unknown CPU
+		instr_affinity_set(-1);
 		sched_setaffinity(0, sizeof(worker->original_affinity), &worker->original_affinity);
+	}
 
 	// Now free the worker
 	// We have to free before waking up another worker on the current CPU
