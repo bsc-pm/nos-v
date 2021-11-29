@@ -85,6 +85,16 @@ _AS_ECHO([   Compiler CPPFLAGS... ${nosv_CPPFLAGS} ${CPPFLAGS}])
 _AS_ECHO([   Compiler CFLAGS... ${nosv_CFLAGS} ${CFLAGS}])
 
 _AS_ECHO([])
+_AS_ECHO_N([   Ovni is enabled... ])
+if test x"${ac_use_ovni}" = x"yes" ; then
+	AC_MSG_RESULT([yes])
+	_AS_ECHO([   Ovni CPPFLAGS... ${ovni_CPPFLAGS}])
+	_AS_ECHO([   Ovni LIBS... ${ovni_LIBS}])
+else
+	AC_MSG_RESULT([no])
+fi
+
+_AS_ECHO([])
 _AS_ECHO_N([   PAPI is enabled... ])
 if test x"${ac_use_papi}" = x"yes" ; then
 	AC_MSG_RESULT([yes])

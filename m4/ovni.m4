@@ -6,16 +6,29 @@ AC_DEFUN([AC_CHECK_OVNI],
 	[
 		AC_ARG_WITH(
 			[ovni],
-			[AS_HELP_STRING([--with-ovni=prefix], [specify the installation prefix of the ovni library (required for instrumentation)])],
+			[AS_HELP_STRING([--with-ovni@<:@=DIR@:>@], [enable ovni instrumentation and specify the installation prefix of the ovni library if needed])],
 			[ ac_use_ovni_prefix="${withval}" ],
-			[ ac_use_ovni_prefix="" ]
+			[ ac_use_ovni_prefix="no" ]
 		)
 
+		ovni_LIBS=""
+		ovni_CPPFLAGS=""
+		ac_use_ovni=no
+
 		AC_MSG_CHECKING([the ovni installation prefix])
-		if test x"${ac_use_ovni_prefix}" != x"" ; then
+		if test x"${ac_use_ovni_prefix}" = x"no" ; then
+			AC_MSG_RESULT([not enabled])
+		elif test x"${ac_use_ovni_prefix}" = x"" ; then
+			AC_MSG_RESULT([invalid prefix])
+			AC_MSG_ERROR([ovni prefix specified but empty])
+		else
 			AC_MSG_RESULT([${ac_use_ovni_prefix}])
-			ovni_LIBS="-L${ac_use_ovni_prefix}/lib"
-			ovni_CPPFLAGS="-I${ac_use_ovni_prefix}/include -DENABLE_INSTRUMENTATION"
+
+			ovni_CPPFLAGS="-DENABLE_INSTRUMENTATION"
+			if test x"${ac_use_ovni_prefix}" != x"yes" ; then
+				ovni_LIBS="-L${ac_use_ovni_prefix}/lib"
+				ovni_CPPFLAGS="${ovni_CPPFLAGS} -I${ac_use_ovni_prefix}/include"
+			fi
 
 			ac_save_CPPFLAGS="${CPPFLAGS}"
 			ac_save_LIBS="${LIBS}"
@@ -31,12 +44,10 @@ AC_DEFUN([AC_CHECK_OVNI],
 				[${ac_save_LIBS}]
 			)
 
+			ac_use_ovni=yes
+
 			CPPFLAGS="${ac_save_CPPFLAGS}"
 			LIBS="${ac_save_LIBS}"
-		else
-			AC_MSG_RESULT([not enabled])
-			ovni_LIBS=""
-			ovni_CPPFLAGS=""
 		fi
 
 		AC_SUBST([ovni_LIBS])
