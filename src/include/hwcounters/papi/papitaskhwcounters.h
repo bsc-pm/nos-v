@@ -23,8 +23,14 @@ __internal void papi_taskhwcounters_read_counters(papi_taskhwcounters_t *counter
 // Get the delta value of a HW counter
 __internal uint64_t papi_taskhwcounters_get_delta(papi_taskhwcounters_t *counters, enum counters_t type);
 
+// Get a raw array of delta values of hwcounters
+__internal uint64_t *papi_taskhwcounters_get_deltas(papi_taskhwcounters_t *counters);
+
 // Get the accumulated value of a HW counter
 __internal uint64_t papi_taskhwcounters_get_accumulated(papi_taskhwcounters_t *counters, enum counters_t type);
+
+// Get a raw array of accumulated values of hwcounters
+__internal uint64_t *papi_taskhwcounters_get_accumulation(papi_taskhwcounters_t *counters);
 
 // Retreive the size needed for hardware counters
 __internal size_t papi_taskhwcounters_get_alloc_size();

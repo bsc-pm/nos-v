@@ -36,8 +36,14 @@ __internal short taskhwcounters_enabled(task_hwcounters_t *counters);
 // Get the delta value of a HW counter
 __internal uint64_t taskhwcounters_get_delta(task_hwcounters_t *counters, enum counters_t type);
 
+// Get a raw pointer to the array of delta HWCounter values
+__internal uint64_t *taskhwcounters_get_deltas(task_hwcounters_t *counters);
+
 // Get the accumulated value of a HW counter
 __internal uint64_t taskhwcounters_get_accumulated(task_hwcounters_t *counters, enum counters_t type);
+
+// Get a raw pointer to the array of accumulated HWCounter values
+__internal uint64_t *taskhwcounters_get_accumulation(task_hwcounters_t *counters);
 
 // Get the size needed to construct all the structures for all backends
 __internal size_t taskhwcounters_get_alloc_size();

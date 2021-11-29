@@ -34,4 +34,7 @@ __internal void cpuhwcounters_initialize(cpu_hwcounters_t *counters);
 // Get the delta value of a HW counter
 __internal uint64_t cpuhwcounters_get_delta(cpu_hwcounters_t *counters, enum counters_t type);
 
+// Get a raw pointer to the array of delta HWCounter values
+__internal uint64_t *cpuhwcounters_get_deltas(cpu_hwcounters_t *counters);
+
 #endif // CPUHWCOUNTERS_H

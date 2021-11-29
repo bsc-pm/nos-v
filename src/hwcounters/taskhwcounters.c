@@ -50,6 +50,22 @@ uint64_t taskhwcounters_get_delta(task_hwcounters_t *counters, enum counters_t t
 	return 0;
 }
 
+uint64_t *taskhwcounters_get_deltas(task_hwcounters_t *counters)
+{
+	assert(counters != NULL);
+
+	if (counters->enabled) {
+#if HAVE_PAPI
+		papi_taskhwcounters_t *papi_counters = counters->papi_counters;
+		if (hwcounters_backend_enabled(PAPI_BACKEND)) {
+			return papi_taskhwcounters_get_deltas(papi_counters);
+		}
+#endif
+	}
+
+	return NULL;
+}
+
 uint64_t taskhwcounters_get_accumulated(task_hwcounters_t *counters, enum counters_t type)
 {
 	assert(counters != NULL);
@@ -66,6 +82,22 @@ uint64_t taskhwcounters_get_accumulated(task_hwcounters_t *counters, enum counte
 	}
 
 	return 0;
+}
+
+uint64_t *taskhwcounters_get_accumulation(task_hwcounters_t *counters)
+{
+	assert(counters != NULL);
+
+	if (counters->enabled) {
+#if HAVE_PAPI
+		papi_taskhwcounters_t *papi_counters = counters->papi_counters;
+		if (hwcounters_backend_enabled(PAPI_BACKEND)) {
+			return papi_taskhwcounters_get_accumulation(papi_counters);
+		}
+#endif
+	}
+
+	return NULL;
 }
 
 size_t taskhwcounters_get_alloc_size()

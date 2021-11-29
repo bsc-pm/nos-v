@@ -52,6 +52,13 @@ uint64_t papi_taskhwcounters_get_delta(papi_taskhwcounters_t *counters, enum cou
 	return (uint64_t) counters->delta[inner_id];
 }
 
+uint64_t *papi_taskhwcounters_get_deltas(papi_taskhwcounters_t *counters)
+{
+	assert(counters != NULL);
+
+	return (uint64_t *) counters->delta;
+}
+
 uint64_t papi_taskhwcounters_get_accumulated(papi_taskhwcounters_t *counters, enum counters_t type)
 {
 	assert(counters != NULL);
@@ -62,6 +69,13 @@ uint64_t papi_taskhwcounters_get_accumulated(papi_taskhwcounters_t *counters, en
 	assert(counters->accumulated[inner_id] >= 0);
 
 	return (uint64_t) counters->accumulated[inner_id];
+}
+
+uint64_t *papi_taskhwcounters_get_accumulation(papi_taskhwcounters_t *counters)
+{
+	assert(counters != NULL);
+
+	return (uint64_t *) counters->accumulated;
 }
 
 size_t papi_taskhwcounters_get_alloc_size()

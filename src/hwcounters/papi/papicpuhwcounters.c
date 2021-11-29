@@ -46,3 +46,11 @@ uint64_t papi_cpuhwcounters_get_delta(papi_cpuhwcounters_t *counters, enum count
 
 	return (uint64_t) counters->delta[id];
 }
+
+uint64_t *papi_cpuhwcounters_get_deltas(papi_cpuhwcounters_t *counters)
+{
+	assert(counters != NULL);
+
+	return (uint64_t *) counters->delta;
+}
+
