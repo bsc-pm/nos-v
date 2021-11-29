@@ -54,16 +54,6 @@ AC_CHECK_LIBNUMA
 AC_CHECK_OVNI
 AC_CHECK_PAPI
 
-_AS_ECHO([])
-_AS_ECHO_N([   PAPI is enabled... ])
-if test x"${ac_use_papi}" = x"yes" ; then
-	AC_MSG_RESULT([yes])
-	_AS_ECHO([   PAPI CPPFLAGS... ${papi_CPPFLAGS}])
-	_AS_ECHO([   PAPI LIBS... ${papi_LIBS}])
-else
-	AC_MSG_RESULT([no])
-fi
-
 AC_PROG_AWK
 AC_PROG_INSTALL
 AC_PROG_LN_S
@@ -93,4 +83,14 @@ _AS_ECHO([Configuration summary:])
 _AS_ECHO([   Compiler version... ${CC_VERSION}])
 _AS_ECHO([   Compiler CPPFLAGS... ${nosv_CPPFLAGS} ${CPPFLAGS}])
 _AS_ECHO([   Compiler CFLAGS... ${nosv_CFLAGS} ${CFLAGS}])
+
+_AS_ECHO([])
+_AS_ECHO_N([   PAPI is enabled... ])
+if test x"${ac_use_papi}" = x"yes" ; then
+	AC_MSG_RESULT([yes])
+	_AS_ECHO([   PAPI CPPFLAGS... ${papi_CPPFLAGS}])
+	_AS_ECHO([   PAPI LIBS... ${papi_LIBS}])
+else
+	AC_MSG_RESULT([no])
+fi
 _AS_ECHO([])
