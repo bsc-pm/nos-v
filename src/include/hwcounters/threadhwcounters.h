@@ -24,7 +24,6 @@ typedef struct thread_hwcounters {
 #endif
 } thread_hwcounters_t;
 
-
 // Allocate and initialize all backend objects
 __internal void threadhwcounters_initialize(thread_hwcounters_t *counters);
 
