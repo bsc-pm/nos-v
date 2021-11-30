@@ -58,11 +58,11 @@ typedef struct papi_backend {
 //! \param[in] verbose Whether verbose mode is enabled
 //! \param[out] num_enabled_events A short which will be increased by the
 //! number of enabled and available PAPI counters
-//! \param[in,out] enabled_events An array with all the events enabled by the
-//! user, which will be modified to disable those that are unavailable
+//! \param[in,out] status_events A list of events which will be edited to
+//! disable those that are unavailable
 __internal void papi_hwcounters_initialize(
 	short verbose, short *num_enabled_counters,
-	enum counters_t enabled_events[HWC_PAPI_NUM_EVENTS]
+	char status_events[HWC_TOTAL_NUM_EVENTS]
 );
 
 //! \brief Retreive the mapping from a counters_t identifier to the inner
