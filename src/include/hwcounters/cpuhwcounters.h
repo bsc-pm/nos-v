@@ -18,16 +18,13 @@
 
 
 typedef struct cpu_hwcounters {
-union {
-struct {
 #if HAVE_PAPI
 	// PAPI CPU hardware counters
 	papi_cpuhwcounters_t papi_counters;
-#endif
-};
+#else
 	// Due to C standard, structs cannot be empty, thus we leave an empty char
 	char nothing;
-};
+#endif
 } cpu_hwcounters_t;
 
 

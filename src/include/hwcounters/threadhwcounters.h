@@ -18,6 +18,9 @@ typedef struct thread_hwcounters {
 #if HAVE_PAPI
 	// Thread-related hardware counters for the PAPI backend
 	papi_threadhwcounters_t *papi_counters;
+#else
+	// Due to C standard, structs cannot be empty, thus we leave an empty char
+	char nothing;
 #endif
 } thread_hwcounters_t;
 
