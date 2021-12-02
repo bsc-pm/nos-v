@@ -7,6 +7,7 @@
 #ifndef HWCOUNTERS_H
 #define HWCOUNTERS_H
 
+#include <stdbool.h>
 #include <stddef.h>
 
 #include "compiler.h"
@@ -17,14 +18,14 @@
 
 typedef struct hwcounters_backend {
 	// Whether the verbose mode is enabled
-	short verbose;
+	bool verbose;
 	// Whether there is at least one enabled backend
-	short any_backend_enabled;
+	bool any_backend_enabled;
 	// Whether each backend is enabled
-	short enabled[NUM_BACKENDS];
+	bool enabled[NUM_BACKENDS];
 	// An array in which each position tells whether the 'i-th' counter type is
 	// enabled. This array is as long as the full list of supported counters
-	char status_counters[HWC_TOTAL_NUM_EVENTS];
+	bool status_counters[HWC_TOTAL_NUM_EVENTS];
 	// An array as long as the number of enabled counters (num_enabled_counters),
 	// which contains only the enabled hardware counter types
 	enum counters_t *enabled_counters;
@@ -46,13 +47,13 @@ __internal void hwcounters_initialize();
 __internal void hwcounters_shutdown();
 
 // Check whether any backend is enabled
-__internal short hwcounters_enabled();
+__internal bool hwcounters_enabled();
 
 // Check whether a backend is enabled
-__internal short hwcounters_backend_enabled(enum backends_t backend);
+__internal bool hwcounters_backend_enabled(enum backends_t backend);
 
 // Get an array which tells whether each counter is enabled
-__internal const char *hwcounters_get_status_counters();
+__internal const bool *hwcounters_get_status_counters();
 
 // Get an array of enabled counter types
 __internal const enum counters_t *hwcounters_get_enabled_counters();
@@ -67,7 +68,7 @@ __internal void hwcounters_thread_initialize(nosv_worker_t *thread);
 __internal void hwcounters_thread_shutdown();
 
 // Initialize hardware counter structures for a task
-__internal void hwcounters_task_created(nosv_task_t task, short enabled);
+__internal void hwcounters_task_created(nosv_task_t task, bool enabled);
 
 // Read and update hardware counters for a task
 __internal void hwcounters_update_task_counters(nosv_task_t task);

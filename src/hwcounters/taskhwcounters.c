@@ -10,7 +10,7 @@
 #include "hwcounters/taskhwcounters.h"
 
 
-void taskhwcounters_initialize(task_hwcounters_t *counters, short enabled)
+void taskhwcounters_initialize(task_hwcounters_t *counters, bool enabled)
 {
 	assert(counters != NULL);
 
@@ -26,7 +26,7 @@ void taskhwcounters_initialize(task_hwcounters_t *counters, short enabled)
 	}
 }
 
-short taskhwcounters_enabled(task_hwcounters_t *counters)
+bool taskhwcounters_enabled(task_hwcounters_t *counters)
 {
 	assert(counters != NULL);
 	return counters->enabled;

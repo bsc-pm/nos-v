@@ -41,7 +41,7 @@ void load_configuration()
 	hwcbackend.verbose = nosv_config.hwcounters_verbose;
 
 	// Get the list of enabled counters of each backend
-	short counter_added = 0;
+	bool counter_added = 0;
 	string_list_t hwcounters_list = nosv_config.hwcounters_papi_events;
 	if (hwcounters_list.num_strings > 0) {
 		for (int i = 0; i < hwcounters_list.num_strings; ++i) {
@@ -140,17 +140,17 @@ void hwcounters_shutdown()
 	hwcbackend.any_backend_enabled = 0;
 }
 
-short hwcounters_enabled()
+bool hwcounters_enabled()
 {
 	return hwcbackend.any_backend_enabled;
 }
 
-short hwcounters_backend_enabled(enum backends_t backend)
+bool hwcounters_backend_enabled(enum backends_t backend)
 {
 	return hwcbackend.enabled[backend];
 }
 
-const char *hwcounters_get_status_counters()
+const bool *hwcounters_get_status_counters()
 {
 	return hwcbackend.status_counters;
 }
@@ -179,7 +179,7 @@ void hwcounters_thread_shutdown(nosv_worker_t *thread)
 	threadhwcounters_shutdown(&(thread->counters));
 }
 
-void hwcounters_task_created(nosv_task_t task, short enabled)
+void hwcounters_task_created(nosv_task_t task, bool enabled)
 {
 	if (hwcbackend.any_backend_enabled) {
 		assert(task != NULL);
