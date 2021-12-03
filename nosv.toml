@@ -63,8 +63,8 @@
 	]
 
 # Enabling turbo will cause nOS-V to set architecture-specific optimization flags on every created
-# or attached threads. In x86, this will cause the FTZ and DAZ flags of the x87 FPU to be enabled,
+# or attached threads. In x86, this will cause the FTZ and DAZ flags of the SSE FPU to be enabled,
 # causing a significant performance increase in floating-point applications, but disabling IEEE-754
 # compatibility.
 [turbo]
-	enabled = true
+	enabled = false

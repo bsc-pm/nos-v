@@ -12,6 +12,7 @@
 #include "common.h"
 #include "compat.h"
 #include "compiler.h"
+#include "generic/arch.h"
 #include "hardware/cpus.h"
 #include "hardware/pids.h"
 #include "hardware/threads.h"
@@ -226,6 +227,10 @@ static inline void *worker_start_routine(void *arg)
 
 	// Initialize hardware counters for the thread
 	hwcounters_thread_initialize(current_worker);
+
+	// Set turbo settings if enabled
+	if (nosv_config.turbo_enabled)
+		arch_enable_turbo();
 
 	instr_thread_init();
 	instr_thread_execute(current_worker->cpu->logic_id, current_worker->creator_tid, (uint64_t) arg);
@@ -473,6 +478,10 @@ nosv_worker_t *worker_create_external(void)
 
 	// Initialize hardware counters for the thread
 	hwcounters_thread_initialize(worker);
+
+	// Set turbo settings if enabled
+	if (nosv_config.turbo_enabled)
+		arch_enable_turbo();
 
 	return worker;
 }
