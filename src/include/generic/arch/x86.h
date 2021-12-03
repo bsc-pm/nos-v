@@ -37,4 +37,20 @@ __extension__ ({																								\
 	r;																							\
 })
 
+// Define that x86 has per-thread specific "turbo" settings, to enable Denormals-Are-Zero and Flush-To-Zero in the FPU
+// However, they are only available under _SSE2_
+#ifdef __SSE2__
+#define ARCH_HAS_TURBO
+
+#include <pmmintrin.h>
+#include <xmmintrin.h>
+
+static inline void __arch_enable_turbo(void)
+{
+	_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
+	_MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+}
+#endif // __SSE2__
+
+
 #endif // ARCH_X86_H
