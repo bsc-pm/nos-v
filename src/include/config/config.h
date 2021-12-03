@@ -46,6 +46,9 @@ typedef struct rt_config {
 	int hwcounters_verbose;
 	const char *hwcounters_backend;
 	string_list_t hwcounters_papi_events;
+
+	// Turbo
+	int turbo_enabled;
 } rt_config_t;
 
 __internal extern rt_config_t nosv_config;

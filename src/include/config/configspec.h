@@ -57,6 +57,7 @@ static config_spec_t config_spec_list[] = {
 	DECLARE_CONFIG(TYPE_BOOL, "hwcounters.verbose", hwcounters_verbose),
 	DECLARE_CONFIG(TYPE_STR, "hwcounters.backend", hwcounters_backend),
 	DECLARE_CONFIG(TYPE_LIST_STR, "hwcounters.papi_events", hwcounters_papi_events),
+	DECLARE_CONFIG(TYPE_BOOL, "turbo.enabled", turbo_enabled),
 };
 
 #endif // CONFIG_PARSE_H
