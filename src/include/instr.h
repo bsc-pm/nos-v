@@ -25,8 +25,8 @@
 #define INSTR_0ARG(name, mcv)              \
 	static inline void name(void)      \
 	{                                  \
-		ovni_clock_update();       \
 		struct ovni_ev ev = {0};   \
+		ovni_ev_set_clock(&ev, ovni_clock_now()); \
 		ovni_ev_set_mcv(&ev, mcv); \
 		ovni_ev_emit(&ev);              \
 	}
@@ -34,8 +34,8 @@
 #define INSTR_1ARG(name, mcv, ta, a)                             \
 	static inline void name(ta a)                            \
 	{                                                        \
-		ovni_clock_update();                             \
 		struct ovni_ev ev = {0};                         \
+		ovni_ev_set_clock(&ev, ovni_clock_now());        \
 		ovni_ev_set_mcv(&ev, mcv);                       \
 		ovni_payload_add(&ev, (uint8_t *)&a, sizeof(a)); \
 		ovni_ev_emit(&ev);                                    \
@@ -44,8 +44,8 @@
 #define INSTR_2ARG(name, mcv, ta, a, tb, b)                      \
 	static inline void name(ta a, tb b)                      \
 	{                                                        \
-		ovni_clock_update();                             \
 		struct ovni_ev ev = {0};                         \
+		ovni_ev_set_clock(&ev, ovni_clock_now());        \
 		ovni_ev_set_mcv(&ev, mcv);                       \
 		ovni_payload_add(&ev, (uint8_t *)&a, sizeof(a)); \
 		ovni_payload_add(&ev, (uint8_t *)&b, sizeof(b)); \
@@ -55,8 +55,8 @@
 #define INSTR_3ARG(name, mcv, ta, a, tb, b, tc, c)               \
 	static inline void name(ta a, tb b, tc c)                \
 	{                                                        \
-		ovni_clock_update();                             \
 		struct ovni_ev ev = {0};                         \
+		ovni_ev_set_clock(&ev, ovni_clock_now());        \
 		ovni_ev_set_mcv(&ev, mcv);                       \
 		ovni_payload_add(&ev, (uint8_t *)&a, sizeof(a)); \
 		ovni_payload_add(&ev, (uint8_t *)&b, sizeof(b)); \
@@ -130,8 +130,6 @@ INSTR_1ARG(instr_task_end, "VTe", uint32_t, task_id)
 // A jumbo event is needed to encode a large label
 static inline void instr_type_create(uint32_t typeid, const char *label)
 {
-	ovni_clock_update();
-
 	size_t bufsize, label_len, size_left;
 	uint8_t buf[1024], *p;
 
@@ -167,6 +165,7 @@ static inline void instr_type_create(uint32_t typeid, const char *label)
 	bufsize += 1;
 
 	struct ovni_ev ev = {0};
+	ovni_ev_set_clock(&ev, ovni_clock_now());
 	ovni_ev_set_mcv(&ev, "VYc");
 	ovni_ev_jumbo_emit(&ev, buf, bufsize);
 }
@@ -204,9 +203,9 @@ static inline void instr_cpu_id(int index, int phyid)
 
 static inline void instr_thread_end(void)
 {
-	ovni_clock_update();
 	struct ovni_ev ev = {0};
 
+	ovni_ev_set_clock(&ev, ovni_clock_now());
 	ovni_ev_set_mcv(&ev, "OHe");
 	ovni_ev_emit(&ev);
 
@@ -216,8 +215,6 @@ static inline void instr_thread_end(void)
 
 static inline void instr_proc_init(void)
 {
-	ovni_clock_update();
-
 	char hostname[HOST_NAME_MAX + 1];
 	int appid;
 	char *appid_str;
@@ -267,7 +264,7 @@ static inline void instr_thread_attach(void)
 	if (!ovni_thread_isready())
 		nosv_abort("The current thread is not instrumented in nosv_attach()");
 
-	ovni_clock_update();
+	ovni_ev_set_clock(&ev, ovni_clock_now());
 	ovni_ev_set_mcv(&ev, "VHa");
 	ovni_ev_emit(&ev);
 }
@@ -276,7 +273,7 @@ static inline void instr_thread_detach(void)
 {
 	struct ovni_ev ev = {0};
 
-	ovni_clock_update();
+	ovni_ev_set_clock(&ev, ovni_clock_now());
 	ovni_ev_set_mcv(&ev, "VHA");
 	ovni_ev_emit(&ev);
 
