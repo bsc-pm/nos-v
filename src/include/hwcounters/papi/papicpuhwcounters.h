@@ -20,4 +20,6 @@ __internal void papi_cpuhwcounters_read_counters(papi_cpuhwcounters_t *counters,
 
 __internal uint64_t papi_cpuhwcounters_get_delta(papi_cpuhwcounters_t *counters, enum counters_t type);
 
+__internal uint64_t *papi_cpuhwcounters_get_deltas(papi_cpuhwcounters_t *counters);
+
 #endif // PAPICPUHWCOUNTERS_H

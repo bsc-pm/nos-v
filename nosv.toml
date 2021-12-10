@@ -53,7 +53,7 @@
 # Hardware Counters configuration
 [hwcounters]
 	# Whether to print verbose information if a backend is enabled
-	verbose = true
+	verbose = false
 	# The enabled HWCounter backends. Possible options: "papi", "none"
 	backend = "none"
 	# The list of PAPI counters to read. By default only "PAPI_TOT_INS" and "PAPI_TOT_CYC"

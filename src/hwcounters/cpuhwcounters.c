@@ -25,3 +25,12 @@ uint64_t cpuhwcounters_get_delta(cpu_hwcounters_t *counters, enum counters_t typ
 
 	return 0;
 }
+
+uint64_t *cpuhwcounters_get_deltas(cpu_hwcounters_t *counters)
+{
+#if HAVE_PAPI
+	return papi_cpuhwcounters_get_deltas(&counters->papi_counters);
+#endif
+
+	return NULL;
+}

@@ -89,8 +89,8 @@ static void test_maximum_number_of_events()
 }
 
 void papi_hwcounters_initialize(
-	short verbose, short *num_enabled_counters,
-	enum counters_t enabled_events[HWC_PAPI_NUM_EVENTS]
+	bool verbose, short *num_enabled_counters,
+	bool status_events[HWC_TOTAL_NUM_EVENTS]
 ) {
 	backend.enabled = 1;
 	backend.verbose = verbose;
@@ -122,8 +122,9 @@ void papi_hwcounters_initialize(
 		nosv_print("------------------------------------------------");
 		nosv_print("- Testing requested PAPI events availabilities -");
 	}
+
 	for (size_t id = HWC_PAPI_MIN_EVENT; id <= HWC_PAPI_MAX_EVENT; ++id) {
-		short id_enabled = (short) enabled_events[id];
+		bool id_enabled = status_events[id];
 		if (id_enabled) {
 			int code;
 			ret = PAPI_event_name_to_code(counter_descriptions[id - HWC_PAPI_MIN_EVENT].descr, &code);
@@ -146,7 +147,7 @@ void papi_hwcounters_initialize(
 					counter_descriptions[id - HWC_PAPI_MIN_EVENT].descr, ret, PAPI_strerror(ret));
 
 				// Disable the event from the vector of enabled events
-				enabled_events[id] = 0;
+				status_events[id] = 0;
 			} else {
 				backend.enabled_event_codes[backend.num_enabled_counters] = code;
 				backend.id_table[id - HWC_PAPI_MIN_EVENT] = backend.num_enabled_counters;
@@ -180,7 +181,7 @@ int papi_hwcounters_get_inner_identifier(enum counters_t type)
 	return backend.id_table[type - HWC_PAPI_MIN_EVENT];
 }
 
-short papi_hwcounters_counter_enabled(enum counters_t type)
+bool papi_hwcounters_counter_enabled(enum counters_t type)
 {
 	assert((type - HWC_PAPI_MIN_EVENT) < HWC_PAPI_NUM_EVENTS);
 

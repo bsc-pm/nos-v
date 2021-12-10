@@ -41,14 +41,14 @@ void load_configuration()
 	hwcbackend.verbose = nosv_config.hwcounters_verbose;
 
 	// Get the list of enabled counters of each backend
-	short counter_added = 0;
+	bool counter_added = 0;
 	string_list_t hwcounters_list = nosv_config.hwcounters_papi_events;
 	if (hwcounters_list.num_strings > 0) {
 		for (int i = 0; i < hwcounters_list.num_strings; ++i) {
 			for (short j = HWC_PAPI_MIN_EVENT; j <= HWC_PAPI_MAX_EVENT; ++j) {
 				if (!strcmp(counter_descriptions[j - HWC_PAPI_MIN_EVENT].descr, hwcounters_list.strings[i])) {
 					counter_added = 1;
-					hwcbackend.enabled_counters[j] = 1;
+					hwcbackend.status_counters[j] = 1;
 				}
 			}
 		}
@@ -86,7 +86,7 @@ void hwcounters_initialize()
 	}
 
 	for (size_t i = 0; i < HWC_TOTAL_NUM_EVENTS; ++i) {
-		hwcbackend.enabled_counters[i] = 0;
+		hwcbackend.status_counters[i] = 0;
 	}
 
 	// Load the configuration to check which backends and events are enabled
@@ -103,16 +103,36 @@ void hwcounters_initialize()
 	// Initialize backends and keep track of the number of enabled counters
 	if (hwcbackend.enabled[PAPI_BACKEND]) {
 #if HAVE_PAPI
-		papi_hwcounters_initialize(hwcbackend.verbose, (short *) &hwcbackend.num_enabled_counters, hwcbackend.enabled_counters);
+		papi_hwcounters_initialize(hwcbackend.verbose, (short *) &(hwcbackend.num_enabled_counters), hwcbackend.status_counters);
 #else
 		nosv_warn("PAPI library not found, disabling hardware counters");
 		hwcbackend.enabled[PAPI_BACKEND] = 0;
 #endif
 	}
+
+	if (hwcbackend.any_backend_enabled) {
+		// After initializing all the backends, prepare a list of all the enabled types
+		hwcbackend.enabled_counters = (enum counters_t *) malloc(sizeof(enum counters_t) * hwcbackend.num_enabled_counters);
+		size_t id = 0;
+		for (size_t i = 0; i < HWC_TOTAL_NUM_EVENTS; ++i) {
+			if (hwcbackend.status_counters[i]) {
+				assert(id < hwcbackend.num_enabled_counters);
+
+				hwcbackend.enabled_counters[id] = i;
+				++id;
+			}
+		}
+	}
 }
 
 void hwcounters_shutdown()
 {
+	if (hwcbackend.any_backend_enabled) {
+		assert(hwcbackend.enabled_counters);
+
+		free(hwcbackend.enabled_counters);
+	}
+
 	if (hwcbackend.enabled[PAPI_BACKEND]) {
 		hwcbackend.enabled[PAPI_BACKEND] = 0;
 	}
@@ -120,14 +140,19 @@ void hwcounters_shutdown()
 	hwcbackend.any_backend_enabled = 0;
 }
 
-short hwcounters_enabled()
+bool hwcounters_enabled()
 {
 	return hwcbackend.any_backend_enabled;
 }
 
-short hwcounters_backend_enabled(enum backends_t backend)
+bool hwcounters_backend_enabled(enum backends_t backend)
 {
 	return hwcbackend.enabled[backend];
+}
+
+const bool *hwcounters_get_status_counters()
+{
+	return hwcbackend.status_counters;
 }
 
 const enum counters_t *hwcounters_get_enabled_counters()
@@ -154,7 +179,7 @@ void hwcounters_thread_shutdown(nosv_worker_t *thread)
 	threadhwcounters_shutdown(&(thread->counters));
 }
 
-void hwcounters_task_created(nosv_task_t task, short enabled)
+void hwcounters_task_created(nosv_task_t task, bool enabled)
 {
 	if (hwcbackend.any_backend_enabled) {
 		assert(task != NULL);

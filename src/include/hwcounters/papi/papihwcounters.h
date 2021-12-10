@@ -7,6 +7,7 @@
 #ifndef PAPIHWCOUNTERS_H
 #define PAPIHWCOUNTERS_H
 
+#include <stdbool.h>
 #include <stddef.h>
 
 #include "compiler.h"
@@ -32,9 +33,9 @@ typedef struct papi_cpu_hwcounters {
 
 typedef struct papi_backend {
 	//! Whether the PAPI HW Counter backend is enabled
-	short enabled;
+	bool enabled;
 	//! Whether the verbose mode is enabled
-	short verbose;
+	bool verbose;
 	//! A vector containing all the enabled PAPI event codes
 	int enabled_event_codes[HWC_PAPI_NUM_EVENTS];
 	//! The number of enabled counters
@@ -58,11 +59,11 @@ typedef struct papi_backend {
 //! \param[in] verbose Whether verbose mode is enabled
 //! \param[out] num_enabled_events A short which will be increased by the
 //! number of enabled and available PAPI counters
-//! \param[in,out] enabled_events An array with all the events enabled by the
-//! user, which will be modified to disable those that are unavailable
+//! \param[in,out] status_events A list of events which will be edited to
+//! disable those that are unavailable
 __internal void papi_hwcounters_initialize(
-	short verbose, short *num_enabled_counters,
-	enum counters_t enabled_events[HWC_PAPI_NUM_EVENTS]
+	bool verbose, short *num_enabled_counters,
+	bool status_events[HWC_TOTAL_NUM_EVENTS]
 );
 
 //! \brief Retreive the mapping from a counters_t identifier to the inner
@@ -74,7 +75,7 @@ __internal int papi_hwcounters_get_inner_identifier(enum counters_t type);
 
 //! \brief Check whether a counter is enabled
 //! \param[in] type The identifier to translate
-__internal short papi_hwcounters_counter_enabled(enum counters_t type);
+__internal bool papi_hwcounters_counter_enabled(enum counters_t type);
 
 //! \brief Get the number of enabled counters in the PAPI backend
 __internal size_t papi_hwcounters_get_num_enabled_counters();
