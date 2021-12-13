@@ -444,6 +444,10 @@ static inline void instr_kernel_flush(struct kinstr *ki)
 	struct perf_ev *ev;
 	uint8_t *p;
 
+	// If there are no events, do nothing
+	if (ki->head == ki->meta->data_head)
+		return;
+
 	// Wrap the kernel events with special marker events, so we can sort
 	// them easily at emulation
 	ovni_ev_set_clock(&ev0, ovni_clock_now());
