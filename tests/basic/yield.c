@@ -68,7 +68,7 @@ int main() {
 	int cpu = test_get_first_cpu();
 	assert(cpu >= 0);
 
-	nosv_affinity_t affinity = nosv_affinity_get(cpu, CPU, STRICT);
+	nosv_affinity_t affinity = nosv_affinity_get(cpu, NOSV_AFFINITY_LEVEL_CPU, NOSV_AFFINITY_TYPE_STRICT);
 
 	for (int t = 0; t < NTASKS; ++t) {
 		nosv_set_task_affinity(tasks[t], &affinity);

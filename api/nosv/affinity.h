@@ -17,15 +17,15 @@ extern "C" {
 #endif
 
 typedef enum nosv_affinity_type {
-	PREFERRED,
-	STRICT
+	NOSV_AFFINITY_TYPE_PREFERRED,
+	NOSV_AFFINITY_TYPE_STRICT
 } nosv_affinity_type_t;
 
 typedef enum nosv_affinity_level {
-	NONE,
-	CPU,
-	NUMA,
-	USER_COMPLEX
+	NOSV_AFFINITY_LEVEL_NONE,
+	NOSV_AFFINITY_LEVEL_CPU,
+	NOSV_AFFINITY_LEVEL_NUMA,
+	NOSV_AFFINITY_LEVEL_USER_COMPLEX
 } nosv_affinity_level_t;
 
 typedef struct nosv_affinity {
