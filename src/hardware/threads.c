@@ -510,6 +510,8 @@ nosv_worker_t *worker_create_external(void)
 	worker->in_task_body = 1;
 	sched_getaffinity(0, sizeof(worker->original_affinity), &worker->original_affinity);
 
+	instr_kernel_init(&kinstr);
+
 	// Initialize hardware counters for the thread
 	hwcounters_thread_initialize(worker);
 
