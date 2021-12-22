@@ -57,7 +57,7 @@ __internal void monitoring_task_changed_status(nosv_task_t task, enum monitoring
 __internal void monitoring_task_finished(nosv_task_t task);
 
 //! \brief Retreive the size necessary to allocate task statistics
-__internal size_t monitoring_get_allocation_size();
+__internal size_t monitoring_get_task_size();
 
 
 //    CPUS    //

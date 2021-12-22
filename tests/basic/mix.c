@@ -97,7 +97,7 @@ int main()
 	nosv_init();
 
 	nosv_task_type_t adopted_type;
-	int res = nosv_type_init(&adopted_type, NULL, NULL, NULL, NULL, NULL, NOSV_TYPE_INIT_EXTERNAL);
+	int res = nosv_type_init(&adopted_type, NULL, NULL, NULL, NULL, NULL, NOSV_TYPE_INIT_EXTERNAL, NULL);
 	assert(!res);
 
 	res = nosv_attach(&task_attach, adopted_type, 0, /* affinity */ NULL, NOSV_ATTACH_NONE);
@@ -105,7 +105,7 @@ int main()
 	// Now we are inside nOS-V
 
 	nosv_task_type_t deadline_type;
-	res = nosv_type_init(&deadline_type, &run_deadline, NULL, &complete_deadline, NULL, NULL, NOSV_TYPE_INIT_NONE);
+	res = nosv_type_init(&deadline_type, &run_deadline, NULL, &complete_deadline, NULL, NULL, NOSV_TYPE_INIT_NONE, NULL);
 	assert(!res);
 	nosv_task_t deadline_task;
 	res = nosv_create(&deadline_task, deadline_type, 0, NOSV_CREATE_NONE);
@@ -116,7 +116,7 @@ int main()
 	nosv_task_type_t type;
 	nosv_task_t task;
 
-	res = nosv_type_init(&type, &run, NULL /* end */, &completed, NULL, NULL, NOSV_TYPE_INIT_NONE);
+	res = nosv_type_init(&type, &run, NULL /* end */, &completed, NULL, NULL, NOSV_TYPE_INIT_NONE, NULL);
 	assert(!res);
 
 	// Number of available CPUs
@@ -150,9 +150,9 @@ int main()
 	test_ok(&t, "Task unlocked from submit blocking");
 
 	nosv_task_type_t imm1, imm2;
-	res = nosv_type_init(&imm1, &run_immediate, NULL, &completed_imm, NULL, NULL, NOSV_TYPE_INIT_NONE);
+	res = nosv_type_init(&imm1, &run_immediate, NULL, &completed_imm, NULL, NULL, NOSV_TYPE_INIT_NONE, NULL);
 	assert(!res);
-	res = nosv_type_init(&imm2, &run_immediate_2, NULL, &completed, NULL, NULL, NOSV_TYPE_INIT_NONE);
+	res = nosv_type_init(&imm2, &run_immediate_2, NULL, &completed, NULL, NULL, NOSV_TYPE_INIT_NONE, NULL);
 	assert(!res);
 
 	res = nosv_create(&task, imm1, 0, NOSV_CREATE_NONE);

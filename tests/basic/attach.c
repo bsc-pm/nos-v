@@ -15,7 +15,7 @@ int main() {
 	sched_getaffinity(0, sizeof(cpu_set_t), &original);
 
 	nosv_task_type_t type;
-	nosv_type_init(&type, NULL, NULL, NULL, "main", NULL, NOSV_TYPE_INIT_EXTERNAL);
+	nosv_type_init(&type, NULL, NULL, NULL, "main", NULL, NOSV_TYPE_INIT_EXTERNAL, NULL);
 	nosv_task_t task;
 	nosv_attach(&task, type, 0, NULL, NOSV_ATTACH_NONE);
 	nosv_detach(NOSV_DETACH_NONE);

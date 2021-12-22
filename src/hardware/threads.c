@@ -20,7 +20,6 @@
 #include "instr.h"
 #include "memory/sharedmemory.h"
 #include "memory/slab.h"
-#include "monitoring/monitoring.h"
 #include "scheduler/scheduler.h"
 #include "system/tasks.h"
 
@@ -97,11 +96,6 @@ static inline void worker_wake_internal(nosv_worker_t *worker, cpu_t *cpu)
 		instr_affinity_remote(-1, worker->tid);
 		if (unlikely(sched_setaffinity(worker->tid, sizeof(cpumanager->all_cpu_set), &cpumanager->all_cpu_set)))
 			nosv_abort("Cannot change thread affinity");
-	}
-
-	// Entry point - The thread has woken up to execute a task
-	if (worker->task != NULL) {
-		monitoring_task_changed_status(worker->task, executing_status);
 	}
 
 	// Now wake up the thread

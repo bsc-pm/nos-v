@@ -15,12 +15,12 @@
 #include "generic/heap.h"
 
 struct nosv_worker;
-struct tasktypestatistics;
-struct taskstatistics;
 typedef atomic_uint_fast32_t atomic_uint32_t;
 typedef uint64_t deadline_t;
 typedef size_t yield_t;
 typedef struct task_hwcounters task_hwcounters_t;
+typedef struct tasktypestatistics tasktypestatistics_t;
+typedef struct taskstatistics taskstatistics_t;
 
 struct nosv_task_type {
 	nosv_task_run_callback_t run_callback;
@@ -32,9 +32,7 @@ struct nosv_task_type {
 	uint32_t typeid;
 	list_head_t list_hook;
 	size_t (*get_cost)(void);
-
-	// Monitoring statistics
-	struct tasktypestatistics *stats;
+	tasktypestatistics_t *stats;
 };
 
 struct nosv_task {
@@ -63,7 +61,7 @@ struct nosv_task {
 	task_hwcounters_t *counters;
 
 	// Monitoring statistics
-	struct taskstatistics *stats;
+	taskstatistics_t *stats;
 };
 
 #endif // NOSV_INTERNAL_H

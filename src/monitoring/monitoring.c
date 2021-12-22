@@ -109,7 +109,7 @@ void monitoring_task_finished(nosv_task_t task)
 	}
 }
 
-size_t monitoring_get_allocation_size()
+size_t monitoring_get_task_size()
 {
 	if (monitoring_enabled) {
 		return sizeof(taskstatistics_t);
