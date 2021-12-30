@@ -24,6 +24,13 @@ void cpumonitor_initialize(cpumonitor_t *monitor)
 	}
 }
 
+void cpumonitor_shutdown(cpumonitor_t *monitor)
+{
+	assert(monitor != NULL);
+
+	sfree(monitor->cpu_stats, sizeof(cpustatistics_t) * monitor->num_cpus, -1);
+}
+
 void cpumonitor_cpu_active(cpumonitor_t *monitor, int cpu_id)
 {
 	assert(monitor != NULL);

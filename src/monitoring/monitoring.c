@@ -57,6 +57,11 @@ void monitoring_shutdown()
 {
 	if (monitoring_enabled) {
 		monitoring_display_stats();
+
+		cpumonitor_shutdown(monitor->cpumonitor);
+
+		sfree(monitor->cpumonitor, sizeof(cpumonitor_t), -1);
+		sfree(monitor, sizeof(monitoring_manager_t), -1);
 	}
 }
 
