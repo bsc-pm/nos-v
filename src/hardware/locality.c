@@ -32,7 +32,9 @@ void locality_init(void)
 		return;
 	}
 
-	numa_count = numa_num_configured_nodes();
+	// Use numa_all_nodes_ptr as that contains only the nodes that are actually available,
+	// not all configured. On some machines, some nodes are configured but unavailable.
+	numa_count = numa_bitmask_weight(numa_all_nodes_ptr);
 	int numa_max = numa_max_node() + 1;
 
 	numa_logical_to_system = malloc(sizeof(int) * numa_count);
