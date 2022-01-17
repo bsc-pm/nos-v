@@ -1,9 +1,10 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
 */
 
+#include <stdbool.h>
 #include <stdio.h>
 
 #include "hardware/cpus.h"
@@ -95,7 +96,7 @@ void cpumonitor_statistics(cpumonitor_t *monitor)
 		snprintf(cpu_label, 50, "CPU(%zu)", id);
 
 		float activeness = cpustatistics_get_activeness(&(monitor->cpu_stats[id]));
-		short end_of_col = (id % 2 || id == (monitor->num_cpus - 1));
+		bool end_of_col = (id % 2 || id == (monitor->num_cpus - 1));
 
 		printf("%s - %lf%%", cpu_label, activeness * 100.0);
 		if (end_of_col) {

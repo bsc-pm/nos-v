@@ -1,13 +1,14 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef TASKTYPESTATISTICS_H
 #define TASKTYPESTATISTICS_H
 
 #include <stdatomic.h>
+#include <stdbool.h>
 #include <stdlib.h>
 
 #include "compiler.h"
@@ -186,7 +187,7 @@ static inline void tasktypestatistics_accumulate(
 
 	// Compute the accuracy of the prediction if the task had one
 	double accuracy = 0.0;
-	short prediction_available = (taskstatistics_has_time_prediction(task_stats) && (elapsed > 0.0));
+	bool prediction_available = (taskstatistics_has_time_prediction(task_stats) && (elapsed > 0.0));
 	if (prediction_available) {
 		double predicted = taskstatistics_get_time_prediction(task_stats);
 		double max_value = (elapsed > predicted) ? elapsed : predicted;

@@ -1,11 +1,13 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef TASKSTATISTICS_H
 #define TASKSTATISTICS_H
+
+#include <stdbool.h>
 
 #include "compiler.h"
 
@@ -42,10 +44,10 @@ static inline void taskstatistics_init(taskstatistics_t *stats)
 	}
 }
 
-static inline short taskstatistics_has_time_prediction(taskstatistics_t *stats)
+static inline bool taskstatistics_has_time_prediction(taskstatistics_t *stats)
 {
 	assert(stats != NULL);
-	return (short) (stats->time_prediction != PREDICTION_UNAVAILABLE);
+	return (bool) (stats->time_prediction != PREDICTION_UNAVAILABLE);
 }
 
 static inline void taskstatistics_set_time_prediction(taskstatistics_t *stats, double prediction)

@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef ACCUMULATOR_H
@@ -9,6 +9,7 @@
 
 #include <assert.h>
 #include <math.h>
+#include <stdbool.h>
 #include <stddef.h>
 
 #define ROLLING_WINDOW 20
@@ -52,7 +53,7 @@ static inline void accumulator_add(accumulator_t *acc, double val)
 	acc->total_num++;
 
 	// Update the number of elements in the rolling average only if needed
-	short is_full = (acc->num == ROLLING_WINDOW);
+	bool is_full = (acc->num == ROLLING_WINDOW);
 	size_t index_newest = (is_full) ? acc->oldest : acc->num;
 	double value_oldest = (is_full) ? acc->values[acc->oldest] : 0.0;
 
