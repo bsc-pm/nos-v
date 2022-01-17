@@ -119,14 +119,18 @@ int main()
 	res = nosv_type_init(&type, &run, NULL /* end */, &completed, NULL, NULL, NOSV_TYPE_INIT_NONE);
 	assert(!res);
 
+	// Number of available CPUs
 	int cpus = test_get_cpus();
+	// Array containing all the system CPU ids
+	int *cpu_indexes = test_get_cpu_array();
 
 	for (int i = 0; i < 100; ++i)
 	{
 		res = nosv_create(&task, type, sizeof(int), NOSV_CREATE_NONE);
 		assert(!res);
 
-		int cpu = i % cpus;
+		// Get system CPU id
+		int cpu = cpu_indexes[i % cpus];
 		int *metadata = nosv_get_task_metadata(task);
 
 		*metadata = cpu;
@@ -135,6 +139,8 @@ int main()
 
 		nosv_submit(task, NOSV_SUBMIT_NONE);
 	}
+
+	free(cpu_indexes);
 
 	res = nosv_create(&task, type, sizeof(int), NOSV_CREATE_NONE);
 	assert(!res);
