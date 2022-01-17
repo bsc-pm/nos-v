@@ -65,6 +65,9 @@ static inline void config_init(rt_config_t *config)
 	sprintf(config->hwcounters_papi_events.strings[1], "PAPI_TOT_CYC");
 
 	config->turbo_enabled = 0;
+
+	config->monitoring_enabled = 0;
+	config->monitoring_verbose = 0;
 }
 
 // Sanity checks for configuration options should be here

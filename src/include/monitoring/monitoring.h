@@ -7,6 +7,9 @@
 #ifndef MONITORING_H
 #define MONITORING_H
 
+#include <stdbool.h>
+#include <stddef.h>
+
 #include "compiler.h"
 #include "nosv.h"
 
@@ -18,20 +21,20 @@
 
 typedef struct monitoring_manager {
 	//! Whether verbosity for monitoring enabled
-	short verbose;
+	bool verbose;
 	//! A monitor that handles CPU statistics
 	cpumonitor_t *cpumonitor;
 } monitoring_manager_t;
 
 //! \brief Initialize monitoring structures
 //! \param[in] initialize Whether this is the first time (process) initializing monitoring
-__internal void monitoring_init(short initialize);
+__internal void monitoring_init(bool initialize);
 
 //! \brief Shutdown monitoring
 __internal void monitoring_shutdown();
 
 //! \brief Check whether monitoring is enabled
-__internal short monitoring_is_enabled();
+__internal bool monitoring_is_enabled();
 
 //! \brief Display monitoring statistics
 __internal void monitoring_display_stats();

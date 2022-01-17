@@ -68,3 +68,9 @@
 # compatibility.
 [turbo]
 	enabled = false
+
+# Monitoring cappabilities and configuration.
+[monitoring]
+	enabled = false
+	# Whether to print verbose information if monitoring is enabled
+	verbose = false

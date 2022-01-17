@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "config/config.h"
 #include "generic/spinlock.h"
 #include "memory/sharedmemory.h"
 #include "monitoring/monitoring.h"
@@ -14,16 +15,12 @@
 
 // The shared monitoring manager
 __internal monitoring_manager_t *monitor;
-__internal short monitoring_enabled;
+__internal bool monitoring_enabled;
 
-void monitoring_init(short initialize)
+void monitoring_init(bool initialize)
 {
 	// First check if Monitoring is enabled for this process
-	monitoring_enabled = 0;
-	char *monitoring_envvar = getenv("MONITORING_ENABLE");
-	if (monitoring_envvar) {
-		monitoring_enabled = (atoi(monitoring_envvar) == 1);
-	}
+	monitoring_enabled = nosv_config.monitoring_enabled;
 
 	// Regardless of enable, check if we must allocate and initialize the shared modules
 	if (!initialize) {
@@ -46,10 +43,7 @@ void monitoring_init(short initialize)
 	// Check if verbosity is enabled
 	monitor->verbose = 0;
 	if (monitoring_enabled) {
-		char *monitoring_verbose = getenv("MONITORING_VERBOSE");
-		if (monitoring_verbose) {
-			monitor->verbose = (atoi(monitoring_verbose) == 1);
-		}
+		monitor->verbose = nosv_config.monitoring_verbose;
 	}
 }
 
@@ -65,7 +59,7 @@ void monitoring_shutdown()
 	}
 }
 
-short monitoring_is_enabled()
+bool monitoring_is_enabled()
 {
 	return monitoring_enabled;
 }
