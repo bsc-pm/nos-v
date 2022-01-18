@@ -52,9 +52,9 @@ int nosv_shutdown(void)
 
 	pidmanager_shutdown();
 	scheduler_shutdown();
-	hwcounters_shutdown();
 	task_type_manager_shutdown();
 	smem_shutdown();
+	hwcounters_shutdown();
 	locality_shutdown();
 	config_free();
 

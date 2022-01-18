@@ -62,6 +62,9 @@ __internal void monitoring_task_finished(nosv_task_t task);
 //! \brief Retreive the size necessary to allocate task statistics
 __internal size_t monitoring_get_task_size();
 
+//! \brief Retreive the size necessary to allocate tasktype statistics
+__internal size_t monitoring_get_tasktype_size();
+
 
 //    CPUS    //
 

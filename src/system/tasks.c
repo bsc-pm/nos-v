@@ -71,7 +71,11 @@ int nosv_type_init(
 	if (unlikely(!run_callback && !(flags & NOSV_TYPE_INIT_EXTERNAL)))
 		return -EINVAL;
 
-	nosv_task_type_t res = salloc(sizeof(struct nosv_task_type) + sizeof(tasktypestatistics_t), cpu_get_current());
+	nosv_task_type_t res = salloc(
+		sizeof(struct nosv_task_type) +
+		monitoring_get_tasktype_size(),
+		cpu_get_current()
+	);
 
 	if (!res)
 		return -ENOMEM;

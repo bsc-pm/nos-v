@@ -14,6 +14,9 @@
 
 #include "taskstatistics.h"
 #include "tasktypestatistics.h"
+#include "hwcounters/hwcounters.h"
+#include "hwcounters/supportedhwcounters.h"
+#include "hwcounters/taskhwcounters.h"
 #include "system/tasks.h"
 
 
@@ -27,8 +30,10 @@ static inline void taskmonitor_task_created(nosv_task_t task)
 	taskstatistics_t *task_stats = task->stats;
 	assert(task_stats != NULL);
 
+	void *inner_alloc_address = (char *) task_stats + sizeof(taskstatistics_t);
+
 	// Initialize attributes of the new task
-	taskstatistics_init(task_stats);
+	taskstatistics_init(task_stats, inner_alloc_address);
 	size_t cost = DEFAULT_COST;
 	if (task->type->get_cost != NULL) {
 		cost = task->type->get_cost();
@@ -37,9 +42,20 @@ static inline void taskmonitor_task_created(nosv_task_t task)
 
 	// Predict metrics using past data
 	tasktypestatistics_t *type_stats = task->type->stats;
+
+	// Predict timing metrics
 	double time_prediction = tasktypestatistics_get_timing_prediction(type_stats, cost);
 	if (time_prediction != PREDICTION_UNAVAILABLE) {
 		taskstatistics_set_time_prediction(task_stats, time_prediction);
+	}
+
+	// Predict hwcounter metrics
+	size_t num_counters = hwcounters_get_num_enabled_counters();
+	for (size_t i = 0; i < num_counters; ++i) {
+		double counter_prediction = tasktypestatistics_get_counter_prediction(type_stats, cost, i);
+		if (counter_prediction != PREDICTION_UNAVAILABLE) {
+			taskstatistics_set_counter_prediction(task_stats, counter_prediction, i);
+		}
 	}
 
 	// Set the task's tasktype statistics for future references
@@ -75,14 +91,15 @@ static inline void taskmonitor_task_finished(nosv_task_t task)
 	assert(task != NULL);
 
 	taskstatistics_t *task_stats = task->stats;
+	task_hwcounters_t *task_counters = task->counters;
 	assert(task_stats != NULL);
 
 	// Stop timing for the task
 	taskstatistics_stop_timing(task_stats);
 
-	// Accumulate timing statistics into the task's type
+	// Accumulate timing statistics and counters into the task's type
 	tasktypestatistics_t *type_stats = task_stats->tasktypestats;
-	tasktypestatistics_accumulate(type_stats, task_stats);
+	tasktypestatistics_accumulate_stats_and_counters(type_stats, task_stats, task_counters);
 
 	if (taskstatistics_has_time_prediction(task_stats)) {
 		tasktypestatistics_decrease_accumulated_cost(type_stats, task_stats->cost);
@@ -132,7 +149,39 @@ static inline void taskmonitor_statistics()
 				printf("STATS  MONITORING  STD NORMALIZED COST  %lf\n", stddev);
 				printf("STATS  MONITORING  PREDICTION ACCURACY  %s\n", accuracy_label);
 			}
+
 			printf("+-----------------------------+\n");
+
+			// Display hardware counters related statistics
+			const enum counters_t *enabled_counters = hwcounters_get_enabled_counters();
+			const size_t num_enabled_counters = hwcounters_get_num_enabled_counters();
+			for (size_t id = 0; id < num_enabled_counters; ++id) {
+				size_t num_instances = tasktypestatistics_get_counter_num_instances(type_stats, id);
+				if (num_instances) {
+					// Get statistics
+					double counter_sum = tasktypestatistics_get_counter_sum(type_stats, id);
+					double counter_avg = tasktypestatistics_get_counter_average(type_stats, id);
+					double counter_stddev = tasktypestatistics_get_counter_stddev(type_stats, id);
+					double counter_accuracy = tasktypestatistics_get_counter_accuracy(type_stats, id);
+
+					// Make sure there was at least one prediction to report accuracy
+					char accuracy_label[80];
+					if (!isnan(counter_accuracy) && counter_accuracy != 0.0) {
+						snprintf(accuracy_label, 80, "%lf%%", counter_accuracy);
+					} else {
+						snprintf(accuracy_label, 80, "%s", "NA");
+					}
+
+					enum counters_t type_counter = enabled_counters[id];
+					printf("STATS  HWCOUNTERS  SUM %s  %lf\n", counter_descriptions[type_counter].descr, counter_sum);
+					printf("STATS  HWCOUNTERS  AVG %s  %lf\n", counter_descriptions[type_counter].descr, counter_avg);
+					printf("STATS  HWCOUNTERS  STD %s  %lf\n", counter_descriptions[type_counter].descr, counter_stddev);
+					printf("STATS  HWCOUNTERS  PREDICTION ACCURACY  %s\n", accuracy_label);
+					printf("+-----------------------------+\n");
+				}
+			}
+
+			printf("\n+-----------------------------+\n");
 		}
 
 		head = list_next_circular(head, list);

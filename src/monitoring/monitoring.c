@@ -111,7 +111,16 @@ void monitoring_task_finished(nosv_task_t task)
 size_t monitoring_get_task_size()
 {
 	if (monitoring_enabled) {
-		return sizeof(taskstatistics_t);
+		return sizeof(taskstatistics_t) + taskstatistics_get_allocation_size();
+	} else {
+		return 0;
+	}
+}
+
+size_t monitoring_get_tasktype_size()
+{
+	if (monitoring_enabled) {
+		return sizeof(tasktypestatistics_t) + tasktypestatistics_get_allocation_size();
 	} else {
 		return 0;
 	}

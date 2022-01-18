@@ -13,6 +13,7 @@
 
 #include "monitoringsupport.h"
 #include "generic/chrono.h"
+#include "hwcounters/hwcounters.h"
 
 
 typedef struct taskstatistics {
@@ -29,11 +30,17 @@ typedef struct taskstatistics {
 	enum monitoring_status_t current_chrono;
 	//! The predicted elapsed execution time of the task
 	double time_prediction;
-	//TODO: Missing HWC
+
+	//    HWCOUNTER METRICS    //
+
+	//! Predictions for each hardware counter of the task
+	//! NOTE: Predictions of HWCounters must be doubles due to being computed
+	//! using normalized values and products
+	double *counter_predictions;
 } taskstatistics_t;
 
 //! \brief Initialize task statistics
-static inline void taskstatistics_init(taskstatistics_t *stats)
+static inline void taskstatistics_init(taskstatistics_t *stats, void *alloc_address)
 {
 	stats->tasktypestats = NULL;
 	stats->cost = DEFAULT_COST;
@@ -42,6 +49,15 @@ static inline void taskstatistics_init(taskstatistics_t *stats)
 	for (size_t i = 0; i < num_status; ++i) {
 		chrono_init(&(stats->chronos[i]));
 	}
+
+	const size_t num_counters = hwcounters_get_num_enabled_counters();
+	assert(num_counters == 0 || alloc_address != NULL);
+
+	stats->counter_predictions = (double *) alloc_address;
+	for (size_t i = 0; i < num_counters; ++i) {
+		stats->counter_predictions[i] = PREDICTION_UNAVAILABLE;
+	}
+
 }
 
 static inline bool taskstatistics_has_time_prediction(taskstatistics_t *stats)
@@ -60,6 +76,24 @@ static inline double taskstatistics_get_time_prediction(taskstatistics_t *stats)
 {
 	assert(stats != NULL);
 	return stats->time_prediction;
+}
+
+static inline bool taskstatistics_has_counter_prediction(taskstatistics_t *stats, size_t counter_id)
+{
+	assert(stats != NULL);
+	return (bool) (stats->counter_predictions[counter_id] != PREDICTION_UNAVAILABLE);
+}
+
+static inline void taskstatistics_set_counter_prediction(taskstatistics_t *stats, double prediction, size_t counter_id)
+{
+	assert(stats != NULL);
+	stats->counter_predictions[counter_id] = prediction;
+}
+
+static inline double taskstatistics_get_counter_prediction(taskstatistics_t *stats, size_t counter_id)
+{
+	assert(stats != NULL);
+	return stats->counter_predictions[counter_id];
 }
 
 
@@ -110,6 +144,12 @@ static inline double taskstatistics_get_elapsed_time(taskstatistics_t *stats)
 
 	// Return the aggregation of timing of the task
 	return chrono_get_elapsed(&(stats->chronos[executing_status]));
+}
+
+//! \brief Retreive the size needed to allocate dynamic structures
+static inline size_t taskstatistics_get_allocation_size()
+{
+	return (hwcounters_get_num_enabled_counters() * sizeof(double));
 }
 
 #endif // TASKSTATISTICS_H
