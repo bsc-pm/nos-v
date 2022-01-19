@@ -1,6 +1,6 @@
 #	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 #
-#	Copyright (C) 2019-2021 Barcelona Supercomputing Center (BSC)
+#	Copyright (C) 2019-2022 Barcelona Supercomputing Center (BSC)
 
 AC_DEFUN([AC_CHECK_CACHE],
 	[

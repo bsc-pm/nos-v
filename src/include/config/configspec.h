@@ -1,7 +1,7 @@
 /*
 	This file is part of Nanos6 and nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2020-2021 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2020-2022 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef CONFIG_PARSE_H

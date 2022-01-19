@@ -2,7 +2,7 @@
 	This file is an external addition to nOS-V.
 	The contents are licensed under the BSC 2-Clause License
 
-	Copyright (C) 2021 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
 
 	https://www.freebsd.org/cgi/man.cgi?query=bitset&apropos=0&sektion=9&manpath=FreeBSD+11-current&format=html
 */

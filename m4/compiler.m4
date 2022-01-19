@@ -1,6 +1,6 @@
 #	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 #
-#	Copyright (C) 2021 Barcelona Supercomputing Center (BSC)
+#	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
 
 AC_DEFUN([AX_CHECK_C11], [
 	AX_CHECK_COMPILE_FLAG([-std=c11], [

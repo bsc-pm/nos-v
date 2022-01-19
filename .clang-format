@@ -1,6 +1,6 @@
 #	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 #
-#	Copyright (C) 2021 Barcelona Supercomputing Center (BSC)
+#	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
 
 # 	The implementation language of nOS-V is C11
 #	Indentation uses 4-wide tabs and follows K&R breaks (break only after function)
