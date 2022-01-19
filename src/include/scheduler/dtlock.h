@@ -20,9 +20,18 @@
 #include "generic/futex.h"
 #include "memory/slab.h"
 #include "scheduler/cpubitset.h"
-#include "scheduler/governor.h"
 
-typedef atomic_uint_fast64_t atomic_uint64_t;
+#define DTLOCK_SIGNAL_DEFAULT 0x0
+#define DTLOCK_SIGNAL_SLEEP 0x1
+#define DTLOCK_SIGNAL_WAKE 0x2
+
+#define ITEM_DTLOCK_EAGAIN ((void *) 1)
+
+#define DTLOCK_SERVER 1
+#define DTLOCK_SERVED 0
+
+#define DTLOCK_FLAGS_NONE 0x0
+#define DTLOCK_FLAGS_NONBLOCK 0x1
 
 struct dtlock_node {
 	atomic_uint64_t ticket __cacheline_aligned;
@@ -30,11 +39,11 @@ struct dtlock_node {
 };
 
 union dtlock_signal {
-	atomic_uint val;
-	unsigned int raw_val;
+	atomic_uint32_t val;
+	uint32_t raw_val;
 	struct {
 		unsigned char signal_flags : 1;
-		int signal_cnt : 31;
+		int32_t signal_cnt : 31;
 	};
 };
 
@@ -45,19 +54,6 @@ struct dtlock_item {
 	unsigned int next;
 	unsigned char flags;
 };
-
-#define DTLOCK_SIGNAL_DEFAULT 0x0
-#define DTLOCK_SIGNAL_SLEEP 0x1
-#define DTLOCK_SIGNAL_WAKE  0x2
-
-#define ITEM_DTLOCK_EAGAIN ((void *) 1)
-
-#define DTLOCK_EAGAIN 2
-#define DTLOCK_SERVER 1
-#define DTLOCK_SERVED 0
-
-#define DTLOCK_FLAGS_NONE 0x0
-#define DTLOCK_FLAGS_NONBLOCK 0x1
 
 typedef struct delegation_lock {
 	atomic_uint64_t head __cacheline_aligned;
@@ -75,9 +71,9 @@ static inline void dtlock_init(delegation_lock_t *dtlock, int size)
 	dtlock->size = size;
 	dtlock->next = size + 1;
 	atomic_init(&dtlock->head, size);
-	dtlock->waitqueue = (struct dtlock_node *)salloc(sizeof(struct dtlock_node) * size, -1);
-	dtlock->items = (struct dtlock_item *)salloc(sizeof(struct dtlock_item) * size, -1);
-	dtlock->cpu_sleep_vars = (nosv_futex_t *)salloc(sizeof(nosv_futex_t) * size, -1);
+	dtlock->waitqueue = (struct dtlock_node *) salloc(sizeof(struct dtlock_node) * size, -1);
+	dtlock->items = (struct dtlock_item *) salloc(sizeof(struct dtlock_item) * size, -1);
+	dtlock->cpu_sleep_vars = (nosv_futex_t *) salloc(sizeof(nosv_futex_t) * size, -1);
 
 	for (int i = 0; i < size; ++i) {
 		atomic_init(&dtlock->waitqueue[i].cpu, 0);
@@ -122,49 +118,60 @@ static inline void dtlock_lock(delegation_lock_t *dtlock)
 static inline int dtlock_lock_or_delegate(delegation_lock_t *dtlock, const uint64_t cpu_index, void **item, const int blocking)
 {
 	union dtlock_signal prev_signal, signal;
-	prev_signal.raw_val = atomic_load_explicit(&dtlock->items[cpu_index].signal.val, memory_order_acquire);
+	void *recv_item;
 
-	const uint64_t head = atomic_fetch_add_explicit(&dtlock->head, 1, memory_order_relaxed);
-	const uint64_t id = head % dtlock->size;
+	do {
+		prev_signal.raw_val = atomic_load_explicit(&dtlock->items[cpu_index].signal.val, memory_order_acquire);
 
-	assert(cpu_index < dtlock->size);
-	assert(id < dtlock->size);
+		const uint64_t head = atomic_fetch_add_explicit(&dtlock->head, 1, memory_order_relaxed);
+		const uint64_t id = head % dtlock->size;
 
-	dtlock->items[cpu_index].flags = blocking ? DTLOCK_FLAGS_NONBLOCK : DTLOCK_FLAGS_NONE;
-	atomic_store_explicit(&dtlock->waitqueue[id].cpu, head + cpu_index, memory_order_release);
+		assert(cpu_index < dtlock->size);
+		assert(id < dtlock->size);
 
-	while (atomic_load_explicit(&dtlock->waitqueue[id].ticket, memory_order_relaxed) < head)
-		spin_wait();
-	spin_wait_release();
+		// Register into the first waitqueue, which the server should empty as soon as possible
+		dtlock->items[cpu_index].flags = blocking ? DTLOCK_FLAGS_NONBLOCK : DTLOCK_FLAGS_NONE;
+		atomic_store_explicit(&dtlock->waitqueue[id].cpu, head + cpu_index, memory_order_release);
 
-	// Lock acquired
-	if (dtlock->items[cpu_index].ticket != head) {
+		while (atomic_load_explicit(&dtlock->waitqueue[id].ticket, memory_order_relaxed) < head)
+			spin_wait();
+		spin_wait_release();
+
 		atomic_thread_fence(memory_order_acquire);
-		return DTLOCK_SERVER;
-	}
 
-	while ((signal.raw_val = atomic_load_explicit(&dtlock->items[cpu_index].signal.val, memory_order_relaxed), signal.signal_cnt) == prev_signal.signal_cnt)
-		spin_wait();
-	spin_wait_release();
+		// At this point, either we have acquired the lock because there was no-one waiting,
+		// or we have been moved to the second waiting location
+		if (dtlock->items[cpu_index].ticket != head) {
+			// Lock acquired
+			return DTLOCK_SERVER;
+		}
 
-	// Delegated and served
-	// We may be asked to sleep
-	if (unlikely(signal.signal_flags & DTLOCK_SIGNAL_SLEEP)) {
-		assert(blocking);
-		nosv_futex_wait(&dtlock->cpu_sleep_vars[cpu_index]);
-	} else {
-		atomic_thread_fence(memory_order_acquire);
-	}
+		// We have to wait again
+		// Here we spin on the items[]->signal variable, where we can be notified of two things:
+		// Either we are served an item, or we have to go to sleep
+		// We may miss a signal in between, that's why we use the signal_cnt instead of a single bit
+		signal.raw_val = atomic_load_explicit(&dtlock->items[cpu_index].signal.val, memory_order_relaxed);
+		while (signal.signal_cnt == prev_signal.signal_cnt) {
+			spin_wait();
+			signal.raw_val = atomic_load_explicit(&dtlock->items[cpu_index].signal.val, memory_order_relaxed);
+		}
 
-	void *recv_item = dtlock->items[cpu_index].item;
+		spin_wait_release();
 
-	if(recv_item == ITEM_DTLOCK_EAGAIN) {
-		// It might happen that we raced against the thread serving
-		return DTLOCK_EAGAIN;
-	} else {
-		*item = recv_item;
-		return DTLOCK_SERVED;
-	}
+		// Check if we have been asked to sleep or not
+		if (unlikely(signal.signal_flags & DTLOCK_SIGNAL_SLEEP)) {
+			assert(blocking);
+			nosv_futex_wait(&dtlock->cpu_sleep_vars[cpu_index]);
+		} else {
+			atomic_thread_fence(memory_order_acquire);
+		}
+
+		recv_item = dtlock->items[cpu_index].item;
+
+	} while (recv_item == ITEM_DTLOCK_EAGAIN);
+
+	*item = recv_item;
+	return DTLOCK_SERVED;
 }
 
 // Must be called with lock acquired

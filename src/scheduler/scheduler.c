@@ -602,11 +602,7 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
 	// Whether the thread can block serving tasks
 	const int blocking = !(flags & SCHED_GET_NONBLOCKING);
 	nosv_task_t task = NULL;
-	int res = 0;
-
-	do {
-		res = dtlock_lock_or_delegate(&scheduler->dtlock, (uint32_t)cpu, (void **)&task, blocking);
-	} while (res == DTLOCK_EAGAIN);
+	int res = dtlock_lock_or_delegate(&scheduler->dtlock, (uint32_t)cpu, (void **)&task, blocking);
 
 	if (res == DTLOCK_SERVED) {
 		// Served item
