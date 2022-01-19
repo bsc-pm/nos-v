@@ -12,7 +12,6 @@
 
 #include "compiler.h"
 #include "defaults.h"
-#include "generic/futex.h"
 #include "scheduler/cpubitset.h"
 
 enum governor_policy {
@@ -33,7 +32,6 @@ typedef struct governor {
 	enum governor_policy policy;
 	uint32_t hybrid_spins;
 	uint32_t cpu_spin_counter[NR_CPUS];
-	nosv_futex_t cpu_sleep_var[NR_CPUS];
 } governor_t;
 
 // Initializes the governor structures
@@ -46,14 +44,11 @@ __internal void governor_spin(governor_t *ps, delegation_lock_t *dtlock);
 // Notify a waiter has been served
 __internal void governor_waiter_served(governor_t *ps, const int waiter);
 
+// Notify a sleeper has been woken up and served
+__internal void governor_sleeper_served(governor_t *ps, const int sleeper);
+
 // Request a CPU to be woken up either from waiters or sleepers, without any task
 __internal void governor_wake_one(governor_t *ps, delegation_lock_t *dtlock);
-
-// Request a sleeper to be woken up
-__internal void governor_wake_sleeper(governor_t *ps, const int sleeper);
-
-// Called by the sleeper thread when ordered to sleep
-__internal void governor_sleep(governor_t *ps, const int cpu);
 
 // Notify a process has to shut down
 __internal void governor_pid_shutdown(governor_t *ps, pid_t pid, delegation_lock_t *dtlock);

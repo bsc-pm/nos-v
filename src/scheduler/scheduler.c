@@ -566,8 +566,7 @@ static inline size_t scheduler_serve_batch(int *skip)
 		if (!task) {
 			*skip = 1;
 		} else {
-			dtlock_set_item(&scheduler->dtlock, cpu_delegated, task);
-			dtlock_send_signal(&scheduler->dtlock, cpu_delegated, false);
+			dtlock_serve(&scheduler->dtlock, cpu_delegated, task, DTLOCK_SIGNAL_DEFAULT);
 			governor_waiter_served(&scheduler->governor, cpu_delegated);
 			instr_sched_send();
 		}
@@ -583,8 +582,8 @@ static inline size_t scheduler_serve_batch(int *skip)
 		if (!task) {
 			*skip = 1;
 		} else {
-			dtlock_set_item(&scheduler->dtlock, cpu_delegated, task);
-			governor_wake_sleeper(&scheduler->governor, cpu_delegated);
+			dtlock_serve(&scheduler->dtlock, cpu_delegated, task, DTLOCK_SIGNAL_WAKE);
+			governor_sleeper_served(&scheduler->governor, cpu_delegated);
 			instr_sched_send();
 		}
 
@@ -606,7 +605,7 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
 	int res = 0;
 
 	do {
-		res = dtlock_lock_or_delegate(&scheduler->dtlock, &scheduler->governor, (uint32_t)cpu, (void **)&task, blocking);
+		res = dtlock_lock_or_delegate(&scheduler->dtlock, (uint32_t)cpu, (void **)&task, blocking);
 	} while (res == DTLOCK_EAGAIN);
 
 	if (res == DTLOCK_SERVED) {

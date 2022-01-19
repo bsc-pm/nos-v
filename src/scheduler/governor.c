@@ -18,7 +18,6 @@ void governor_init(governor_t *ps)
 
 	for (int i = 0; i < actual_cpus; ++i) {
 		ps->cpu_spin_counter[i] = 0;
-		nosv_futex_init(&ps->cpu_sleep_var[i]);
 	}
 
 	assert(nosv_config.governor_policy);
@@ -39,7 +38,7 @@ void governor_init(governor_t *ps)
 static inline void governor_bedtime(governor_t *ps, const int waiter, delegation_lock_t *dtlock)
 {
 	// Tell the waiter to sleep
-	dtlock_send_signal(dtlock, waiter, true);
+	dtlock_serve(dtlock, waiter, NULL, DTLOCK_SIGNAL_SLEEP);
 	// Remove it from the waiter mask
 	governor_waiter_served(ps, waiter);
 	// Add it to the sleepers mask
@@ -56,8 +55,7 @@ void governor_spin(governor_t *ps, delegation_lock_t *dtlock)
 		// Every waiter is spinning
 		CPU_BITSET_FOREACH(&ps->waiters, cpu) {
 			if (!dtlock_blocking(dtlock, cpu)) {
-				dtlock_set_item(dtlock, cpu, NULL);
-				dtlock_send_signal(dtlock, cpu, false);
+				dtlock_serve(dtlock, cpu, NULL, DTLOCK_SIGNAL_DEFAULT);
 				governor_waiter_served(ps, cpu);
 			}
 		}
@@ -65,13 +63,29 @@ void governor_spin(governor_t *ps, delegation_lock_t *dtlock)
 		// Every waiter is spinning
 		CPU_BITSET_FOREACH(&ps->waiters, cpu) {
 			if (!dtlock_blocking(dtlock, cpu)) {
-				dtlock_set_item(dtlock, cpu, NULL);
-				dtlock_send_signal(dtlock, cpu, false);
+				dtlock_serve(dtlock, cpu, NULL, DTLOCK_SIGNAL_DEFAULT);
 				governor_waiter_served(ps, cpu);
 			} else if (++(ps->cpu_spin_counter[cpu]) > ps->hybrid_spins) {
 				governor_bedtime(ps, cpu, dtlock);
 			}
 		}
+	}
+}
+
+// Request a CPU to be woken up either from waiters or sleepers
+void governor_wake_one(governor_t *ps, delegation_lock_t *dtlock)
+{
+	int candidate = cpu_bitset_ffs(&ps->waiters);
+	if (candidate >= 0) {
+		dtlock_serve(dtlock, candidate, ITEM_DTLOCK_EAGAIN, DTLOCK_SIGNAL_DEFAULT);
+		governor_waiter_served(ps, candidate);
+		return;
+	}
+
+	candidate = cpu_bitset_ffs(&ps->sleepers);
+	if (candidate >= 0) {
+		dtlock_serve(dtlock, candidate, ITEM_DTLOCK_EAGAIN, DTLOCK_SIGNAL_WAKE);
+		governor_sleeper_served(ps, candidate);
 	}
 }
 
@@ -81,37 +95,9 @@ void governor_waiter_served(governor_t *ps, const int waiter)
 	ps->cpu_spin_counter[waiter] = 0;
 }
 
-// Request a CPU to be woken up either from waiters or sleepers
-void governor_wake_one(governor_t *ps, delegation_lock_t *dtlock)
-{
-	int candidate = cpu_bitset_ffs(&ps->waiters);
-
-	if (candidate >= 0) {
-		dtlock_set_item(dtlock, candidate, ITEM_DTLOCK_EAGAIN);
-		dtlock_send_signal(dtlock, candidate, false);
-		governor_waiter_served(ps, candidate);
-		return;
-	}
-
-	candidate = cpu_bitset_ffs(&ps->sleepers);
-	if (candidate >= 0) {
-		dtlock_set_item(dtlock, candidate, ITEM_DTLOCK_EAGAIN);
-		// No need to send signal here, as will be awaken in the futex
-		governor_wake_sleeper(ps, candidate);
-	}
-}
-
-// Request a sleeper to be woken up
-void governor_wake_sleeper(governor_t *ps, const int sleeper)
+void governor_sleeper_served(governor_t *ps, const int sleeper)
 {
 	cpu_bitset_clear(&ps->sleepers, sleeper);
-	nosv_futex_signal(&ps->cpu_sleep_var[sleeper]);
-}
-
-// Called by the sleeper thread when ordered to sleep
-void governor_sleep(governor_t *ps, const int cpu)
-{
-	nosv_futex_wait(&ps->cpu_sleep_var[cpu]);
 }
 
 void governor_pid_shutdown(governor_t *ps, pid_t pid, delegation_lock_t *dtlock)
@@ -121,8 +107,7 @@ void governor_pid_shutdown(governor_t *ps, pid_t pid, delegation_lock_t *dtlock)
 	CPU_BITSET_FOREACH(&ps->waiters, cpu) {
 		if (cpu_get_pid(cpu) == pid) {
 			// Wake up the waiter with a NULL to get it to check if it has to shutdown
-			dtlock_set_item(dtlock, cpu, NULL);
-			dtlock_send_signal(dtlock, cpu, false);
+			dtlock_serve(dtlock, cpu, NULL, DTLOCK_SIGNAL_DEFAULT);
 			governor_waiter_served(ps, cpu);
 		}
 	}
@@ -130,9 +115,8 @@ void governor_pid_shutdown(governor_t *ps, pid_t pid, delegation_lock_t *dtlock)
 	CPU_BITSET_FOREACH(&ps->sleepers, cpu) {
 		if (cpu_get_pid(cpu) == pid) {
 			// Wake up the sleeper with a NULL to get it to check if it has to shutdown
-			dtlock_set_item(dtlock, cpu, NULL);
-			// No need to send signal here, as will be awaken in the futex
-			governor_wake_sleeper(ps, cpu);
+			dtlock_serve(dtlock, cpu, NULL, DTLOCK_SIGNAL_WAKE);
+			governor_sleeper_served(ps, cpu);
 		}
 	}
 }
