@@ -95,7 +95,9 @@ static inline int config_check(rt_config_t *config)
 	sanity_check(config->governor_policy, "Governor policy cannot be empty");
 	const int gov_policy_ok = !strcmp(config->governor_policy, "hybrid") || !strcmp(config->governor_policy, "busy") || !strcmp(config->governor_policy, "idle");
 	sanity_check(gov_policy_ok, "Governor policy must be one of: hybrid, idle or busy");
-	
+	if (!strcmp(config->governor_policy, "hybrid") && config->governor_spins == 0)
+		nosv_warn("The governor was configured with the \"hybrid\" policy, but the number of spins is zero.\n The governor will behave like an \"idle\" policy.")
+
 	sanity_check(
 		!strcmp(config->hwcounters_backend, "none") ||
 		!strcmp(config->hwcounters_backend, "papi"),
