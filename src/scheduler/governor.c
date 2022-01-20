@@ -9,114 +9,115 @@
 #include "scheduler/dtlock.h"
 #include "scheduler/governor.h"
 
-void governor_init(governor_t *ps)
+void governor_init(governor_t *governor)
 {
 	int actual_cpus = cpus_count();
 
-	cpu_bitset_init(&ps->sleepers, actual_cpus);
-	cpu_bitset_init(&ps->waiters, actual_cpus);
+	cpu_bitset_init(&governor->sleepers, actual_cpus);
+	cpu_bitset_init(&governor->waiters, actual_cpus);
 
 	for (int i = 0; i < actual_cpus; ++i) {
-		ps->cpu_spin_counter[i] = 0;
+		governor->cpu_spin_counter[i] = 0;
 	}
 
 	assert(nosv_config.governor_policy);
 	if (strcmp(nosv_config.governor_policy, "hybrid") == 0) {
-		ps->policy = HYBRID;
-		ps->hybrid_spins = nosv_config.governor_spins;
+		governor->policy = HYBRID;
+		governor->hybrid_spins = nosv_config.governor_spins;
 	} else if (strcmp(nosv_config.governor_policy, "idle") == 0) {
 		// In the idle policy we follow the same code paths as HYBRID but hybrid_spins = 0
-		ps->policy = IDLE;
-		ps->hybrid_spins = 0;
+		governor->policy = IDLE;
+		governor->hybrid_spins = 0;
 	} else {
 		assert(strcmp(nosv_config.governor_policy, "busy") == 0);
-		ps->policy = BUSY;
-		ps->hybrid_spins = 0;
+		governor->policy = BUSY;
+		governor->hybrid_spins = 0;
 	}
 }
 
-static inline void governor_bedtime(governor_t *ps, const int waiter, delegation_lock_t *dtlock)
+static inline void governor_bedtime(governor_t *governor, const int waiter, delegation_lock_t *dtlock)
 {
 	// Tell the waiter to sleep
 	dtlock_serve(dtlock, waiter, NULL, DTLOCK_SIGNAL_SLEEP);
 	// Remove it from the waiter mask
-	governor_waiter_served(ps, waiter);
+	governor_served(governor, waiter);
 	// Add it to the sleepers mask
-	cpu_bitset_set(&ps->sleepers, waiter);
+	cpu_bitset_set(&governor->sleepers, waiter);
 }
 
-void governor_spin(governor_t *ps, delegation_lock_t *dtlock)
+void governor_spin(governor_t *governor, delegation_lock_t *dtlock)
 {
 	// This matches with the release on dtlock->item which sets the flags for each access.
 	atomic_thread_fence(memory_order_acquire);
 
 	int cpu = 0;
-	if (ps->policy == BUSY) {
+	if (governor->policy == BUSY) {
 		// Every waiter is spinning
-		CPU_BITSET_FOREACH(&ps->waiters, cpu) {
+		CPU_BITSET_FOREACH(&governor->waiters, cpu) {
 			if (!dtlock_blocking(dtlock, cpu)) {
 				dtlock_serve(dtlock, cpu, NULL, DTLOCK_SIGNAL_DEFAULT);
-				governor_waiter_served(ps, cpu);
+				governor_served(governor, cpu);
 			}
 		}
 	} else {
 		// Every waiter is spinning
-		CPU_BITSET_FOREACH(&ps->waiters, cpu) {
+		CPU_BITSET_FOREACH(&governor->waiters, cpu) {
 			if (!dtlock_blocking(dtlock, cpu)) {
 				dtlock_serve(dtlock, cpu, NULL, DTLOCK_SIGNAL_DEFAULT);
-				governor_waiter_served(ps, cpu);
-			} else if (++(ps->cpu_spin_counter[cpu]) > ps->hybrid_spins) {
-				governor_bedtime(ps, cpu, dtlock);
+				governor_served(governor, cpu);
+			} else if (++(governor->cpu_spin_counter[cpu]) > governor->hybrid_spins) {
+				governor_bedtime(governor, cpu, dtlock);
 			}
 		}
 	}
 }
 
 // Request a CPU to be woken up either from waiters or sleepers
-void governor_wake_one(governor_t *ps, delegation_lock_t *dtlock)
+void governor_wake_one(governor_t *governor, delegation_lock_t *dtlock)
 {
-	int candidate = cpu_bitset_ffs(&ps->waiters);
+	int candidate = cpu_bitset_ffs(&governor->waiters);
 	if (candidate >= 0) {
 		dtlock_serve(dtlock, candidate, ITEM_DTLOCK_EAGAIN, DTLOCK_SIGNAL_DEFAULT);
-		governor_waiter_served(ps, candidate);
+		governor_served(governor, candidate);
 		return;
 	}
 
-	candidate = cpu_bitset_ffs(&ps->sleepers);
+	candidate = cpu_bitset_ffs(&governor->sleepers);
 	if (candidate >= 0) {
 		dtlock_serve(dtlock, candidate, ITEM_DTLOCK_EAGAIN, DTLOCK_SIGNAL_WAKE);
-		governor_sleeper_served(ps, candidate);
+		governor_served(governor, candidate);
 	}
 }
 
-void governor_waiter_served(governor_t *ps, const int waiter)
+int governor_served(governor_t *governor, const int cpu)
 {
-	cpu_bitset_clear(&ps->waiters, waiter);
-	ps->cpu_spin_counter[waiter] = 0;
+	if (cpu_bitset_isset(&governor->waiters, cpu)) {
+		cpu_bitset_clear(&governor->waiters, cpu);
+		governor->cpu_spin_counter[cpu] = 0;
+		return 0;
+	} else {
+		cpu_bitset_clear(&governor->sleepers, cpu);
+		return 1;
+	}
 }
 
-void governor_sleeper_served(governor_t *ps, const int sleeper)
-{
-	cpu_bitset_clear(&ps->sleepers, sleeper);
-}
-
-void governor_pid_shutdown(governor_t *ps, pid_t pid, delegation_lock_t *dtlock)
+void governor_pid_shutdown(governor_t *governor, pid_t pid, delegation_lock_t *dtlock)
 {
 	int cpu;
 
-	CPU_BITSET_FOREACH(&ps->waiters, cpu) {
+	CPU_BITSET_FOREACH(&governor->waiters, cpu) {
 		if (cpu_get_pid(cpu) == pid) {
 			// Wake up the waiter with a NULL to get it to check if it has to shutdown
 			dtlock_serve(dtlock, cpu, NULL, DTLOCK_SIGNAL_DEFAULT);
-			governor_waiter_served(ps, cpu);
+			governor_served(governor, cpu);
 		}
 	}
 
-	CPU_BITSET_FOREACH(&ps->sleepers, cpu) {
+	CPU_BITSET_FOREACH(&governor->sleepers, cpu) {
 		if (cpu_get_pid(cpu) == pid) {
 			// Wake up the sleeper with a NULL to get it to check if it has to shutdown
 			dtlock_serve(dtlock, cpu, NULL, DTLOCK_SIGNAL_WAKE);
-			governor_sleeper_served(ps, cpu);
+			governor_served(governor, cpu);
 		}
 	}
 }

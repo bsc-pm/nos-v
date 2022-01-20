@@ -19,7 +19,6 @@
 #include "hardware/threads.h"
 #include "instr.h"
 #include "memory/sharedmemory.h"
-#include "scheduler/governor.h"
 #include "scheduler/scheduler.h"
 
 __internal scheduler_t *scheduler;
@@ -42,7 +41,7 @@ void scheduler_init(int initialize)
 	assert(scheduler);
 	st_config.config->scheduler_ptr = scheduler;
 
-	dtlock_init(&scheduler->dtlock, cpu_count * 2);
+	arbiter_init(&scheduler->arbiter);
 	scheduler->in_queue = mpsc_alloc(cpu_count, nosv_config.sched_in_queue_size);
 	list_init(&scheduler->queues);
 	scheduler->tasks = 0;
@@ -59,8 +58,6 @@ void scheduler_init(int initialize)
 	}
 
 	scheduler->quantum_ns = nosv_config.sched_quantum_ns;
-
-	governor_init(&scheduler->governor);
 }
 
 void scheduler_shutdown(int pid)
@@ -171,7 +168,7 @@ static inline void scheduler_process_ready_tasks(void)
 		process_scheduler_t *sched = list_elem(head, process_scheduler_t, list_hook);
 		int shutdown = atomic_load_explicit(&sched->shutdown, memory_order_relaxed);
 		if (shutdown > sched->last_shutdown) {
-			governor_pid_shutdown(&scheduler->governor, sched->pid, &scheduler->dtlock);
+			arbiter_shutdown_process(&scheduler->arbiter, sched->pid);
 			sched->last_shutdown = shutdown;
 		}
 	}
@@ -235,10 +232,9 @@ void scheduler_submit(nosv_task_t task)
 		success = mpsc_push(scheduler->in_queue, (void *)task, cpu_get_current());
 
 		if (!success) {
-			int lock = dtlock_try_lock(&scheduler->dtlock);
-			if (lock) {
+			if (arbiter_try_enter(&scheduler->arbiter)) {
 				scheduler_process_ready_tasks();
-				dtlock_unlock(&scheduler->dtlock);
+				arbiter_exit(&scheduler->arbiter, /* not currently server */ 0);
 			}
 		}
 	}
@@ -547,7 +543,7 @@ static inline nosv_task_t scheduler_get_internal(int cpu)
 	return NULL;
 }
 
-static inline size_t scheduler_serve_batch(int *skip)
+static inline size_t scheduler_serve_batch(int *skip, cpu_bitset_t *cpus)
 {
 	// Serve a task batch
 	// TODO instead of call scheduler_get_internal in a loop,
@@ -555,9 +551,7 @@ static inline size_t scheduler_serve_batch(int *skip)
 	size_t served = 0;
 	int cpu_delegated = 0;
 
-	// First, schedule waiters
-	cpu_bitset_t *waiters = governor_get_waiters(&scheduler->governor);
-	CPU_BITSET_FOREACH(waiters, cpu_delegated) {
+	CPU_BITSET_FOREACH(cpus, cpu_delegated) {
 		assert(cpu_delegated < cpus_count());
 		nosv_task_t task = scheduler_get_internal(cpu_delegated);
 
@@ -566,31 +560,12 @@ static inline size_t scheduler_serve_batch(int *skip)
 		if (!task) {
 			*skip = 1;
 		} else {
-			dtlock_serve(&scheduler->dtlock, cpu_delegated, task, DTLOCK_SIGNAL_DEFAULT);
-			governor_waiter_served(&scheduler->governor, cpu_delegated);
+			arbiter_serve(&scheduler->arbiter, task, cpu_delegated);
 			instr_sched_send();
 		}
 
 		served++;
 	}
-
-	cpu_bitset_t *sleepers = governor_get_sleepers(&scheduler->governor);
-	CPU_BITSET_FOREACH(sleepers, cpu_delegated) {
-		assert(cpu_delegated < cpus_count());
-		nosv_task_t task = scheduler_get_internal(cpu_delegated);
-
-		if (!task) {
-			*skip = 1;
-		} else {
-			dtlock_serve(&scheduler->dtlock, cpu_delegated, task, DTLOCK_SIGNAL_WAKE);
-			governor_sleeper_served(&scheduler->governor, cpu_delegated);
-			instr_sched_send();
-		}
-
-		served++;
-	}
-
-	governor_spin(&scheduler->governor, &scheduler->dtlock);
 
 	return served;
 }
@@ -602,9 +577,8 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
 	// Whether the thread can block serving tasks
 	const int blocking = !(flags & SCHED_GET_NONBLOCKING);
 	nosv_task_t task = NULL;
-	int res = dtlock_lock_or_delegate(&scheduler->dtlock, (uint32_t)cpu, (void **)&task, blocking);
 
-	if (res == DTLOCK_SERVED) {
+	if (arbiter_enter(&scheduler->arbiter, cpu, blocking, &task)) {
 		// Served item
 		if (task)
 			instr_sched_recv();
@@ -614,40 +588,37 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
 
 	// Lock acquired
 	instr_sched_server_enter();
-	assert(res == DTLOCK_SERVER);
 
-	// Get list of previous waiters from the governor policy
-	cpu_bitset_t *waiters = governor_get_waiters(&scheduler->governor);
+	cpu_bitset_t *waiters, *sleepers;
+	arbiter_get_cpumasks(&scheduler->arbiter, &waiters, &sleepers);
 
 	do {
 		scheduler_process_ready_tasks();
 
 		size_t served = 0;
 
-		// Grab threads pending in the DTLock
-		int nwaiters = dtlock_get_waiters(&scheduler->dtlock, waiters);
 		// If some tasks could not be scheduled, it is a good idea to try
 		// and get work for ourselves, just in case affinities are at play.
 		int skip = 0;
+		int cores_pending = arbiter_process_pending(&scheduler->arbiter, /* do not perform powersaving polcies */0);
 
 		// Serve everyone waiting
 		// As soon as we cannot schedule one CPU, stop the loop and try to schedule ourselves
 		// This is needed because otherwise strict affinity tasks may have problems
-		while (served < MAX_SERVED_TASKS && nwaiters && !skip) {
-			served += scheduler_serve_batch(&skip);
-			nwaiters = dtlock_get_waiters(&scheduler->dtlock, waiters);
+		while (served < MAX_SERVED_TASKS && cores_pending && !skip) {
+			// First, schedule waiters
+			served += scheduler_serve_batch(&skip, waiters);
+			// Then, sleepers
+			served += scheduler_serve_batch(&skip, sleepers);
+			// Now, process any newly arrived cores, and perform powersaving policies
+			cores_pending = arbiter_process_pending(&scheduler->arbiter, /* perform powersaving polcies */1);
 		}
 
 		// Work for myself
 		task = scheduler_get_internal(cpu);
 	} while (!task && blocking && !worker_should_shutdown());
 
-	// If the delegation lock is empty, ensure that the cycle continues by waking a thread
-	// This check is racy, but it doesn't matter
-	if (dtlock_empty(&scheduler->dtlock))
-		governor_wake_one(&scheduler->governor, &scheduler->dtlock);
-
-	dtlock_unlock(&scheduler->dtlock);
+	arbiter_exit(&scheduler->arbiter, /* currently the server */1);
 
 	if (task)
 		instr_sched_self_assign();

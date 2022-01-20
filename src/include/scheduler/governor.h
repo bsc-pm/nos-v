@@ -13,17 +13,13 @@
 #include "compiler.h"
 #include "defaults.h"
 #include "scheduler/cpubitset.h"
+#include "scheduler/dtlock.h"
 
 enum governor_policy {
 	BUSY = 0,
 	IDLE = 1,
 	HYBRID = 2
 };
-
-// Break circular dependency with dtlock types
-struct dtlock_node;
-struct delegation_lock;
-typedef struct delegation_lock delegation_lock_t;
 
 // Needed state for the power saving policy
 typedef struct governor {
@@ -35,32 +31,30 @@ typedef struct governor {
 } governor_t;
 
 // Initializes the governor structures
-__internal void governor_init(governor_t *ps);
+__internal void governor_init(governor_t *governor);
 
 // Notify that remaining waiters could not be scheduled a task
 // Pass the dtlock as this may result in actions taken
-__internal void governor_spin(governor_t *ps, delegation_lock_t *dtlock);
+__internal void governor_spin(governor_t *governor, delegation_lock_t *dtlock);
 
-// Notify a waiter has been served
-__internal void governor_waiter_served(governor_t *ps, const int waiter);
-
-// Notify a sleeper has been woken up and served
-__internal void governor_sleeper_served(governor_t *ps, const int sleeper);
+// Notify a CPU has been served
+// Returns 1 if the CPU was sleeping (and thus needs to be woken)
+__internal int governor_served(governor_t *governor, const int cpu);
 
 // Request a CPU to be woken up either from waiters or sleepers, without any task
-__internal void governor_wake_one(governor_t *ps, delegation_lock_t *dtlock);
+__internal void governor_wake_one(governor_t *governor, delegation_lock_t *dtlock);
 
 // Notify a process has to shut down
-__internal void governor_pid_shutdown(governor_t *ps, pid_t pid, delegation_lock_t *dtlock);
+__internal void governor_pid_shutdown(governor_t *governor, pid_t pid, delegation_lock_t *dtlock);
 
-static inline cpu_bitset_t *governor_get_waiters(governor_t *ps)
+static inline cpu_bitset_t *governor_get_waiters(governor_t *governor)
 {
-	return &ps->waiters;
+	return &governor->waiters;
 }
 
-static inline cpu_bitset_t *governor_get_sleepers(governor_t *ps)
+static inline cpu_bitset_t *governor_get_sleepers(governor_t *governor)
 {
-	return &ps->sleepers;
+	return &governor->sleepers;
 }
 
 #endif // GOVERNOR_H

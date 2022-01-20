@@ -27,9 +27,6 @@
 
 #define ITEM_DTLOCK_EAGAIN ((void *) 1)
 
-#define DTLOCK_SERVER 1
-#define DTLOCK_SERVED 0
-
 #define DTLOCK_FLAGS_NONE 0x0
 #define DTLOCK_FLAGS_NONBLOCK 0x1
 
@@ -143,7 +140,7 @@ static inline int dtlock_lock_or_delegate(delegation_lock_t *dtlock, const uint6
 		// or we have been moved to the second waiting location
 		if (dtlock->items[cpu_index].ticket != head) {
 			// Lock acquired
-			return DTLOCK_SERVER;
+			return 0;
 		}
 
 		// We have to wait again
@@ -171,7 +168,8 @@ static inline int dtlock_lock_or_delegate(delegation_lock_t *dtlock, const uint6
 	} while (recv_item == ITEM_DTLOCK_EAGAIN);
 
 	*item = recv_item;
-	return DTLOCK_SERVED;
+	// Served
+	return 1;
 }
 
 // Must be called with lock acquired
