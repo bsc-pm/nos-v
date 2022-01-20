@@ -91,6 +91,11 @@ noinst_HEADERS = \
 	src/include/hardware/locality.h \
 	src/include/hardware/pids.h \
 	src/include/hardware/threads.h \
+	src/include/hwcounters/cpuhwcounters.h \
+	src/include/hwcounters/hwcounters.h \
+	src/include/hwcounters/supportedhwcounters.h \
+	src/include/hwcounters/taskhwcounters.h \
+	src/include/hwcounters/threadhwcounters.h \
 	src/include/memory/backbone.h \
 	src/include/memory/sharedmemory.h \
 	src/include/memory/slab.h \
@@ -102,6 +107,14 @@ noinst_HEADERS = \
 	tests/common/tap.h \
 	tests/common/utils.h \
 	tests/include/test.h
+
+if HAVE_PAPI
+noinst_HEADERS += \
+	src/include/hwcounters/papi/papicpuhwcounters.h \
+	src/include/hwcounters/papi/papihwcounters.h \
+	src/include/hwcounters/papi/papitaskhwcounters.h \
+	src/include/hwcounters/papi/papithreadhwcounters.h
+endif
 
 subincludedir = $(includedir)/nosv
 subinclude_HEADERS = \
