@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
 */
 
 #include "config/config.h"
@@ -20,18 +20,16 @@ void governor_init(governor_t *governor)
 		governor->cpu_spin_counter[i] = 0;
 	}
 
+	// The governor policy only affects the number of spins
 	assert(nosv_config.governor_policy);
 	if (strcmp(nosv_config.governor_policy, "hybrid") == 0) {
-		governor->policy = HYBRID;
-		governor->hybrid_spins = nosv_config.governor_spins;
+		governor->spins = nosv_config.governor_spins;
 	} else if (strcmp(nosv_config.governor_policy, "idle") == 0) {
 		// In the idle policy we follow the same code paths as HYBRID but hybrid_spins = 0
-		governor->policy = IDLE;
-		governor->hybrid_spins = 0;
+		governor->spins = 0;
 	} else {
 		assert(strcmp(nosv_config.governor_policy, "busy") == 0);
-		governor->policy = BUSY;
-		governor->hybrid_spins = 0;
+		governor->spins = UINT64_MAX;
 	}
 }
 
@@ -51,23 +49,12 @@ void governor_spin(governor_t *governor, delegation_lock_t *dtlock)
 	atomic_thread_fence(memory_order_acquire);
 
 	int cpu = 0;
-	if (governor->policy == BUSY) {
-		// Every waiter is spinning
-		CPU_BITSET_FOREACH(&governor->waiters, cpu) {
-			if (!dtlock_blocking(dtlock, cpu)) {
-				dtlock_serve(dtlock, cpu, NULL, DTLOCK_SIGNAL_DEFAULT);
-				governor_served(governor, cpu);
-			}
-		}
-	} else {
-		// Every waiter is spinning
-		CPU_BITSET_FOREACH(&governor->waiters, cpu) {
-			if (!dtlock_blocking(dtlock, cpu)) {
-				dtlock_serve(dtlock, cpu, NULL, DTLOCK_SIGNAL_DEFAULT);
-				governor_served(governor, cpu);
-			} else if (++(governor->cpu_spin_counter[cpu]) > governor->hybrid_spins) {
-				governor_bedtime(governor, cpu, dtlock);
-			}
+	CPU_BITSET_FOREACH(&governor->waiters, cpu) {
+		if (!dtlock_blocking(dtlock, cpu)) {
+			dtlock_serve(dtlock, cpu, NULL, DTLOCK_SIGNAL_DEFAULT);
+			governor_served(governor, cpu);
+		} else if (++(governor->cpu_spin_counter[cpu]) > governor->spins) {
+			governor_bedtime(governor, cpu, dtlock);
 		}
 	}
 }

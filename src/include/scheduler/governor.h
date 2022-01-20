@@ -25,9 +25,8 @@ enum governor_policy {
 typedef struct governor {
 	cpu_bitset_t waiters;
 	cpu_bitset_t sleepers;
-	enum governor_policy policy;
-	uint32_t hybrid_spins;
-	uint32_t cpu_spin_counter[NR_CPUS];
+	uint64_t spins;
+	uint64_t cpu_spin_counter[NR_CPUS];
 } governor_t;
 
 // Initializes the governor structures
