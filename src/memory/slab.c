@@ -11,6 +11,7 @@
 #include "compiler.h"
 #include "generic/arch.h"
 #include "instr.h"
+#include "memory/asan.h"
 #include "memory/backbone.h"
 #include "memory/slab.h"
 
@@ -49,13 +50,16 @@ static inline int page_metadata_cmpxchg_double(
 #endif
 }
 
-static inline int cpubucket_alloc(cpu_cache_bucket_t *cpubucket, void **obj)
+static inline int cpubucket_alloc(cpu_cache_bucket_t *cpubucket, void **obj, size_t size)
 {
 	// The freelist is a linked list of blocks, which are in essence void * to the next block.
 	// Here we advance the freelist and return the first element.
 	if (cpubucket->freelist) {
 		void *ret = cpubucket->freelist;
-		void *next = *((void **)ret);
+
+		// Unpoison the chunk we're going to allocate
+		asan_unpoison(ret, size);
+		void *next = *((void **) ret);
 		cpubucket->freelist = next;
 
 		*obj = ret;
@@ -77,12 +81,15 @@ static inline int cpubucket_isinpage(cpu_cache_bucket_t *cpubucket, void *obj)
 	return 0;
 }
 
-static inline void cpubucket_localfree(cpu_cache_bucket_t *cpubucket, void *obj)
+static inline void cpubucket_localfree(cpu_cache_bucket_t *cpubucket, void *obj, size_t objsize)
 {
 	assert(cpubucket_isinpage(cpubucket, obj));
 
 	*((void **)obj) = cpubucket->freelist;
 	cpubucket->freelist = obj;
+
+	// Poison again
+	asan_poison(obj, objsize);
 }
 
 static inline size_t bucket_objinpage(cache_bucket_t *bucket)
@@ -95,6 +102,8 @@ static inline void bucket_initialize_page(cache_bucket_t *bucket, page_metadata_
 {
 	void **base = (void **)page->addr;
 	size_t stride = bucket->obj_size / sizeof(void *);
+	// Temporarily unpoison the full page
+	asan_unpoison(base, PAGE_SIZE);
 
 	size_t obj_in_page = bucket_objinpage(bucket);
 	for (size_t i = 0; i < obj_in_page; i++) {
@@ -105,6 +114,9 @@ static inline void bucket_initialize_page(cache_bucket_t *bucket, page_metadata_
 	base[(obj_in_page - 1) * stride] = NULL;
 	page->freelist = page->addr;
 	page->inuse_chunks = 0;
+
+	// Poison everything again
+	asan_poison(base, PAGE_SIZE);
 }
 
 static inline void bucket_refill_cpu_cache(cache_bucket_t *bucket, cpu_cache_bucket_t *cpubucket)
@@ -181,11 +193,12 @@ static inline void bucket_init(cache_bucket_t *bucket, size_t bucket_index)
 	nosv_spin_init(&bucket->slow_bucket_lock);
 }
 
-static inline void *bucket_alloc(cache_bucket_t *bucket, int cpu)
+static inline void *bucket_alloc(cache_bucket_t *bucket, int cpu, size_t original_size)
 {
 	void *obj = NULL;
 
 	assert(cpu < NR_CPUS);
+	assert(original_size <= bucket->obj_size);
 
 	cpu_cache_bucket_t *cpubucket = &bucket->cpubuckets[cpu];
 
@@ -198,7 +211,7 @@ static inline void *bucket_alloc(cache_bucket_t *bucket, int cpu)
 	}
 
 	// Try to allocate from cached page
-	if (cpubucket_alloc(cpubucket, &obj)) {
+	if (cpubucket_alloc(cpubucket, &obj, original_size)) {
 		if (unlikely(cpu < 0))
 			nosv_spin_unlock(&bucket->slow_bucket_lock);
 
@@ -208,7 +221,7 @@ static inline void *bucket_alloc(cache_bucket_t *bucket, int cpu)
 	// Slower, there are no available chunks in the CPU cache and we have to refill
 	bucket_refill_cpu_cache(bucket, cpubucket);
 
-	__maybe_unused int ret = cpubucket_alloc(cpubucket, &obj);
+	__maybe_unused int ret = cpubucket_alloc(cpubucket, &obj, original_size);
 	assert(ret);
 	assert(obj);
 
@@ -226,7 +239,7 @@ static inline void bucket_free(cache_bucket_t *bucket, void *obj, int cpu)
 	assert(cpu < NR_CPUS);
 	if (cpu >= 0 && cpubucket_isinpage(cpubucket, obj)) {
 		// Fast path
-		cpubucket_localfree(cpubucket, obj);
+		cpubucket_localfree(cpubucket, obj, bucket->obj_size);
 	} else {
 		// Remote free, slow-path
 		// This path is still very common, but it is fast in an uncontended page.
@@ -248,10 +261,17 @@ static inline void bucket_free(cache_bucket_t *bucket, void *obj, int cpu)
 				nosv_spin_lock(&bucket->lock);
 			}
 
+			// Poison obj
+			asan_poison(obj, bucket->obj_size);
 			success = page_metadata_cmpxchg_double(metadata, next, inuse, obj, inuse - 1);
 
 			if (!success && (inuse == obj_in_page || inuse == 1))
 				nosv_spin_unlock(&bucket->lock);
+
+			// Unpoison the range as we have failed to update it
+			if (!success)
+				asan_unpoison(obj, bucket->obj_size);
+
 		} while (!success);
 
 		if (inuse == 1) {
@@ -296,7 +316,7 @@ void *salloc(size_t size, int cpu)
 
 	cache_bucket_t *bucket = &backbone_header->buckets[allocsize - SLAB_ALLOC_MIN];
 
-	ret = bucket_alloc(bucket, cpu);
+	ret = bucket_alloc(bucket, cpu, size);
 
 end:
 	instr_salloc_exit();
