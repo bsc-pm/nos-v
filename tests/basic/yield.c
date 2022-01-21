@@ -1,5 +1,4 @@
 #include "test.h"
-#include "common/utils.h"
 
 #include <nosv.h>
 #include <nosv/affinity.h>
@@ -66,7 +65,7 @@ int main() {
 		nosv_create(&tasks[t], task_type, 0, NOSV_CREATE_NONE);
 
 	// Parallel tests should be using the same CPU
-	int cpu = get_first_available_cpu();
+	int cpu = test_get_first_cpu();
 	assert(cpu >= 0);
 
 	nosv_affinity_t affinity = nosv_affinity_get(cpu, CPU, STRICT);
