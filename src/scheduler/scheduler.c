@@ -65,7 +65,7 @@ void scheduler_shutdown(int pid)
 	process_scheduler_t *sched = scheduler->queues_direct[pid];
 
 	if (sched)
-		atomic_fetch_add_explicit(&scheduler->queues_direct[pid]->shutdown, 1, memory_order_relaxed);
+		atomic_fetch_add_explicit(&sched->shutdown, 1, memory_order_relaxed);
 
 	free(task_batch_buffer);
 }
@@ -128,6 +128,19 @@ static inline int deadline_cmp(heap_node_t *a, heap_node_t *b)
 	return (task_a->deadline > task_b->deadline) - (task_b->deadline > task_a->deadline);
 }
 
+// Check if any schedulers need shutting down
+static inline void scheduler_check_process_shutdowns(void)
+{
+	for (list_head_t *head = list_front(&scheduler->queues); head; head = list_next(head)) {
+		process_scheduler_t *sched = list_elem(head, process_scheduler_t, list_hook);
+		int shutdown = atomic_load_explicit(&sched->shutdown, memory_order_relaxed);
+		if (shutdown > sched->last_shutdown) {
+			arbiter_shutdown_process(&scheduler->arbiter, sched->pid);
+			sched->last_shutdown = shutdown;
+		}
+	}
+}
+
 // Must be called inside the dtlock
 static inline void scheduler_process_ready_tasks(void)
 {
@@ -163,15 +176,7 @@ static inline void scheduler_process_ready_tasks(void)
 		}
 	}
 
-	// Check if any schedulers need shutting down
-	for (list_head_t *head = list_front(&scheduler->queues); head; head = list_next(head)) {
-		process_scheduler_t *sched = list_elem(head, process_scheduler_t, list_hook);
-		int shutdown = atomic_load_explicit(&sched->shutdown, memory_order_relaxed);
-		if (shutdown > sched->last_shutdown) {
-			arbiter_shutdown_process(&scheduler->arbiter, sched->pid);
-			sched->last_shutdown = shutdown;
-		}
-	}
+	scheduler_check_process_shutdowns();
 }
 
 /* This function returns 1 if the current PID has spent more time than the quantum */
@@ -562,9 +567,8 @@ static inline size_t scheduler_serve_batch(int *skip, cpu_bitset_t *cpus)
 		} else {
 			arbiter_serve(&scheduler->arbiter, task, cpu_delegated);
 			instr_sched_send();
+			served++;
 		}
-
-		served++;
 	}
 
 	return served;

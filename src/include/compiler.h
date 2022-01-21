@@ -52,5 +52,10 @@ typedef atomic_uint_fast64_t atomic_uint64_t;
 _Static_assert(sizeof(atomic_uint64_t) == 8, "atomic_uint64_t must be 64-bit");
 typedef atomic_uint_least32_t atomic_uint32_t;
 _Static_assert(sizeof(atomic_uint32_t) == 4, "atomic_uint32_t must be 32-bit");
+typedef atomic_int_fast64_t atomic_int64_t;
+_Static_assert(sizeof(atomic_int64_t) == 8, "atomic_int64_t must be 64-bit");
+typedef atomic_int_least32_t atomic_int32_t;
+_Static_assert(sizeof(atomic_int32_t) == 4, "atomic_int32_t must be 32-bit");
+
 
 #endif // COMPILER_H

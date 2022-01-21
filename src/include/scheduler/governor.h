@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2022Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef GOVERNOR_H
@@ -34,7 +34,7 @@ __internal void governor_init(governor_t *governor);
 
 // Notify that remaining waiters could not be scheduled a task
 // Pass the dtlock as this may result in actions taken
-__internal void governor_spin(governor_t *governor, delegation_lock_t *dtlock);
+__internal void governor_apply_policy(governor_t *governor, delegation_lock_t *dtlock);
 
 // Notify a CPU has been served
 // Returns 1 if the CPU was sleeping (and thus needs to be woken)

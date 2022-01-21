@@ -43,10 +43,10 @@ void arbiter_serve(arbiter_t *arbiter, nosv_task_t task, int cpu)
 
 int arbiter_process_pending(arbiter_t *arbiter, int spin)
 {
-	int ret = dtlock_get_waiters(&arbiter->dtlock, governor_get_waiters(&arbiter->governor));
+	int ret = dtlock_update_waiters(&arbiter->dtlock, governor_get_waiters(&arbiter->governor));
 
 	if (spin)
-		governor_spin(&arbiter->governor, &arbiter->dtlock);
+		governor_apply_policy(&arbiter->governor, &arbiter->dtlock);
 
 	return ret || cpu_bitset_count(governor_get_sleepers(&arbiter->governor));
 }

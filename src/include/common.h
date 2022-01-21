@@ -47,6 +47,4 @@ static inline size_t next_power_of_two(uint64_t n)
 	return 64 - __builtin_clzll(n - 1);
 }
 
-#define round_up_div(a, b) (((a) + ((b) - 1)) / (b))
-
 #endif // COMMON_H

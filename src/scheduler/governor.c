@@ -33,7 +33,7 @@ void governor_init(governor_t *governor)
 	}
 }
 
-static inline void governor_bedtime(governor_t *governor, const int waiter, delegation_lock_t *dtlock)
+static inline void governor_sleep_cpu(governor_t *governor, const int waiter, delegation_lock_t *dtlock)
 {
 	// Tell the waiter to sleep
 	dtlock_serve(dtlock, waiter, NULL, DTLOCK_SIGNAL_SLEEP);
@@ -43,18 +43,20 @@ static inline void governor_bedtime(governor_t *governor, const int waiter, dele
 	cpu_bitset_set(&governor->sleepers, waiter);
 }
 
-void governor_spin(governor_t *governor, delegation_lock_t *dtlock)
+void governor_apply_policy(governor_t *governor, delegation_lock_t *dtlock)
 {
 	// This matches with the release on dtlock->item which sets the flags for each access.
 	atomic_thread_fence(memory_order_acquire);
 
 	int cpu = 0;
 	CPU_BITSET_FOREACH(&governor->waiters, cpu) {
-		if (!dtlock_blocking(dtlock, cpu)) {
+		uint64_t *cpu_spins = &governor->cpu_spin_counter[cpu];
+
+		if (!dtlock_is_cpu_blockable(dtlock, cpu)) {
 			dtlock_serve(dtlock, cpu, NULL, DTLOCK_SIGNAL_DEFAULT);
 			governor_served(governor, cpu);
-		} else if (++(governor->cpu_spin_counter[cpu]) > governor->spins) {
-			governor_bedtime(governor, cpu, dtlock);
+		} else if (++(*cpu_spins) > governor->spins) {
+			governor_sleep_cpu(governor, cpu, dtlock);
 		}
 	}
 }
@@ -64,14 +66,14 @@ void governor_wake_one(governor_t *governor, delegation_lock_t *dtlock)
 {
 	int candidate = cpu_bitset_ffs(&governor->waiters);
 	if (candidate >= 0) {
-		dtlock_serve(dtlock, candidate, ITEM_DTLOCK_EAGAIN, DTLOCK_SIGNAL_DEFAULT);
+		dtlock_serve(dtlock, candidate, DTLOCK_ITEM_RETRY, DTLOCK_SIGNAL_DEFAULT);
 		governor_served(governor, candidate);
 		return;
 	}
 
 	candidate = cpu_bitset_ffs(&governor->sleepers);
 	if (candidate >= 0) {
-		dtlock_serve(dtlock, candidate, ITEM_DTLOCK_EAGAIN, DTLOCK_SIGNAL_WAKE);
+		dtlock_serve(dtlock, candidate, DTLOCK_ITEM_RETRY, DTLOCK_SIGNAL_WAKE);
 		governor_served(governor, candidate);
 	}
 }

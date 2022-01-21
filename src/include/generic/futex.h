@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2022Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef FUTEXVAR_H
@@ -20,10 +20,8 @@
 // This file is highly linux-specific, but one could change struct nosv_futex_t to another type,
 // for example a condition variable or a semaphore, in another OS
 
-static_assert(sizeof(atomic_int_least32_t) == sizeof(uint32_t), "Atomic least32_t must be 4-byte wide");
-
 typedef struct futex {
-	atomic_int_least32_t memory;
+	atomic_int32_t memory;
 } nosv_futex_t;
 
 // Define the futex wrapper for type safety

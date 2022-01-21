@@ -25,7 +25,7 @@
 #define DTLOCK_SIGNAL_SLEEP 0x1
 #define DTLOCK_SIGNAL_WAKE 0x2
 
-#define ITEM_DTLOCK_EAGAIN ((void *) 1)
+#define DTLOCK_ITEM_RETRY ((void *) 0x1)
 
 #define DTLOCK_FLAGS_NONE 0x0
 #define DTLOCK_FLAGS_NONBLOCK 0x1
@@ -165,7 +165,7 @@ static inline int dtlock_lock_or_delegate(delegation_lock_t *dtlock, const uint6
 
 		recv_item = dtlock->items[cpu_index].item;
 
-	} while (recv_item == ITEM_DTLOCK_EAGAIN);
+	} while (recv_item == DTLOCK_ITEM_RETRY);
 
 	*item = recv_item;
 	// Served
@@ -224,7 +224,7 @@ static inline void dtlock_serve(delegation_lock_t *dtlock, const uint64_t cpu, v
 }
 
 // Must be called with lock acquired
-static inline int dtlock_get_waiters(delegation_lock_t *dtlock, cpu_bitset_t *bitset)
+static inline int dtlock_update_waiters(delegation_lock_t *dtlock, cpu_bitset_t *bitset)
 {
 	int waiters = cpu_bitset_count(bitset);
 
@@ -246,7 +246,7 @@ static inline void dtlock_unlock(delegation_lock_t *dtlock)
 }
 
 // Must be called with lock acquired
-static inline int dtlock_blocking(const delegation_lock_t *dtlock, const int cpu)
+static inline int dtlock_is_cpu_blockable(const delegation_lock_t *dtlock, const int cpu)
 {
 	return !(dtlock->items[cpu].flags & DTLOCK_FLAGS_NONBLOCK);
 }

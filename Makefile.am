@@ -116,10 +116,10 @@ noinst_HEADERS = \
 	src/include/scheduler/arbiter.h \
 	src/include/scheduler/cpubitset.h \
 	src/include/scheduler/dtlock.h \
+	src/include/scheduler/governor.h \
 	src/include/scheduler/mpsc.h \
 	src/include/scheduler/scheduler.h \
 	src/include/scheduler/spsc.h \
-	src/include/scheduler/governor.h \
 	src/include/system/tasks.h \
 	tests/common/tap.h \
 	tests/include/test.h \
