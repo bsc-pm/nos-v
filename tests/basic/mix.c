@@ -1,4 +1,8 @@
-#define _GNU_SOURCE
+/*
+	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
+
+	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+*/
 
 #include <assert.h>
 #include <semaphore.h>
