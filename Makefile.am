@@ -122,7 +122,8 @@ noinst_HEADERS = \
 	src/include/scheduler/governor.h \
 	src/include/system/tasks.h \
 	tests/common/tap.h \
-	tests/include/test.h
+	tests/include/test.h \
+	tests/include/unit.h
 
 if HAVE_PAPI
 noinst_HEADERS += \
