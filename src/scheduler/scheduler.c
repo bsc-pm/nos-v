@@ -240,11 +240,11 @@ static inline int scheduler_find_task_queue(scheduler_queue_t *queue, nosv_task_
 static inline int task_affine(nosv_task_t task, cpu_t *cpu)
 {
 	switch (task->affinity.level) {
-		case CPU:
+		case NOSV_AFFINITY_LEVEL_CPU:
 			return ((int) task->affinity.index) == cpu->system_id;
-		case NUMA:
+		case NOSV_AFFINITY_LEVEL_NUMA:
 			return locality_get_logical_numa((int) task->affinity.index) == cpu->numa_node;
-		case USER_COMPLEX:
+		case NOSV_AFFINITY_LEVEL_USER_COMPLEX:
 		default:
 			return 1;
 	}
@@ -253,22 +253,22 @@ static inline int task_affine(nosv_task_t task, cpu_t *cpu)
 // Insert the task to the relevant queue
 static inline void scheduler_insert_affine(process_scheduler_t *sched, nosv_task_t task)
 {
-	assert(task->affinity.level != NONE);
-	assert(task->affinity.level != USER_COMPLEX);
+	assert(task->affinity.level != NOSV_AFFINITY_LEVEL_NONE);
+	assert(task->affinity.level != NOSV_AFFINITY_LEVEL_USER_COMPLEX);
 	scheduler_queue_t *queue = NULL;
 	int idx;
 
 	switch (task->affinity.level) {
-		case CPU:
+		case NOSV_AFFINITY_LEVEL_CPU:
 			idx = cpu_system_to_logical((int) task->affinity.index);
 			assert(idx >= 0);
-			queue = (task->affinity.type == STRICT)
+			queue = (task->affinity.type == NOSV_AFFINITY_TYPE_STRICT)
 						? &sched->per_cpu_queue_strict[idx]
 						: &sched->per_cpu_queue_preferred[idx];
 			break;
-		case NUMA:
+		case NOSV_AFFINITY_LEVEL_NUMA:
 			idx = locality_get_logical_numa((int) task->affinity.index);
-			queue = (task->affinity.type == STRICT)
+			queue = (task->affinity.type == NOSV_AFFINITY_TYPE_STRICT)
 						? &sched->per_numa_queue_strict[idx]
 						: &sched->per_numa_queue_preferred[idx];
 			break;
@@ -277,7 +277,7 @@ static inline void scheduler_insert_affine(process_scheduler_t *sched, nosv_task
 	}
 
 	assert(queue != NULL);
-	if (task->affinity.type == PREFERRED)
+	if (task->affinity.type == NOSV_AFFINITY_TYPE_PREFERRED)
 		sched->preferred_affinity_tasks++;
 	list_add_tail(&queue->tasks, &task->list_hook);
 }

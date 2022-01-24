@@ -219,11 +219,15 @@ static inline void worker_execute_or_delegate(nosv_task_t task, cpu_t *cpu, int 
 
 static inline void *worker_start_routine(void *arg)
 {
+	uint64_t timestamp;
+	int pid;
+
 	current_worker = (nosv_worker_t *)arg;
 	assert(current_worker);
 	assert(current_worker->cpu);
 	cpu_set_current(current_worker->cpu->logic_id);
 	current_worker->tid = gettid();
+	pid = current_worker->logic_pid;
 
 	// Initialize hardware counters for the thread
 	hwcounters_thread_initialize(current_worker);
@@ -244,7 +248,14 @@ static inline void *worker_start_routine(void *arg)
 		nosv_task_t task = current_worker->task;
 
 		if (!task && current_worker->immediate_successor) {
-			task = current_worker->immediate_successor;
+			// Check if our quantum is up, to prevent hoarding CPU resources
+			// This will cause some immediate successor chains to be broken, which
+			// could be optimized by using SCHED_GET_NONBLOCK first.
+			if (scheduler_should_yield(pid, cpu_get_current(), &timestamp))
+				scheduler_submit(current_worker->immediate_successor);
+			else
+				task = current_worker->immediate_successor;
+
 			worker_set_immediate(NULL);
 		}
 

@@ -134,7 +134,7 @@ int main()
 		int *metadata = nosv_get_task_metadata(task);
 
 		*metadata = cpu;
-		nosv_affinity_t aff = nosv_affinity_get(cpu, CPU, STRICT);
+		nosv_affinity_t aff = nosv_affinity_get(cpu, NOSV_AFFINITY_LEVEL_CPU, NOSV_AFFINITY_TYPE_STRICT);
 		nosv_set_task_affinity(task, &aff);
 
 		nosv_submit(task, NOSV_SUBMIT_NONE);
