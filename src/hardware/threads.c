@@ -246,21 +246,37 @@ static inline void *worker_start_routine(void *arg)
 
 	while (!atomic_load_explicit(&threads_shutdown_signal, memory_order_relaxed)) {
 		nosv_task_t task = current_worker->task;
+		int cpu = cpu_get_current();
 
 		if (!task && current_worker->immediate_successor) {
-			// Check if our quantum is up, to prevent hoarding CPU resources
-			// This will cause some immediate successor chains to be broken, which
-			// could be optimized by using SCHED_GET_NONBLOCK first.
-			if (scheduler_should_yield(pid, cpu_get_current(), &timestamp))
-				scheduler_submit(current_worker->immediate_successor);
-			else
+			// Check if our quantum is up to prevent hoarding CPU resources. This is only
+			// necessary here as quantum is already taken into account in "scheduler_get"
+			if (scheduler_should_yield(pid, cpu, &timestamp)) {
+				// To prevent immediate successor chains to be unnecessarily broken if no tasks are up,
+				// try to obtain a new task first
+				// TODO: Ideally there should be a scheduler flag to say: only give me a task if it belongs to a different process
+				nosv_task_t candidate = scheduler_get(cpu, SCHED_GET_NONBLOCKING);
+
+				if (candidate->type->pid != pid) {
+					scheduler_submit(current_worker->immediate_successor);
+					task = candidate;
+				} else {
+					// Return the task because it is from our process
+					// in this case, we just want to keep executing the immediate successors instead
+					scheduler_submit(candidate);
+					task = current_worker->immediate_successor;
+					// Reset the quantum
+					scheduler_reset_accounting(pid, cpu);
+				}
+			} else {
 				task = current_worker->immediate_successor;
+			}
 
 			worker_set_immediate(NULL);
 		}
 
 		if (!task && current_worker->cpu)
-			task = scheduler_get(cpu_get_current(), SCHED_GET_DEFAULT);
+			task = scheduler_get(cpu, SCHED_GET_DEFAULT);
 
 		if (task) {
 			// We can only reach this point in two cases:
