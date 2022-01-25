@@ -257,13 +257,14 @@ static inline void *worker_start_routine(void *arg)
 				// TODO: Ideally there should be a scheduler flag to say: only give me a task if it belongs to a different process
 				nosv_task_t candidate = scheduler_get(cpu, SCHED_GET_NONBLOCKING);
 
-				if (candidate->type->pid != pid) {
+				if (candidate && candidate->type->pid != pid) {
 					scheduler_submit(current_worker->immediate_successor);
 					task = candidate;
 				} else {
 					// Return the task because it is from our process
 					// in this case, we just want to keep executing the immediate successors instead
-					scheduler_submit(candidate);
+					if (candidate)
+						scheduler_submit(candidate);
 					task = current_worker->immediate_successor;
 					// Reset the quantum
 					scheduler_reset_accounting(pid, cpu);
