@@ -49,8 +49,6 @@ void monitoring_init(bool initialize)
 void monitoring_shutdown(void)
 {
 	if (monitoring_enabled) {
-		monitoring_display_stats();
-
 		cpumonitor_shutdown(monitor->cpumonitor);
 
 		sfree(monitor->cpumonitor, sizeof(cpumonitor_t), -1);
@@ -65,13 +63,12 @@ bool monitoring_is_enabled(void)
 
 void monitoring_display_stats(void)
 {
-	assert(monitoring_enabled);
-	assert(monitor != NULL);
-
-	// Retrieve statistics from every monitor
-	if (monitor->verbose) {
-		cpumonitor_statistics(monitor->cpumonitor);
-		taskmonitor_statistics();
+	if (monitoring_enabled) {
+		// Retrieve statistics from every monitor
+		if (monitor->verbose) {
+			cpumonitor_statistics(monitor->cpumonitor);
+			taskmonitor_statistics();
+		}
 	}
 }
 

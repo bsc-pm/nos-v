@@ -17,6 +17,7 @@
 #include "instr.h"
 #include "memory/sharedmemory.h"
 #include "memory/slab.h"
+#include "monitoring/monitoring.h"
 #include "scheduler/scheduler.h"
 #include "system/tasks.h"
 
@@ -45,27 +46,31 @@ int nosv_init(void)
 	return 0;
 }
 
+int nosv_report(void)
+{
+	// Report statistics from modules that do
+	if (library_initialized != 1)
+		return 1;
+
+	monitoring_display_stats();
+	return 0;
+}
+
 int nosv_shutdown(void)
 {
 	if (library_initialized != 1)
 		return 1;
 
 	pidmanager_shutdown();
-
 	scheduler_shutdown();
-
+	task_type_manager_shutdown();
 	smem_shutdown();
 
 	// Free HW Counters after smem_shutdown, as smem_shutdown can trigger other
 	// modules' shutdowns, and these may need HWCounters (for instance Monitoring)
 	hwcounters_shutdown();
 
-	// Free the tasktype manager after HWCounters and Monitoring, as both of these
-	// need to report per-tasktype information
-	task_type_manager_shutdown();
-
 	locality_shutdown();
-
 	config_free();
 
 	library_initialized = 0;

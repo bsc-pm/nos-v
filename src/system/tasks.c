@@ -615,8 +615,10 @@ int nosv_decrease_event_counter(
 
 	// If a task is in here, make sure this is not accounted as executing
 	nosv_task_t current = worker_current_task();
-	if (current)
+	if (current) {
+		hwcounters_update_task_counters(current);
 		monitoring_task_changed_status(current, paused_status);
+	}
 
 	uint64_t r = atomic_fetch_sub_explicit(&task->event_count, decrement, memory_order_relaxed) - 1;
 
@@ -624,8 +626,10 @@ int nosv_decrease_event_counter(
 		task_complete(task);
 	}
 
-	if (current)
+	if (current) {
+		hwcounters_update_runtime_counters();
 		monitoring_task_changed_status(current, executing_status);
+	}
 
 	return 0;
 }

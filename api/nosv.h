@@ -59,6 +59,9 @@ void *nosv_get_task_type_metadata(nosv_task_type_t type);
 /* Initialize nOS-V */
 int nosv_init(void);
 
+/* Report statistics */
+int nosv_report(void);
+
 /* Shutdown nOS-V */
 int nosv_shutdown(void);
 

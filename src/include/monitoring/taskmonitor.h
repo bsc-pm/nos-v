@@ -135,70 +135,70 @@ static inline void taskmonitor_statistics(void)
 	list_head_t *stop = head;
 	do {
 		nosv_task_type_t type = list_elem(head, struct nosv_task_type, list_hook);
-		assert(type != NULL);
-
-		// Display monitoring-related statistics
-		tasktype_stats_t *type_stats = type->stats;
-		size_t num_instances = tasktype_stats_get_num_instances(type_stats);
-		if (num_instances) {
-			printf("+-----------------------------+\n");
-
-			double mean     = tasktype_stats_get_timing_mean(type_stats);
-			double stddev   = tasktype_stats_get_timing_stddev(type_stats);
-			double accuracy = tasktype_stats_get_timing_accuracy(type_stats);
-
-			char type_label[80];
-			if (type->label == NULL) {
-				sprintf(type_label, "%s(%zu)", "Unlabeled", num_instances);
-			} else {
-				sprintf(type_label, "%s(%zu)", type->label, num_instances);
-			}
-
-			// Make sure there was at least one prediction to report accuracy
-			char accuracy_label[80];
-			if (!isnan(accuracy) && accuracy != 0.0) {
-				sprintf(accuracy_label, "%lf%%", accuracy);
-			} else {
-				sprintf(accuracy_label, "%s", "NA");
-			}
-
-			printf("STATS  MONITORING  TASKTYPE(INSTANCES)  %s\n", type_label);
-			printf("STATS  MONITORING  AVG NORMALIZED COST  %lf\n", mean);
-			printf("STATS  MONITORING  STD NORMALIZED COST  %lf\n", stddev);
-			printf("STATS  MONITORING  PREDICTION ACCURACY  %s\n", accuracy_label);
-			printf("+-----------------------------+\n");
-		}
-
-		// Display hardware counters related statistics
-		const enum counters_t *enabled_counters = hwcounters_get_enabled_counters();
-		const size_t num_enabled_counters = hwcounters_get_num_enabled_counters();
-		for (size_t id = 0; id < num_enabled_counters; ++id) {
-			size_t num_instances = tasktype_stats_get_counter_num_instances(type_stats, id);
+		if (type != NULL) {
+			// Display monitoring-related statistics
+			tasktype_stats_t *type_stats = type->stats;
+			size_t num_instances = tasktype_stats_get_num_instances(type_stats);
 			if (num_instances) {
-				// Get statistics
-				double counter_sum = tasktype_stats_get_counter_sum(type_stats, id);
-				double counter_avg = tasktype_stats_get_counter_average(type_stats, id);
-				double counter_stddev = tasktype_stats_get_counter_stddev(type_stats, id);
-				double counter_accuracy = tasktype_stats_get_counter_accuracy(type_stats, id);
+				printf("+-----------------------------+\n");
+
+				double mean     = tasktype_stats_get_timing_mean(type_stats);
+				double stddev   = tasktype_stats_get_timing_stddev(type_stats);
+				double accuracy = tasktype_stats_get_timing_accuracy(type_stats);
+
+				char type_label[80];
+				if (type->label == NULL) {
+					sprintf(type_label, "%s(%zu)", "Unlabeled", num_instances);
+				} else {
+					sprintf(type_label, "%s(%zu)", type->label, num_instances);
+				}
 
 				// Make sure there was at least one prediction to report accuracy
 				char accuracy_label[80];
-				if (!isnan(counter_accuracy) && counter_accuracy != 0.0) {
-					sprintf(accuracy_label, "%lf%%", counter_accuracy);
+				if (!isnan(accuracy) && accuracy != 0.0) {
+					sprintf(accuracy_label, "%lf%%", accuracy);
 				} else {
 					sprintf(accuracy_label, "%s", "NA");
 				}
 
-				enum counters_t type_counter = enabled_counters[id];
-				printf("STATS  HWCOUNTERS  SUM %s  %lf\n", counter_descriptions[type_counter].descr, counter_sum);
-				printf("STATS  HWCOUNTERS  AVG %s  %lf\n", counter_descriptions[type_counter].descr, counter_avg);
-				printf("STATS  HWCOUNTERS  STD %s  %lf\n", counter_descriptions[type_counter].descr, counter_stddev);
-				printf("STATS  HWCOUNTERS  PREDICTION ACCURACY  %s\n", accuracy_label);
+				printf("STATS  MONITORING  TASKTYPE(INSTANCES)  %s\n", type_label);
+				printf("STATS  MONITORING  AVG NORMALIZED COST  %lf\n", mean);
+				printf("STATS  MONITORING  STD NORMALIZED COST  %lf\n", stddev);
+				printf("STATS  MONITORING  PREDICTION ACCURACY  %s\n", accuracy_label);
 				printf("+-----------------------------+\n");
 			}
-		}
 
-		printf("\n");
+			// Display hardware counters related statistics
+			const enum counters_t *enabled_counters = hwcounters_get_enabled_counters();
+			const size_t num_enabled_counters = hwcounters_get_num_enabled_counters();
+			for (size_t id = 0; id < num_enabled_counters; ++id) {
+				size_t num_instances = tasktype_stats_get_counter_num_instances(type_stats, id);
+				if (num_instances) {
+					// Get statistics
+					double counter_sum = tasktype_stats_get_counter_sum(type_stats, id);
+					double counter_avg = tasktype_stats_get_counter_average(type_stats, id);
+					double counter_stddev = tasktype_stats_get_counter_stddev(type_stats, id);
+					double counter_accuracy = tasktype_stats_get_counter_accuracy(type_stats, id);
+
+					// Make sure there was at least one prediction to report accuracy
+					char accuracy_label[80];
+					if (!isnan(counter_accuracy) && counter_accuracy != 0.0) {
+						sprintf(accuracy_label, "%lf%%", counter_accuracy);
+					} else {
+						sprintf(accuracy_label, "%s", "NA");
+					}
+
+					enum counters_t type_counter = enabled_counters[id];
+					printf("STATS  HWCOUNTERS  SUM %s  %lf\n", counter_descriptions[type_counter].descr, counter_sum);
+					printf("STATS  HWCOUNTERS  AVG %s  %lf\n", counter_descriptions[type_counter].descr, counter_avg);
+					printf("STATS  HWCOUNTERS  STD %s  %lf\n", counter_descriptions[type_counter].descr, counter_stddev);
+					printf("STATS  HWCOUNTERS  PREDICTION ACCURACY  %s\n", accuracy_label);
+					printf("+-----------------------------+\n");
+				}
+			}
+
+			printf("\n");
+		}
 
 		head = list_next_circular(head, list);
 	} while (head != stop);

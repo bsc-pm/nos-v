@@ -170,8 +170,6 @@ int main()
 	nosv_submit(task, NOSV_SUBMIT_BLOCKING);
 	test_ok(&t, "Task unlocked from submit blocking");
 
-	nosv_submit(task, NOSV_SUBMIT_NONE);
-
 	nosv_task_type_t imm1, imm2;
 	res = nosv_type_init(&imm1, &run_immediate, NULL, &completed_imm, NULL, NULL, NOSV_TYPE_INIT_NONE, NULL);
 	assert(!res);
