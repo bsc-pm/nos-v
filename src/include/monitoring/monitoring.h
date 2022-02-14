@@ -45,6 +45,10 @@ __internal void monitoring_display_stats(void);
 //! \param[in,out] task The task
 __internal void monitoring_task_created(nosv_task_t task);
 
+//! \brief Check whether any action has to be taken when a task is submitted for execution
+//! \param[in,out] task The task
+__internal void monitoring_task_submitted(nosv_task_t task);
+
 //! \brief Initialize monitoring statistics for a newly created task type
 //! \param[in,out] type The type
 __internal void monitoring_type_created(nosv_task_type_t type);

@@ -33,34 +33,51 @@ static inline void taskmonitor_task_created(nosv_task_t task)
 
 	// Initialize attributes of the new task
 	task_stats_init(task_stats, inner_alloc_address);
-	uint64_t cost = DEFAULT_COST;
-	if (task->type->get_cost != NULL) {
-		cost = task->type->get_cost(task);
-	}
-	task_stats->cost = cost;
-
-	// Predict metrics using past data
-	tasktype_stats_t *type_stats = task->type->stats;
-
-	// Predict timing metrics
-	double time_prediction = tasktype_stats_get_timing_prediction(type_stats, cost);
-	if (time_prediction != PREDICTION_UNAVAILABLE) {
-		task_stats_set_time_prediction(task_stats, time_prediction);
-	}
-
-	// Predict hwcounter metrics
-	size_t num_counters = hwcounters_get_num_enabled_counters();
-	for (size_t i = 0; i < num_counters; ++i) {
-		double counter_prediction = tasktype_stats_get_counter_prediction(type_stats, cost, i);
-		if (counter_prediction != PREDICTION_UNAVAILABLE) {
-			task_stats_set_counter_prediction(task_stats, i, counter_prediction);
-		}
-	}
 
 	// Set the task's tasktype statistics for future references
-	task_stats->tasktypestats = type_stats;
+	task_stats->tasktypestats = task->type->stats;
 }
 
+//! \brief Check whether any action must be taken when a task is submitted
+//! \param[in,out] task The task
+static inline void taskmonitor_task_submitted(nosv_task_t task)
+{
+	assert(task != NULL);
+	assert(task->type != NULL);
+
+	task_stats_t *task_stats = task->stats;
+	assert(task_stats != NULL);
+
+	// Check whether predictions have been inferred yet
+	if (!task_stats->initialized) {
+		task_stats->initialized = true;
+
+		// Predict metrics using past data
+		tasktype_stats_t *type_stats = task_stats->tasktypestats;
+
+		// Retreive the cost of the task
+		uint64_t cost = DEFAULT_COST;
+		if (task->type->get_cost != NULL) {
+			cost = task->type->get_cost(task);
+		}
+		task_stats->cost = cost;
+
+		// Predict timing metrics
+		double time_prediction = tasktype_stats_get_timing_prediction(type_stats, cost);
+		if (time_prediction != PREDICTION_UNAVAILABLE) {
+			task_stats_set_time_prediction(task_stats, time_prediction);
+		}
+
+		// Predict hwcounter metrics
+		size_t num_counters = hwcounters_get_num_enabled_counters();
+		for (size_t i = 0; i < num_counters; ++i) {
+			double counter_prediction = tasktype_stats_get_counter_prediction(type_stats, cost, i);
+			if (counter_prediction != PREDICTION_UNAVAILABLE) {
+				task_stats_set_counter_prediction(task_stats, i, counter_prediction);
+			}
+		}
+	}
+}
 
 static inline void taskmonitor_task_started(nosv_task_t task, monitoring_status_t status)
 {
@@ -132,17 +149,17 @@ static inline void taskmonitor_statistics(void)
 
 			char type_label[80];
 			if (type->label == NULL) {
-				snprintf(type_label, 80, "%s(%zu)", "Unlabeled", num_instances);
+				sprintf(type_label, "%s(%zu)", "Unlabeled", num_instances);
 			} else {
-				snprintf(type_label, 80, "%s(%zu)", type->label, num_instances);
+				sprintf(type_label, "%s(%zu)", type->label, num_instances);
 			}
 
 			// Make sure there was at least one prediction to report accuracy
 			char accuracy_label[80];
 			if (!isnan(accuracy) && accuracy != 0.0) {
-				snprintf(accuracy_label, 80, "%lf%%", accuracy);
+				sprintf(accuracy_label, "%lf%%", accuracy);
 			} else {
-				snprintf(accuracy_label, 80, "%s", "NA");
+				sprintf(accuracy_label, "%s", "NA");
 			}
 
 			printf("STATS  MONITORING  TASKTYPE(INSTANCES)  %s\n", type_label);
@@ -167,9 +184,9 @@ static inline void taskmonitor_statistics(void)
 				// Make sure there was at least one prediction to report accuracy
 				char accuracy_label[80];
 				if (!isnan(counter_accuracy) && counter_accuracy != 0.0) {
-					snprintf(accuracy_label, 80, "%lf%%", counter_accuracy);
+					sprintf(accuracy_label, "%lf%%", counter_accuracy);
 				} else {
-					snprintf(accuracy_label, 80, "%s", "NA");
+					sprintf(accuracy_label, "%s", "NA");
 				}
 
 				enum counters_t type_counter = enabled_counters[id];

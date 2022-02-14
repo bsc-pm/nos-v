@@ -51,14 +51,21 @@ int nosv_shutdown(void)
 		return 1;
 
 	pidmanager_shutdown();
+
 	scheduler_shutdown();
-	task_type_manager_shutdown();
+
 	smem_shutdown();
 
 	// Free HW Counters after smem_shutdown, as smem_shutdown can trigger other
 	// modules' shutdowns, and these may need HWCounters (for instance Monitoring)
 	hwcounters_shutdown();
+
+	// Free the tasktype manager after HWCounters and Monitoring, as both of these
+	// need to report per-tasktype information
+	task_type_manager_shutdown();
+
 	locality_shutdown();
+
 	config_free();
 
 	library_initialized = 0;

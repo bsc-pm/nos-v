@@ -20,6 +20,8 @@ typedef struct task_stats {
 	void *tasktypestats;
 	//! The task's cost
 	uint64_t cost;
+	//! Whether the prediction-related fields have already been initialized
+	bool initialized;
 
 	//    TIMING METRICS    //
 
@@ -45,6 +47,7 @@ static inline void task_stats_init(task_stats_t *stats, void *alloc_address)
 	stats->cost = DEFAULT_COST;
 	stats->current_chrono = null_status;
 	stats->time_prediction = PREDICTION_UNAVAILABLE;
+	stats->initialized = false;
 	for (size_t i = 0; i < num_status; ++i) {
 		chrono_init(&(stats->chronos[i]));
 	}

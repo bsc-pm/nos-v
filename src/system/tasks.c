@@ -286,6 +286,7 @@ int nosv_submit(
 	}
 
 	instr_submit_enter();
+	monitoring_task_submitted(task);
 
 	nosv_worker_t *worker = worker_current();
 	if (is_blocking)

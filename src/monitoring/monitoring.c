@@ -82,6 +82,13 @@ void monitoring_task_created(nosv_task_t task)
 	}
 }
 
+void monitoring_task_submitted(nosv_task_t task)
+{
+	if (monitoring_enabled) {
+		taskmonitor_task_submitted(task);
+	}
+}
+
 void monitoring_type_created(nosv_task_type_t type)
 {
 	if (monitoring_enabled) {
