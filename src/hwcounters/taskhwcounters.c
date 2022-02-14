@@ -100,7 +100,7 @@ uint64_t *taskhwcounters_get_accumulation(task_hwcounters_t *counters)
 	return NULL;
 }
 
-size_t taskhwcounters_get_alloc_size()
+size_t taskhwcounters_get_alloc_size(void)
 {
 	// The enabled boolean
 	size_t total_size = sizeof(struct task_hwcounters);

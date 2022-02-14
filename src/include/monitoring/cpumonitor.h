@@ -10,23 +10,18 @@
 #include <stddef.h>
 
 #include "compiler.h"
-
-#include "cpustatistics.h"
+#include "cpustats.h"
 #include "memory/slab.h"
 
 
 typedef struct cpumonitor {
-	cpustatistics_t *cpu_stats;
+	cpu_stats_t *cpu_stats;
 	size_t num_cpus;
 } cpumonitor_t;
 
 //! \brief Initialize the CPU monitor
 //! \param[in,out] monitor The CPU monitor
 __internal void cpumonitor_initialize(cpumonitor_t *monitor);
-
-//! \brief Shutdown the CPU monitor
-//! \param[in,out] monitor The CPU monitor
-__internal void cpumonitor_shutdown(cpumonitor_t *monitor);
 
 //! \brief Shutdown the CPU monitor
 //! \param[in,out] monitor The CPU monitor
@@ -45,11 +40,11 @@ __internal void cpumonitor_cpu_idle(cpumonitor_t *monitor, int cpu_id);
 //! \brief Retreive the activeness of a CPU
 //! \param[in,out] monitor The CPU monitor
 //! \param[in] cpu_id The identifier of the CPU
-__internal float cpumonitor_get_activeness(cpumonitor_t *monitor, int cpu_id);
+__internal double cpumonitor_get_activeness(cpumonitor_t *monitor, int cpu_id);
 
 //! \brief Get the total amount of activeness of all CPUs
 //! \param[in,out] monitor The CPU monitor
-__internal float cpumonitor_get_total_activeness(cpumonitor_t *monitor);
+__internal double cpumonitor_get_total_activeness(cpumonitor_t *monitor);
 
 //! \brief Return the number of CPUs in the system
 //! \param[in,out] monitor The CPU monitor

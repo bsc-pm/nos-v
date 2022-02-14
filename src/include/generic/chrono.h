@@ -9,6 +9,7 @@
 
 #include <assert.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <time.h>
 
 
@@ -41,8 +42,8 @@ static inline void chrono_stop(chrono_t *timer)
 	struct timespec end;
 	clock_gettime(CLOCK_MONOTONIC, &end);
 
-	size_t end_time = (end.tv_sec * 1e9) + end.tv_nsec;
-	size_t begin_time = (timer->begin.tv_sec * 1e9) + timer->begin.tv_nsec;
+	uint64_t end_time = (end.tv_sec * 1e9) + end.tv_nsec;
+	uint64_t begin_time = (timer->begin.tv_sec * 1e9) + timer->begin.tv_nsec;
 	assert(end_time >= begin_time);
 
 	timer->elapsed += (double) ((end_time - begin_time) / (double) 1e9);

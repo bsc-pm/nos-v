@@ -54,6 +54,9 @@ int nosv_shutdown(void)
 	scheduler_shutdown();
 	task_type_manager_shutdown();
 	smem_shutdown();
+
+	// Free HW Counters after smem_shutdown, as smem_shutdown can trigger other
+	// modules' shutdowns, and these may need HWCounters (for instance Monitoring)
 	hwcounters_shutdown();
 	locality_shutdown();
 	config_free();

@@ -22,7 +22,7 @@
 __internal papi_backend_t backend;
 
 
-static void test_maximum_number_of_events()
+static void test_maximum_number_of_events(void)
 {
 	if (backend.verbose) {
 		nosv_print("\n- Testing if the requested PAPI events are compatible...");
@@ -188,7 +188,7 @@ bool papi_hwcounters_counter_enabled(enum counters_t type)
 	return (backend.id_table[type - HWC_PAPI_MIN_EVENT] != HWC_NULL_EVENT);
 }
 
-size_t papi_hwcounters_get_num_enabled_counters()
+size_t papi_hwcounters_get_num_enabled_counters(void)
 {
 	return backend.num_enabled_counters;
 }

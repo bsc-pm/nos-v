@@ -195,6 +195,14 @@ static void segment_create(void)
 		nosv_abort("Cannot release initial file lock");
 }
 
+static void segment_unregister_last(void)
+{
+	// NOTE: This is called from segment_unregister by the last process to
+	// arrive at the shutdown
+
+	monitoring_shutdown();
+}
+
 static void segment_unregister(void)
 {
 	int ret;
@@ -205,9 +213,11 @@ static void segment_unregister(void)
 
 	int cnt = --(st_config.config->count);
 	if (!cnt) {
-		// Before unmaping memory, if last process, shutdown monitoring
-		monitoring_shutdown();
+		// Before unmaping memory, if this is the last process, shutdown every
+		// module that has to be shutdown only once (by the last process)
+		segment_unregister_last();
 	}
+
 	st_config.config->processes[pid_slot_config].pid = 0;
 
 	ret = munmap(nosv_config.shm_start, nosv_config.shm_size);

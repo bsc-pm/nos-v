@@ -79,7 +79,7 @@ int nosv_type_init(
 	const char *label,
 	void *metadata,
 	nosv_flags_t flags,
-	size_t (*cost_function)(void));
+	uint64_t (*cost_function)(nosv_task_t));
 
 /* Flags */
 #define NOSV_TYPE_DESTROY_NONE __ZEROBITS

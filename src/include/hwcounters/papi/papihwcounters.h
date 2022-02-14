@@ -78,7 +78,7 @@ __internal int papi_hwcounters_get_inner_identifier(enum counters_t type);
 __internal bool papi_hwcounters_counter_enabled(enum counters_t type);
 
 //! \brief Get the number of enabled counters in the PAPI backend
-__internal size_t papi_hwcounters_get_num_enabled_counters();
+__internal size_t papi_hwcounters_get_num_enabled_counters(void);
 
 __internal void papi_hwcounters_thread_initialize(papi_threadhwcounters_t *thread_counters);
 

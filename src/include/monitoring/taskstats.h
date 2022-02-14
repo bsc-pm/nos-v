@@ -4,30 +4,29 @@
 	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
 */
 
-#ifndef TASKSTATISTICS_H
-#define TASKSTATISTICS_H
+#ifndef TASKSTATS_H
+#define TASKSTATS_H
 
 #include <stdbool.h>
 
 #include "compiler.h"
-
 #include "monitoringsupport.h"
 #include "generic/chrono.h"
 #include "hwcounters/hwcounters.h"
 
 
-typedef struct taskstatistics {
+typedef struct task_stats {
 	//! A pointer to the accumulated statistics of this task's tasktype
 	void *tasktypestats;
 	//! The task's cost
-	size_t cost;
+	uint64_t cost;
 
 	//    TIMING METRICS    //
 
 	//! Array of stopwatches to monitor timing for the task in each status
 	chrono_t chronos[num_status];
 	//! Id of the currently active stopwatch (status)
-	enum monitoring_status_t current_chrono;
+	monitoring_status_t current_chrono;
 	//! The predicted elapsed execution time of the task
 	double time_prediction;
 
@@ -37,10 +36,10 @@ typedef struct taskstatistics {
 	//! NOTE: Predictions of HWCounters must be doubles due to being computed
 	//! using normalized values and products
 	double *counter_predictions;
-} taskstatistics_t;
+} task_stats_t;
 
 //! \brief Initialize task statistics
-static inline void taskstatistics_init(taskstatistics_t *stats, void *alloc_address)
+static inline void task_stats_init(task_stats_t *stats, void *alloc_address)
 {
 	stats->tasktypestats = NULL;
 	stats->cost = DEFAULT_COST;
@@ -57,40 +56,39 @@ static inline void taskstatistics_init(taskstatistics_t *stats, void *alloc_addr
 	for (size_t i = 0; i < num_counters; ++i) {
 		stats->counter_predictions[i] = PREDICTION_UNAVAILABLE;
 	}
-
 }
 
-static inline bool taskstatistics_has_time_prediction(taskstatistics_t *stats)
+static inline bool task_stats_has_time_prediction(task_stats_t *stats)
 {
 	assert(stats != NULL);
-	return (bool) (stats->time_prediction != PREDICTION_UNAVAILABLE);
+	return (stats->time_prediction != PREDICTION_UNAVAILABLE);
 }
 
-static inline void taskstatistics_set_time_prediction(taskstatistics_t *stats, double prediction)
+static inline void task_stats_set_time_prediction(task_stats_t *stats, double prediction)
 {
 	assert(stats != NULL);
 	stats->time_prediction = prediction;
 }
 
-static inline double taskstatistics_get_time_prediction(taskstatistics_t *stats)
+static inline double task_stats_get_time_prediction(task_stats_t *stats)
 {
 	assert(stats != NULL);
 	return stats->time_prediction;
 }
 
-static inline bool taskstatistics_has_counter_prediction(taskstatistics_t *stats, size_t counter_id)
+static inline bool task_stats_has_counter_prediction(task_stats_t *stats, size_t counter_id)
 {
 	assert(stats != NULL);
-	return (bool) (stats->counter_predictions[counter_id] != PREDICTION_UNAVAILABLE);
+	return (stats->counter_predictions[counter_id] != PREDICTION_UNAVAILABLE);
 }
 
-static inline void taskstatistics_set_counter_prediction(taskstatistics_t *stats, double prediction, size_t counter_id)
+static inline void task_stats_set_counter_prediction(task_stats_t *stats, size_t counter_id, double prediction)
 {
 	assert(stats != NULL);
 	stats->counter_predictions[counter_id] = prediction;
 }
 
-static inline double taskstatistics_get_counter_prediction(taskstatistics_t *stats, size_t counter_id)
+static inline double task_stats_get_counter_prediction(task_stats_t *stats, size_t counter_id)
 {
 	assert(stats != NULL);
 	return stats->counter_predictions[counter_id];
@@ -102,14 +100,14 @@ static inline double taskstatistics_get_counter_prediction(taskstatistics_t *sta
 //! \brief Start/resume a chrono. If resumed, the active chrono must pause
 //! \param[in] id the timing status of the stopwatch to start/resume
 //! \return The previous timing status of the task
-static inline enum monitoring_status_t taskstatistics_start_timing(
-	taskstatistics_t *stats, enum monitoring_status_t id
+static inline monitoring_status_t task_stats_start_timing(
+	task_stats_t *stats, monitoring_status_t id
 ) {
 	assert(stats != NULL);
 	assert(id < num_status);
 
 	// Change the current timing status
-	const enum monitoring_status_t old_id = stats->current_chrono;
+	const monitoring_status_t old_id = stats->current_chrono;
 	stats->current_chrono = id;
 
 	// Resume the next chrono
@@ -124,11 +122,11 @@ static inline enum monitoring_status_t taskstatistics_start_timing(
 
 //! \brief Stop/pause a chrono
 //! \return The previous timing status of the task
-static inline enum monitoring_status_t taskstatistics_stop_timing(taskstatistics_t *stats)
+static inline monitoring_status_t task_stats_stop_timing(task_stats_t *stats)
 {
 	assert(stats != NULL);
 
-	const enum monitoring_status_t oldid = stats->current_chrono;
+	const monitoring_status_t oldid = stats->current_chrono;
 	if (oldid != null_status) {
 		chrono_stop(&(stats->chronos[oldid]));
 	}
@@ -138,7 +136,7 @@ static inline enum monitoring_status_t taskstatistics_stop_timing(taskstatistics
 }
 
 //! \brief Get the elapsed execution time of the task
-static inline double taskstatistics_get_elapsed_time(taskstatistics_t *stats)
+static inline double task_stats_get_elapsed_time(task_stats_t *stats)
 {
 	assert(stats != NULL);
 
@@ -147,9 +145,9 @@ static inline double taskstatistics_get_elapsed_time(taskstatistics_t *stats)
 }
 
 //! \brief Retreive the size needed to allocate dynamic structures
-static inline size_t taskstatistics_get_allocation_size()
+static inline size_t task_stats_get_allocation_size(void)
 {
 	return (hwcounters_get_num_enabled_counters() * sizeof(double));
 }
 
-#endif // TASKSTATISTICS_H
+#endif // TASKSTATS_H

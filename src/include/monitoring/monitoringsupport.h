@@ -10,7 +10,7 @@
 #define DEFAULT_COST 1
 #define PREDICTION_UNAVAILABLE -1.0
 
-enum monitoring_status_t {
+typedef enum monitoring_status {
 	// The task is ready to be executed
 	ready_status = 0,
 	// The task is being executed
@@ -19,6 +19,6 @@ enum monitoring_status_t {
 	paused_status,
 	num_status,
 	null_status = -1
-};
+} monitoring_status_t;
 
 #endif // MONITORINGSUPPORT_H

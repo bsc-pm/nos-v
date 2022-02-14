@@ -4,10 +4,10 @@
 	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
 */
 
-#include "monitoring/cpustatistics.h"
+#include "monitoring/cpustats.h"
 
 
-void cpustatistics_init(cpustatistics_t *cpu_stats)
+void cpu_stats_init(cpu_stats_t *cpu_stats)
 {
 	assert(cpu_stats != NULL);
 
@@ -16,25 +16,27 @@ void cpustatistics_init(cpustatistics_t *cpu_stats)
 	chrono_start(&(cpu_stats->chronos[idle_status]));
 }
 
-void cpustatistics_active(cpustatistics_t *cpu_stats)
+void cpu_stats_active(cpu_stats_t *cpu_stats)
 {
 	assert(cpu_stats != NULL);
+	assert(cpu_stats->current_status != active_status);
 
 	chrono_stop(&(cpu_stats->chronos[cpu_stats->current_status]));
 	cpu_stats->current_status = active_status;
 	chrono_start(&(cpu_stats->chronos[cpu_stats->current_status]));
 }
 
-void cpustatistics_idle(cpustatistics_t *cpu_stats)
+void cpu_stats_idle(cpu_stats_t *cpu_stats)
 {
 	assert(cpu_stats != NULL);
+	assert(cpu_stats->current_status != idle_status);
 
 	chrono_stop(&(cpu_stats->chronos[cpu_stats->current_status]));
 	cpu_stats->current_status = idle_status;
 	chrono_start(&(cpu_stats->chronos[cpu_stats->current_status]));
 }
 
-float cpustatistics_get_activeness(cpustatistics_t *cpu_stats)
+double cpu_stats_get_activeness(cpu_stats_t *cpu_stats)
 {
 	assert(cpu_stats != NULL);
 

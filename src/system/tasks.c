@@ -63,7 +63,7 @@ int nosv_type_init(
 	const char *label,
 	void *metadata,
 	nosv_flags_t flags,
-	size_t (*cost_function)(void))
+	uint64_t (*cost_function)(nosv_task_t))
 {
 	if (unlikely(!type))
 		return -EINVAL;
@@ -89,7 +89,7 @@ int nosv_type_init(
 	res->get_cost = cost_function;
 
 	// Monitoring type statistics are right after the type's memory
-	res->stats = (tasktypestatistics_t *) (((char *) res) + sizeof(struct nosv_task_type));
+	res->stats = (tasktype_stats_t *) (((char *) res) + sizeof(struct nosv_task_type));
 
 	if (label) {
 		res->label = strndup(label, LABEL_MAX_CHAR - 1);
@@ -147,7 +147,7 @@ int nosv_type_destroy(
 	if (type->label)
 		free((void *)type->label);
 
-	sfree(type, sizeof(struct nosv_task_type) + sizeof(tasktypestatistics_t), cpu_get_current());
+	sfree(type, sizeof(struct nosv_task_type) + monitoring_get_tasktype_size(), cpu_get_current());
 	return 0;
 }
 
@@ -180,7 +180,7 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	res->wakeup = NULL;
 	res->taskid = atomic_fetch_add_explicit(&taskid_counter, 1, memory_order_relaxed);
 	res->counters = (task_hwcounters_t *) (((char *) res) + sizeof(struct nosv_task) + metadata_size);
-	res->stats = (taskstatistics_t *) (((char *) res) + sizeof(struct nosv_task) + metadata_size + hwcounters_get_task_size());
+	res->stats = (task_stats_t *) (((char *) res) + sizeof(struct nosv_task) + metadata_size + hwcounters_get_task_size());
 
 	// Initialize hardware counters and monitoring for the task
 	hwcounters_task_created(res, /* enabled */ 1);
@@ -440,7 +440,7 @@ int nosv_yield(
 
 	// Thread is gonna yield, read and accumulate hardware counters for the task
 	hwcounters_update_task_counters(task);
-	monitoring_task_changed_status(task, paused_status);
+	monitoring_task_changed_status(task, ready_status);
 
 	instr_task_pause((uint32_t)task->taskid);
 	instr_yield_enter();
@@ -478,7 +478,7 @@ int nosv_schedpoint(
 
 	// Thread is gonna yield, read and accumulate hardware counters for the task
 	hwcounters_update_task_counters(task);
-	monitoring_task_changed_status(task, paused_status);
+	monitoring_task_changed_status(task, ready_status);
 
 	instr_task_pause((uint32_t)task->taskid);
 	instr_schedpoint_enter();
@@ -531,7 +531,7 @@ int nosv_destroy(
 static inline void task_complete(nosv_task_t task)
 {
 	// Entry point - A task has just completed its execution
-	monitoring_task_finished(task);
+	monitoring_task_completed(task);
 
 	nosv_task_t wakeup = task->wakeup;
 	task->wakeup = NULL;
@@ -612,11 +612,19 @@ int nosv_decrease_event_counter(
 	if (!decrement)
 		return -EINVAL;
 
+	// If a task is in here, make sure this is not accounted as executing
+	nosv_task_t current = worker_current_task();
+	if (current)
+		monitoring_task_changed_status(current, paused_status);
+
 	uint64_t r = atomic_fetch_sub_explicit(&task->event_count, decrement, memory_order_relaxed) - 1;
 
 	if (!r) {
 		task_complete(task);
 	}
+
+	if (current)
+		monitoring_task_changed_status(current, executing_status);
 
 	return 0;
 }
@@ -709,7 +717,7 @@ int nosv_detach(
 
 	// Task just completed, read and accumulate hardware counters for the task
 	hwcounters_update_task_counters(worker->task);
-	monitoring_task_finished(worker->task);
+	monitoring_task_completed(worker->task);
 
 	instr_task_end((uint32_t)worker->task->taskid);
 

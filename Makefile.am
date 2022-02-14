@@ -49,7 +49,7 @@ libnosv_la_SOURCES = \
 	src/memory/slab.c \
 	src/memory/sharedmemory.c \
 	src/monitoring/cpumonitor.c \
-	src/monitoring/cpustatistics.c \
+	src/monitoring/cpustats.c \
 	src/monitoring/monitoring.c \
 	src/scheduler/scheduler.c \
 	src/system/tasks.c
@@ -103,6 +103,13 @@ noinst_HEADERS = \
 	src/include/memory/backbone.h \
 	src/include/memory/sharedmemory.h \
 	src/include/memory/slab.h \
+	src/include/monitoring/cpumonitor.h \
+	src/include/monitoring/cpustats.h \
+	src/include/monitoring/monitoring.h \
+	src/include/monitoring/monitoringsupport.h \
+	src/include/monitoring/taskmonitor.h \
+	src/include/monitoring/taskstats.h \
+	src/include/monitoring/tasktypestats.h \
 	src/include/scheduler/dtlock.h \
 	src/include/scheduler/mpsc.h \
 	src/include/scheduler/scheduler.h \

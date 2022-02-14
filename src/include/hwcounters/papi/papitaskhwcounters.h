@@ -33,6 +33,6 @@ __internal uint64_t papi_taskhwcounters_get_accumulated(papi_taskhwcounters_t *c
 __internal uint64_t *papi_taskhwcounters_get_accumulation(papi_taskhwcounters_t *counters);
 
 // Retreive the size needed for hardware counters
-__internal size_t papi_taskhwcounters_get_alloc_size();
+__internal size_t papi_taskhwcounters_get_alloc_size(void);
 
 #endif // PAPITASKHWCOUNTERS_H

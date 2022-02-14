@@ -89,10 +89,31 @@ void completed(nosv_task_t task)
 		nosv_submit(task_attach, NOSV_SUBMIT_UNLOCKED);
 }
 
+void run_cost(nosv_task_t task)
+{
+	nosv_waitfor(100000ULL, NULL);
+}
+
+void completed_cost(nosv_task_t task)
+{
+	test_ok(&t, "Completed cost task");
+
+	nosv_destroy(task, NOSV_DESTROY_NONE);
+
+	int r = atomic_fetch_sub_explicit(&tasks_run, 1, memory_order_relaxed) - 1;
+	if (!r)
+		nosv_submit(task_attach, NOSV_SUBMIT_UNLOCKED);
+}
+
+uint64_t cost_function(nosv_task_t task)
+{
+	return 42;
+}
+
 int main()
 {
-	test_init(&t, 4);
-	atomic_init(&tasks_run, 104);
+	test_init(&t, 5);
+	atomic_init(&tasks_run, 105);
 
 	nosv_init();
 
@@ -149,6 +170,8 @@ int main()
 	nosv_submit(task, NOSV_SUBMIT_BLOCKING);
 	test_ok(&t, "Task unlocked from submit blocking");
 
+	nosv_submit(task, NOSV_SUBMIT_NONE);
+
 	nosv_task_type_t imm1, imm2;
 	res = nosv_type_init(&imm1, &run_immediate, NULL, &completed_imm, NULL, NULL, NOSV_TYPE_INIT_NONE, NULL);
 	assert(!res);
@@ -158,6 +181,16 @@ int main()
 	res = nosv_create(&task, imm1, 0, NOSV_CREATE_NONE);
 	assert(!res);
 	res = nosv_create(&task_immediate, imm2, 0, NOSV_CREATE_NONE);
+	assert(!res);
+
+	nosv_submit(task, NOSV_SUBMIT_NONE);
+
+	// Simple cost test
+	nosv_task_type_t cost_type;
+	res = nosv_type_init(&cost_type, &run_cost, NULL, &completed_cost, NULL, NULL, NOSV_TYPE_INIT_NONE, cost_function);
+	assert(!res);
+
+	res = nosv_create(&task, cost_type, 0, NOSV_CREATE_NONE);
 	assert(!res);
 
 	nosv_submit(task, NOSV_SUBMIT_NONE);
@@ -172,6 +205,7 @@ int main()
 	nosv_type_destroy(adopted_type, NOSV_TYPE_DESTROY_NONE);
 	nosv_type_destroy(type, NOSV_TYPE_DESTROY_NONE);
 	nosv_type_destroy(deadline_type, NOSV_TYPE_DESTROY_NONE);
+	nosv_type_destroy(cost_type, NOSV_TYPE_DESTROY_NONE);
 	nosv_type_destroy(imm1, NOSV_TYPE_DESTROY_NONE);
 	nosv_type_destroy(imm2, NOSV_TYPE_DESTROY_NONE);
 

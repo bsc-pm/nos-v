@@ -28,26 +28,25 @@ void monitoring_init(bool initialize)
 		return;
 	}
 
-	// Allocate the monitoring manager
-	monitor = (monitoring_manager_t *) salloc(sizeof(monitoring_manager_t), -1);
-	st_config.config->monitoring_ptr = monitor;
-	assert(monitor != NULL);
-
-	// Allocate the CPU monitor
-	monitor->cpumonitor = (cpumonitor_t *) salloc(sizeof(cpumonitor_t), -1);
-	assert(monitor->cpumonitor != NULL);
-
-	// Initialize the CPU monitor
-	cpumonitor_initialize(monitor->cpumonitor);
-
-	// Check if verbosity is enabled
-	monitor->verbose = 0;
 	if (monitoring_enabled) {
+		// Allocate the monitoring manager
+		monitor = (monitoring_manager_t *) salloc(sizeof(monitoring_manager_t), -1);
+		st_config.config->monitoring_ptr = monitor;
+		assert(monitor != NULL);
+
+		// Allocate the CPU monitor
+		monitor->cpumonitor = (cpumonitor_t *) salloc(sizeof(cpumonitor_t), -1);
+		assert(monitor->cpumonitor != NULL);
+
+		// Initialize the CPU monitor
+		cpumonitor_initialize(monitor->cpumonitor);
+
+		// Check if verbosity is enabled
 		monitor->verbose = nosv_config.monitoring_verbose;
 	}
 }
 
-void monitoring_shutdown()
+void monitoring_shutdown(void)
 {
 	if (monitoring_enabled) {
 		monitoring_display_stats();
@@ -59,12 +58,12 @@ void monitoring_shutdown()
 	}
 }
 
-bool monitoring_is_enabled()
+bool monitoring_is_enabled(void)
 {
 	return monitoring_enabled;
 }
 
-void monitoring_display_stats()
+void monitoring_display_stats(void)
 {
 	assert(monitoring_enabled);
 	assert(monitor != NULL);
@@ -88,11 +87,12 @@ void monitoring_type_created(nosv_task_type_t type)
 	if (monitoring_enabled) {
 		assert(type != NULL);
 
-		tasktypestatistics_init(type->stats);
+		void *alloc_address = (char *) type->stats + sizeof(tasktype_stats_t);
+		tasktype_stats_init(type->stats, alloc_address);
 	}
 }
 
-void monitoring_task_changed_status(nosv_task_t task, enum monitoring_status_t status)
+void monitoring_task_changed_status(nosv_task_t task, monitoring_status_t status)
 {
 	if (monitoring_enabled) {
 		// Start timing for the appropriate stopwatch
@@ -100,27 +100,27 @@ void monitoring_task_changed_status(nosv_task_t task, enum monitoring_status_t s
 	}
 }
 
-void monitoring_task_finished(nosv_task_t task)
+void monitoring_task_completed(nosv_task_t task)
 {
 	if (monitoring_enabled) {
 		// Mark task as completely executed
-		taskmonitor_task_finished(task);
+		taskmonitor_task_completed(task);
 	}
 }
 
-size_t monitoring_get_task_size()
+size_t monitoring_get_task_size(void)
 {
 	if (monitoring_enabled) {
-		return sizeof(taskstatistics_t) + taskstatistics_get_allocation_size();
+		return sizeof(task_stats_t) + task_stats_get_allocation_size();
 	} else {
 		return 0;
 	}
 }
 
-size_t monitoring_get_tasktype_size()
+size_t monitoring_get_tasktype_size(void)
 {
 	if (monitoring_enabled) {
-		return sizeof(tasktypestatistics_t) + tasktypestatistics_get_allocation_size();
+		return sizeof(tasktype_stats_t) + tasktype_stats_get_allocation_size();
 	} else {
 		return 0;
 	}
