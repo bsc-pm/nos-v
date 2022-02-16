@@ -46,16 +46,6 @@ int nosv_init(void)
 	return 0;
 }
 
-int nosv_report(void)
-{
-	// Report statistics from modules that do
-	if (library_initialized != 1)
-		return 1;
-
-	monitoring_display_stats();
-	return 0;
-}
-
 int nosv_shutdown(void)
 {
 	if (library_initialized != 1)
@@ -63,6 +53,10 @@ int nosv_shutdown(void)
 
 	pidmanager_shutdown();
 	scheduler_shutdown();
+
+	// Display reports of statistics before deleting task types
+	monitoring_display_stats();
+
 	task_type_manager_shutdown();
 	smem_shutdown();
 

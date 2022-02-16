@@ -51,6 +51,22 @@ void task_type_manager_shutdown()
 {
 	// Destroy the spinlock and the manager
 	nosv_spin_destroy(&task_type_manager->lock);
+
+	list_head_t *list = task_type_manager_get_list();
+	list_head_t *head = list_front(list);
+	list_head_t *stop = head;
+	do {
+		nosv_task_type_t type = list_elem(head, struct nosv_task_type, list_hook);
+		if (type != NULL) {
+			if (type->label)
+				free((void *)type->label);
+
+			sfree(type, sizeof(struct nosv_task_type) + monitoring_get_tasktype_size(), cpu_get_current());
+		}
+
+		head = list_next_circular(head, list);
+	} while (head != stop);
+
 	free(task_type_manager);
 }
 
@@ -144,10 +160,8 @@ int nosv_type_destroy(
 	nosv_task_type_t type,
 	nosv_flags_t flags)
 {
-	if (type->label)
-		free((void *)type->label);
-
-	sfree(type, sizeof(struct nosv_task_type) + monitoring_get_tasktype_size(), cpu_get_current());
+	// Empty, used for API completeness. Types are destroyed in
+	// task_type_manager_shutdown
 	return 0;
 }
 
