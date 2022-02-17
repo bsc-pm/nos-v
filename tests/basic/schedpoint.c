@@ -59,7 +59,7 @@ int main() {
 	nosv_init();
 
 	nosv_task_type_t task_type;
-	nosv_type_init(&task_type, task_run, NULL, task_comp, "task", NULL, NOSV_TYPE_INIT_NONE, NULL);
+	nosv_type_init(&task_type, task_run, NULL, task_comp, "task", NULL, NULL, NOSV_TYPE_INIT_NONE);
 
 	for (int t = 0; t < NTASKS; ++t)
 		nosv_create(&tasks[t], task_type, 0, NOSV_CREATE_NONE);

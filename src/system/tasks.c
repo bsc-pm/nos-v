@@ -78,8 +78,8 @@ int nosv_type_init(
 	nosv_task_completed_callback_t completed_callback,
 	const char *label,
 	void *metadata,
-	nosv_flags_t flags,
-	uint64_t (*cost_function)(nosv_task_t))
+	nosv_cost_function_t cost_function,
+	nosv_flags_t flags)
 {
 	if (unlikely(!type))
 		return -EINVAL;

@@ -42,7 +42,7 @@ int main()
 
 	nosv_init();
 
-	nosv_type_init(&type, NULL, NULL, NULL, "main", NULL, NOSV_TYPE_INIT_EXTERNAL, NULL);
+	nosv_type_init(&type, NULL, NULL, NULL, "main", NULL, NULL, NOSV_TYPE_INIT_EXTERNAL);
 
 	pthread_t external_thread;
 	pthread_create(&external_thread, NULL, &start_routine, NULL);
