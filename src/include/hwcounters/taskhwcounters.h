@@ -47,6 +47,6 @@ __internal uint64_t taskhwcounters_get_accumulated(task_hwcounters_t *counters, 
 __internal uint64_t *taskhwcounters_get_accumulation(task_hwcounters_t *counters);
 
 // Get the size needed to construct all the structures for all backends
-__internal size_t taskhwcounters_get_alloc_size();
+__internal size_t taskhwcounters_get_alloc_size(void);
 
 #endif // TASKHWCOUNTERS_H

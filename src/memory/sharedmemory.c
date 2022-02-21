@@ -22,6 +22,7 @@
 #include "memory/sharedmemory.h"
 #include "memory/backbone.h"
 #include "memory/slab.h"
+#include "monitoring/monitoring.h"
 #include "scheduler/scheduler.h"
 
 // Fix for older kernels
@@ -54,6 +55,7 @@ static void smem_config_initialize(smem_config_t *config)
 	config->cpumanager_ptr = NULL;
 	config->scheduler_ptr = NULL;
 	config->pidmanager_ptr = NULL;
+	config->monitoring_ptr = NULL;
 	nosv_mutex_init(&config->mutex);
 	config->count = 0;
 	memset(config->per_pid_structures, 0, MAX_PIDS * sizeof(void *));
@@ -69,6 +71,7 @@ static void smem_initialize_first(void)
 	cpus_init(1);
 	pidmanager_init(1);
 	scheduler_init(1);
+	monitoring_init(1);
 }
 
 // Bootstrap for the rest of processes
@@ -91,6 +94,7 @@ static void smem_initialize_rest(void)
 	cpus_init(0);
 	pidmanager_init(0);
 	scheduler_init(0);
+	monitoring_init(0);
 }
 
 static inline int check_processes_correct(void)
@@ -191,6 +195,14 @@ static void segment_create(void)
 		nosv_abort("Cannot release initial file lock");
 }
 
+static void segment_unregister_last(void)
+{
+	// NOTE: This is called from segment_unregister by the last process to
+	// arrive at the shutdown
+
+	monitoring_shutdown();
+}
+
 static void segment_unregister(void)
 {
 	int ret;
@@ -200,6 +212,12 @@ static void segment_unregister(void)
 		nosv_abort("Cannot grab unregister file lock");
 
 	int cnt = --(st_config.config->count);
+	if (!cnt) {
+		// Before unmaping memory, if this is the last process, shutdown every
+		// module that has to be shutdown only once (by the last process)
+		segment_unregister_last();
+	}
+
 	st_config.config->processes[pid_slot_config].pid = 0;
 
 	ret = munmap(nosv_config.shm_start, nosv_config.shm_size);

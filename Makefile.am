@@ -19,7 +19,7 @@ lib_suffix = $(lib_major).$(lib_age).$(lib_revision)
 
 libnosv_la_CPPFLAGS=$(AM_CPPFLAGS) $(ovni_CPPFLAGS) -DINSTALLED_CONFIG_DIR=\"$(datadir)\" $(asan_CPPFLAGS)
 libnosv_la_CFLAGS=$(PTHREAD_CFLAGS) $(libnuma_CFLAGS) $(nosv_CFLAGS) $(asan_CFLAGS)
-libnosv_la_LDFLAGS=$(PTHREAD_CFLAGS) $(PTHREAD_LIBS) $(libnuma_LIBS) $(ovni_LIBS) $(shm_LIBS) $(asan_LDFLAGS)
+libnosv_la_LDFLAGS=$(PTHREAD_CFLAGS) $(PTHREAD_LIBS) $(libnuma_LIBS) $(ovni_LIBS) $(shm_LIBS) $(asan_LDFLAGS) -lm
 
 # Hardware counters
 if HAVE_PAPI
@@ -48,6 +48,9 @@ libnosv_la_SOURCES = \
 	src/memory/backbone.c \
 	src/memory/slab.c \
 	src/memory/sharedmemory.c \
+	src/monitoring/cpumonitor.c \
+	src/monitoring/cpustats.c \
+	src/monitoring/monitoring.c \
 	src/scheduler/scheduler.c \
 	src/system/tasks.c
 
@@ -100,6 +103,13 @@ noinst_HEADERS = \
 	src/include/memory/backbone.h \
 	src/include/memory/sharedmemory.h \
 	src/include/memory/slab.h \
+	src/include/monitoring/cpumonitor.h \
+	src/include/monitoring/cpustats.h \
+	src/include/monitoring/monitoring.h \
+	src/include/monitoring/monitoringsupport.h \
+	src/include/monitoring/taskmonitor.h \
+	src/include/monitoring/taskstats.h \
+	src/include/monitoring/tasktypestats.h \
 	src/include/scheduler/dtlock.h \
 	src/include/scheduler/mpsc.h \
 	src/include/scheduler/scheduler.h \

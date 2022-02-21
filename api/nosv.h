@@ -39,6 +39,7 @@ typedef struct nosv_affinity nosv_affinity_t;
 typedef void (*nosv_task_run_callback_t)(nosv_task_t);
 typedef void (*nosv_task_end_callback_t)(nosv_task_t);
 typedef void (*nosv_task_completed_callback_t)(nosv_task_t);
+typedef uint64_t (*nosv_cost_function_t)(nosv_task_t);
 
 /* Read-only task attributes */
 /* Returns a pointer to the metadata or NULL if nothing was allocated */
@@ -78,6 +79,7 @@ int nosv_type_init(
 	nosv_task_completed_callback_t completed_callback,
 	const char *label,
 	void *metadata,
+	nosv_cost_function_t cost_function,
 	nosv_flags_t flags);
 
 /* Flags */

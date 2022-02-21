@@ -19,6 +19,8 @@ typedef atomic_uint_fast32_t atomic_uint32_t;
 typedef uint64_t deadline_t;
 typedef size_t yield_t;
 typedef struct task_hwcounters task_hwcounters_t;
+typedef struct tasktype_stats tasktype_stats_t;
+typedef struct task_stats task_stats_t;
 
 struct nosv_task_type {
 	nosv_task_run_callback_t run_callback;
@@ -28,6 +30,9 @@ struct nosv_task_type {
 	const char *label;
 	int pid;
 	uint32_t typeid;
+	uint64_t (*get_cost)(nosv_task_t);
+	tasktype_stats_t *stats;
+	list_head_t list_hook;
 };
 
 struct nosv_task {
@@ -54,6 +59,9 @@ struct nosv_task {
 
 	// Hardware counters
 	task_hwcounters_t *counters;
+
+	// Monitoring statistics
+	task_stats_t *stats;
 };
 
 #endif // NOSV_INTERNAL_H

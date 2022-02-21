@@ -26,7 +26,7 @@
 __internal hwcounters_backend_t hwcbackend;
 
 
-void load_configuration()
+void load_configuration(void)
 {
 	// Check which backend is enabled
 	const char *hwcounters_envvar = nosv_config.hwcounters_backend;
@@ -63,7 +63,7 @@ void load_configuration()
 }
 
 //! \brief Check if multiple backends and/or other modules are enabled and incompatible
-__internal void check_incompatibilities()
+__internal void check_incompatibilities(void)
 {
 	// TODO: When Instrumentation is implemented
 	// If extrae is enabled, disable PAPI to avoid hardware counter collisions
@@ -75,7 +75,7 @@ __internal void check_incompatibilities()
 // #endif
 }
 
-void hwcounters_initialize()
+void hwcounters_initialize(void)
 {
 	// Initialize default values
 	hwcbackend.verbose = 0;
@@ -125,7 +125,7 @@ void hwcounters_initialize()
 	}
 }
 
-void hwcounters_shutdown()
+void hwcounters_shutdown(void)
 {
 	if (hwcbackend.any_backend_enabled) {
 		assert(hwcbackend.enabled_counters);
@@ -140,7 +140,7 @@ void hwcounters_shutdown()
 	hwcbackend.any_backend_enabled = 0;
 }
 
-bool hwcounters_enabled()
+bool hwcounters_enabled(void)
 {
 	return hwcbackend.any_backend_enabled;
 }
@@ -150,17 +150,17 @@ bool hwcounters_backend_enabled(enum backends_t backend)
 	return hwcbackend.enabled[backend];
 }
 
-const bool *hwcounters_get_status_counters()
+const bool *hwcounters_get_status_counters(void)
 {
 	return hwcbackend.status_counters;
 }
 
-const enum counters_t *hwcounters_get_enabled_counters()
+const enum counters_t *hwcounters_get_enabled_counters(void)
 {
 	return hwcbackend.enabled_counters;
 }
 
-size_t hwcounters_get_num_enabled_counters()
+size_t hwcounters_get_num_enabled_counters(void)
 {
 	return hwcbackend.num_enabled_counters;
 }
@@ -218,7 +218,7 @@ void hwcounters_update_task_counters(nosv_task_t task)
 	}
 }
 
-void hwcounters_update_runtime_counters()
+void hwcounters_update_runtime_counters(void)
 {
 	if (hwcbackend.any_backend_enabled) {
 		nosv_worker_t *thread = worker_current();
@@ -242,7 +242,7 @@ void hwcounters_update_runtime_counters()
 	}
 }
 
-size_t hwcounters_get_task_size()
+size_t hwcounters_get_task_size(void)
 {
 	return (hwcbackend.any_backend_enabled) ? taskhwcounters_get_alloc_size() : 0;
 }

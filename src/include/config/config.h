@@ -7,6 +7,8 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include <stdint.h>
+
 #include "compiler.h"
 
 __internal void config_parse(void);
@@ -49,6 +51,10 @@ typedef struct rt_config {
 
 	// Turbo
 	int turbo_enabled;
+
+	// Monitoring
+	int monitoring_enabled;
+	int monitoring_verbose;
 } rt_config_t;
 
 __internal extern rt_config_t nosv_config;

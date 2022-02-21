@@ -78,7 +78,7 @@ uint64_t *papi_taskhwcounters_get_accumulation(papi_taskhwcounters_t *counters)
 	return (uint64_t *) counters->accumulated;
 }
 
-size_t papi_taskhwcounters_get_alloc_size()
+size_t papi_taskhwcounters_get_alloc_size(void)
 {
 	return papi_hwcounters_get_num_enabled_counters() * 2 * sizeof(long long);
 }

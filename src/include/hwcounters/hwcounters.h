@@ -35,37 +35,37 @@ typedef struct hwcounters_backend {
 
 
 // Load backends and counter configuration
-__internal void load_configuration();
+__internal void load_configuration(void);
 
 // Check if multiple backends and/or other modules are enabled and incompatible
-__internal void check_incompatibilities();
+__internal void check_incompatibilities(void);
 
 // Initialize the hardware counters API
-__internal void hwcounters_initialize();
+__internal void hwcounters_initialize(void);
 
 // Shutdown the hardware counters API
-__internal void hwcounters_shutdown();
+__internal void hwcounters_shutdown(void);
 
 // Check whether any backend is enabled
-__internal bool hwcounters_enabled();
+__internal bool hwcounters_enabled(void);
 
 // Check whether a backend is enabled
 __internal bool hwcounters_backend_enabled(enum backends_t backend);
 
 // Get an array which tells whether each counter is enabled
-__internal const bool *hwcounters_get_status_counters();
+__internal const bool *hwcounters_get_status_counters(void);
 
 // Get an array of enabled counter types
 __internal const enum counters_t *hwcounters_get_enabled_counters();
 
 // Get the number of supported and enabled counters
-__internal size_t hwcounters_get_num_enabled_counters();
+__internal size_t hwcounters_get_num_enabled_counters(void);
 
 // Initialize hardware counter structures for a new thread
 __internal void hwcounters_thread_initialize(nosv_worker_t *thread);
 
 // Destroy the hardware counter structures of a thread
-__internal void hwcounters_thread_shutdown();
+__internal void hwcounters_thread_shutdown(nosv_worker_t *thread);
 
 // Initialize hardware counter structures for a task
 __internal void hwcounters_task_created(nosv_task_t task, bool enabled);
@@ -74,9 +74,9 @@ __internal void hwcounters_task_created(nosv_task_t task, bool enabled);
 __internal void hwcounters_update_task_counters(nosv_task_t task);
 
 // Read and update hardware counters for the runtime (current CPU)
-__internal void hwcounters_update_runtime_counters();
+__internal void hwcounters_update_runtime_counters(void);
 
 // Get the size needed to allocate task hardware counters
-__internal size_t hwcounters_get_task_size();
+__internal size_t hwcounters_get_task_size(void);
 
 #endif // HWCOUNTERS_H

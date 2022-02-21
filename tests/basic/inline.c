@@ -33,7 +33,7 @@ int main() {
 	nosv_init();
 
 	nosv_task_type_t ext;
-	int res = nosv_type_init(&ext, NULL, NULL, NULL, NULL, NULL, NOSV_TYPE_INIT_EXTERNAL);
+	int res = nosv_type_init(&ext, NULL, NULL, NULL, NULL, NULL, NULL, NOSV_TYPE_INIT_EXTERNAL);
 	assert(!res);
 
 	nosv_task_t ext_task;
@@ -41,7 +41,7 @@ int main() {
 	assert(!res);
 
 	nosv_task_type_t worker;
-	res = nosv_type_init(&worker, worker_run, NULL, worker_comp, "worker", NULL, NOSV_TYPE_INIT_NONE);
+	res = nosv_type_init(&worker, worker_run, NULL, worker_comp, "worker", NULL, NULL, NOSV_TYPE_INIT_NONE);
 	assert(!res);
 	nosv_task_t worker_task;
 	nosv_create(&worker_task, worker, 0, NOSV_CREATE_NONE);
