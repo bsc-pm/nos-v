@@ -9,7 +9,6 @@
 
 #include <assert.h>
 #include <sched.h>
-#include <stdbool.h>
 
 #include "compiler.h"
 #include "nosv.h"
@@ -22,7 +21,6 @@ typedef struct cpu {
 	int logic_id;
 	int numa_node;
 	cpu_hwcounters_t counters;
-	int *siblings_list;
 } cpu_t;
 
 typedef struct cpumanager {
@@ -44,7 +42,6 @@ __internal void cpu_transfer(int destination_pid, cpu_t *cpu, nosv_task_t task);
 __internal void cpu_mark_free(cpu_t *cpu);
 __internal int cpu_system_to_logical(int cpu);
 __internal void cpu_affinity_reset(void);
-__internal void cpu_find_physical(void);
 
 __internal extern thread_local int __current_cpu;
 __internal extern cpumanager_t *cpumanager;

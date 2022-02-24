@@ -21,6 +21,88 @@
 thread_local int __current_cpu = -1;
 __internal cpumanager_t *cpumanager;
 
+static inline void cpu_find_siblings(cpu_set_t *set)
+{
+	int num_cpus = CPU_COUNT(set);
+	assert(num_cpus > 0);
+
+	// Keeps track of which CPUs have been visited
+	cpu_set_t cpu_id_visited = *set;
+	CPU_ZERO(&cpu_id_visited);
+
+	// Allocate space for each of the lists
+	cpumanager->thread_siblings = salloc(sizeof(int *) * num_cpus, 0);
+	cpumanager->num_siblings_list = 0;
+	for (int i = 0; i < num_cpus; ++i) {
+		cpumanager->thread_siblings[i] = salloc(sizeof(int) * num_cpus, 0);
+		for (int j = 0; j < num_cpus; ++j) {
+			cpumanager->thread_siblings[i][j] = -1;
+		}
+	}
+
+	int curr_cpu_id = 0;
+	int curr_list_id = 0;
+	int num_assigned_cpus = 0;
+	while (num_assigned_cpus < num_cpus) {
+		// Make sure this CPU is in the process' mask
+		if (CPU_ISSET(curr_cpu_id, set)) {
+			// Only enter if this CPU has not been marked as visited
+			if (!CPU_ISSET(curr_cpu_id, &cpu_id_visited)) {
+				CPU_SET(curr_cpu_id, &cpu_id_visited);
+				int sibling_id = 0;
+
+				// Insert this CPU id as the first id of the list
+				cpumanager->num_siblings_list++;
+				cpumanager->thread_siblings[curr_list_id][sibling_id++] = curr_cpu_id;
+
+				char cpu_label[100];
+				snprintf(cpu_label, 100, "/sys/devices/system/cpu/cpu%d/topology/thread_siblings_list", curr_cpu_id);
+				FILE *fp = fopen(cpu_label, "r");
+				if (!fp) {
+					nosv_abort("Couldn't parse CPU thread siblings list");
+				}
+
+				// Read the whole list of thread siblings (separated by "," and "-")
+				char thread_siblings[400];
+				fgets(thread_siblings, 400, fp);
+
+				// First traverse the list by commas
+				char *comma_token = strtok(thread_siblings, ",");
+				while (comma_token) {
+					// Once we have one of the tokens, find out if it's a dash-separated list
+					int first_id, last_id;
+					int ret = sscanf(comma_token, "%d-%d", &first_id, &last_id);
+					if (ret == 1) {
+						// Only one variable was filled, this is a single CPU
+						if (first_id != curr_cpu_id && CPU_ISSET(first_id, set)) {
+							CPU_SET(first_id, &cpu_id_visited);
+							cpumanager->thread_siblings[curr_list_id][sibling_id++] = first_id;
+						}
+					} else if (ret == 2) {
+						// Two variables were filled, this is a dash-separated CPU list
+						for (int j = first_id; j <= last_id; ++j) {
+							if (j != curr_cpu_id && CPU_ISSET(j, set)) {
+								CPU_SET(j, &cpu_id_visited);
+								cpumanager->thread_siblings[curr_list_id][sibling_id++] = j;
+							}
+						}
+					} else {
+						// No variable was filled, there was an error
+						nosv_abort("Couldn't parse part of a CPU thread siblings list");
+					}
+
+					comma_token = strtok(NULL, ",");
+				}
+
+				fclose(fp);
+				++curr_list_id;
+			}
+			++num_assigned_cpus;
+		}
+		++curr_cpu_id;
+	}
+}
+
 void cpus_init(int initialize)
 {
 	if (!initialize) {
@@ -38,9 +120,6 @@ void cpus_init(int initialize)
 	st_config.config->cpumanager_ptr = cpumanager;
 	cpumanager->cpu_cnt = cnt;
 
-	// Check whether a CPU is a physical one or a sibling thread of another physical CPU
-	cpu_find_physical();
-
 	// Find out maximum CPU id
 	int maxcpu = 0;
 	int i = CPU_SETSIZE;
@@ -53,11 +132,33 @@ void cpus_init(int initialize)
 	}
 	cpumanager->system_to_logical = salloc(sizeof(int) * (maxcpu + 1), 0);
 
+	// Check whether a CPU is a physical one or a sibling thread of another physical CPU
+	cpu_find_siblings(&set);
+
 	// Inform the instrumentation of all available CPUs
 	instr_cpu_count(cnt, maxcpu);
 
+	assert(cnt <= CPU_SETSIZE);
+
+	// We will order CPUs depending on their physical package. In this way, we
+	// will intertwine CPUs to leverage all resources instead of just resource-
+	// sharing threads
+	int ordered_cpus[CPU_SETSIZE];
+	int ordered_id = 0;
+	int current_loop = 0;
+	while (ordered_id < cnt) {
+		for (i = 0; i < cpumanager->num_siblings_list; ++i) {
+			if (cpumanager->thread_siblings[i][current_loop] != -1) {
+				ordered_cpus[ordered_id++] = cpumanager->thread_siblings[i][current_loop];
+			}
+		}
+		current_loop++;
+	}
+	assert(ordered_id == cnt);
+
 	i = 0;
-	int curr = 0;
+	int j = 0;
+	int curr = ordered_cpus[j];
 	while (i < cnt) {
 		if (CPU_ISSET(curr, &set)) {
 			CPU_ZERO(&cpumanager->cpus[i].cpuset);
@@ -65,7 +166,6 @@ void cpus_init(int initialize)
 			cpumanager->cpus[i].system_id = curr;
 			cpumanager->cpus[i].logic_id = i;
 			cpumanager->cpus[i].numa_node = locality_get_cpu_numa(curr);
-			cpumanager->cpus[i].siblings_list = NULL;
 			cpumanager->system_to_logical[curr] = i;
 			cpuhwcounters_initialize(&(cpumanager->cpus[i].counters));
 
@@ -77,7 +177,7 @@ void cpus_init(int initialize)
 			cpumanager->system_to_logical[curr] = -1;
 		}
 
-		++curr;
+		curr = ordered_cpus[++j];
 	}
 
 	cpumanager->pids_cpus = salloc(sizeof(int) * cnt, 0);
@@ -171,79 +271,4 @@ void cpu_affinity_reset(void)
 {
 	instr_affinity_set(-1);
 	sched_setaffinity(0, sizeof(cpumanager->all_cpu_set), &cpumanager->all_cpu_set);
-}
-
-void cpu_find_physical(void)
-{
-	int num_cpus = cpumanager->cpu_cnt;
-	assert(num_cpus > 0);
-
-	// Allocate space for each thread sibling list
-	cpumanager->thread_siblings = salloc(sizeof(int *) * num_cpus, 0);
-	cpumanager->num_siblings_list = 0;
-
-	// Allocate and initialize each of the lists
-	bool cpu_id_visited[num_cpus];
-	for (int i = 0; i < num_cpus; ++i) {
-		cpu_id_visited[i] = false;
-		cpumanager->thread_siblings[i] = salloc(sizeof(int) * num_cpus, 0);
-		for (int j = 0; j < num_cpus; ++j) {
-			cpumanager->thread_siblings[i][j] = -1;
-		}
-	}
-
-	int list_id = 0;
-	char cpu_label[100];
-	char thread_siblings[400];
-	for (int i = 0; i < num_cpus; ++i) {
-		if (!cpu_id_visited[i]) {
-			int sibling_id = 0;
-			cpu_id_visited[i] = true;
-
-			// Insert this CPU id as the first id of the list
-			cpumanager->num_siblings_list++;
-			cpumanager->thread_siblings[list_id][sibling_id++] = i;
-			cpumanager->cpus[i].siblings_list = cpumanager->thread_siblings[list_id];
-
-			sprintf(cpu_label, "/sys/devices/system/cpu/cpu%d/topology/thread_siblings_list", i);
-			FILE *fp = fopen(cpu_label, "r");
-			if (!fp) {
-				nosv_abort("Couldn't parse CPU thread siblings list");
-			}
-
-			// Read the whole list of thread siblings (separated by "," and "-")
-			fscanf(fp, "%s", thread_siblings);
-
-			// First traverse the list by commas
-			char *comma_token = strtok(thread_siblings, ",");
-			while (comma_token) {
-				// Once we have one of the tokens, find out if it's a dash-separated list
-				char *dash_token = strchr(comma_token, '-');
-				if (dash_token) {
-					int first_id, last_id;
-					sscanf(comma_token, "%d-%d", &first_id, &last_id);
-					for (int j = first_id; j <= last_id; ++j) {
-						if (i != j) {
-							cpu_id_visited[j] = true;
-							cpumanager->thread_siblings[list_id][sibling_id++] = j;
-							cpumanager->cpus[j].siblings_list = cpumanager->thread_siblings[list_id];
-						}
-					}
-				} else {
-					int first_id = atoi(comma_token);
-					if (first_id != i) {
-						cpu_id_visited[first_id] = true;
-						cpumanager->thread_siblings[list_id][sibling_id++] = first_id;
-						cpumanager->cpus[first_id].siblings_list = cpumanager->thread_siblings[list_id];
-					}
-				}
-
-				comma_token = strtok(NULL, ",");
-			}
-
-			fclose(fp);
-
-			++list_id;
-		}
-	}
 }
