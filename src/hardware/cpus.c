@@ -132,13 +132,14 @@ void cpus_init(int initialize)
 	}
 	cpumanager->system_to_logical = salloc(sizeof(int) * (maxcpu + 1), 0);
 
-	// Check whether a CPU is a physical one or a sibling thread of another physical CPU
-	cpu_find_siblings(&set);
 
 	// Inform the instrumentation of all available CPUs
 	instr_cpu_count(cnt, maxcpu);
 
 	assert(cnt <= CPU_SETSIZE);
+
+	// Construct lists of thread siblings
+	cpu_find_siblings(&set);
 
 	// We will order CPUs depending on their physical package. In this way, we
 	// will intertwine CPUs to leverage all resources instead of just resource-

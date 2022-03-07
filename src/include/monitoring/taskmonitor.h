@@ -132,8 +132,7 @@ static inline void taskmonitor_statistics(void)
 	// Iterate all the tasktypes, no need for lock as runtime is shutting down
 	list_head_t *list = task_type_manager_get_list();
 	list_head_t *head = list_front(list);
-	list_head_t *stop = head;
-	do {
+	while (head != NULL) {
 		nosv_task_type_t type = list_elem(head, struct nosv_task_type, list_hook);
 		if (type != NULL) {
 			// Display monitoring-related statistics
@@ -200,8 +199,8 @@ static inline void taskmonitor_statistics(void)
 			printf("\n");
 		}
 
-		head = list_next_circular(head, list);
-	} while (head != stop);
+		head = list_next(head);
+	}
 
 	printf("\n");
 }
