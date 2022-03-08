@@ -35,20 +35,20 @@ struct dtlock_node {
 	atomic_uint64_t cpu;
 };
 
+// Union to decode the bits forming the dtlock_item.signal field
 union dtlock_signal {
-	atomic_uint32_t val;
 	uint32_t raw_val;
 	struct {
 		unsigned char signal_flags : 1;
-		int32_t signal_cnt : 31;
+		uint32_t signal_cnt : 31;
 	};
 };
 
 struct dtlock_item {
 	uint64_t ticket __cacheline_aligned;
 	void *item;
-	union dtlock_signal signal;
-	unsigned int next;
+	atomic_uint32_t signal;
+	uint32_t next;
 	unsigned char flags;
 };
 
@@ -75,7 +75,7 @@ static inline void dtlock_init(delegation_lock_t *dtlock, int size)
 	for (int i = 0; i < size; ++i) {
 		atomic_init(&dtlock->waitqueue[i].cpu, 0);
 		atomic_init(&dtlock->waitqueue[i].ticket, 0);
-		atomic_init(&dtlock->items[i].signal.val, 0);
+		atomic_init(&dtlock->items[i].signal, 0);
 		dtlock->items[i].ticket = 0;
 		dtlock->items[i].item = 0;
 		dtlock->items[i].flags = DTLOCK_FLAGS_NONE;
@@ -118,7 +118,7 @@ static inline int dtlock_lock_or_delegate(delegation_lock_t *dtlock, const uint6
 	void *recv_item;
 
 	do {
-		prev_signal.raw_val = atomic_load_explicit(&dtlock->items[cpu_index].signal.val, memory_order_acquire);
+		prev_signal.raw_val = atomic_load_explicit(&dtlock->items[cpu_index].signal, memory_order_relaxed);
 
 		const uint64_t head = atomic_fetch_add_explicit(&dtlock->head, 1, memory_order_relaxed);
 		const uint64_t id = head % dtlock->size;
@@ -147,10 +147,10 @@ static inline int dtlock_lock_or_delegate(delegation_lock_t *dtlock, const uint6
 		// Here we spin on the items[]->signal variable, where we can be notified of two things:
 		// Either we are served an item, or we have to go to sleep
 		// We may miss a signal in between, that's why we use the signal_cnt instead of a single bit
-		signal.raw_val = atomic_load_explicit(&dtlock->items[cpu_index].signal.val, memory_order_relaxed);
+		signal.raw_val = atomic_load_explicit(&dtlock->items[cpu_index].signal, memory_order_relaxed);
 		while (signal.signal_cnt == prev_signal.signal_cnt) {
 			spin_wait();
-			signal.raw_val = atomic_load_explicit(&dtlock->items[cpu_index].signal.val, memory_order_relaxed);
+			signal.raw_val = atomic_load_explicit(&dtlock->items[cpu_index].signal, memory_order_relaxed);
 		}
 
 		spin_wait_release();
@@ -218,7 +218,7 @@ static inline void dtlock_serve(delegation_lock_t *dtlock, const uint64_t cpu, v
 		sig.signal_flags = signal;
 
 		// Unlock the thread
-		atomic_store_explicit(&dtlock->items[cpu].signal.val, sig.raw_val, memory_order_release);
+		atomic_store_explicit(&dtlock->items[cpu].signal, sig.raw_val, memory_order_release);
 	}
 }
 
