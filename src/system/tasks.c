@@ -54,18 +54,16 @@ void task_type_manager_shutdown()
 
 	list_head_t *list = task_type_manager_get_list();
 	list_head_t *head = list_front(list);
-	list_head_t *stop = head;
-	do {
+	while (head != NULL) {
 		nosv_task_type_t type = list_elem(head, struct nosv_task_type, list_hook);
+		head = list_next(head);
 		if (type != NULL) {
 			if (type->label)
 				free((void *)type->label);
 
 			sfree(type, sizeof(struct nosv_task_type) + monitoring_get_tasktype_size(), cpu_get_current());
 		}
-
-		head = list_next_circular(head, list);
-	} while (head != stop);
+	}
 
 	free(task_type_manager);
 }

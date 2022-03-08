@@ -28,6 +28,8 @@ typedef struct cpumanager {
 	int *pids_cpus;			// Map from "Logical" PIDs to CPUs
 	int *system_to_logical; // Map from system CPU ids to logical cpu ids
 	int cpu_cnt;            // Number of available CPUs in the system
+	int num_siblings_list;  // Number of distinct thread siblings lists
+	int **thread_siblings;  // Lists of thread siblings indexed by CPU ids (at most num_siblings_list)
 	cpu_t cpus[];           // Flexible array
 } cpumanager_t;
 
