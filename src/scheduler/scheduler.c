@@ -41,7 +41,9 @@ void scheduler_init(int initialize)
 	assert(scheduler);
 	st_config.config->scheduler_ptr = scheduler;
 
-	arbiter_init(&scheduler->arbiter);
+	dtlock_init(&scheduler->dtlock, cpu_count * 2);
+	governor_init(&scheduler->governor);
+
 	scheduler->in_queue = mpsc_alloc(cpu_count, nosv_config.sched_in_queue_size);
 	list_init(&scheduler->queues);
 	scheduler->tasks = 0;
@@ -135,7 +137,7 @@ static inline void scheduler_check_process_shutdowns(void)
 		process_scheduler_t *sched = list_elem(head, process_scheduler_t, list_hook);
 		int shutdown = atomic_load_explicit(&sched->shutdown, memory_order_relaxed);
 		if (shutdown > sched->last_shutdown) {
-			arbiter_shutdown_process(&scheduler->arbiter, sched->pid);
+			governor_shutdown_process(&scheduler->governor, sched->pid, &scheduler->dtlock);
 			sched->last_shutdown = shutdown;
 		}
 	}
@@ -237,9 +239,9 @@ void scheduler_submit(nosv_task_t task)
 		success = mpsc_push(scheduler->in_queue, (void *)task, cpu_get_current());
 
 		if (!success) {
-			if (arbiter_try_enter(&scheduler->arbiter)) {
+			if (dtlock_try_lock(&scheduler->dtlock)) {
 				scheduler_process_ready_tasks();
-				arbiter_exit(&scheduler->arbiter, /* not currently server */ 0);
+				dtlock_unlock(&scheduler->dtlock);
 			}
 		}
 	}
@@ -491,8 +493,10 @@ static inline nosv_task_t scheduler_get_internal(int cpu)
 	yield = scheduler_should_yield(pid, cpu, &ts);
 
 	if (yield) {
-		// What we do is grab the current queue, that corresponds to our pid, and traverse that forward, to cause a round-robin.
-		// If we get to the end, we start from the beginning. Most importantly, if we arrive at a point where we go back to our queue, it's fine.
+		// What we do is grab the current queue, that corresponds to our pid,
+		// and traverse that forward, to cause a round-robin.
+		// If we get to the end, we start from the beginning.
+		// Most importantly, if we arrive at a point where we go back to our queue, it's fine.
 		// Otherwise, we will begin from the current position, which means we will try our process first
 		it = list_next_circular(it, &scheduler->queues);
 	}
@@ -548,7 +552,17 @@ static inline nosv_task_t scheduler_get_internal(int cpu)
 	return NULL;
 }
 
-static inline size_t scheduler_serve_batch(int *skip, cpu_bitset_t *cpus)
+static inline void scheduler_serve(nosv_task_t task, int cpu)
+{
+	int waiter = governor_served(&scheduler->governor, cpu);
+	int action = (waiter) ? DTLOCK_SIGNAL_WAKE : DTLOCK_SIGNAL_DEFAULT;
+
+	dtlock_serve(&scheduler->dtlock, cpu, task, action);
+
+	instr_sched_send();
+}
+
+static inline size_t scheduler_serve_batch(int *cpus_were_skipped, cpu_bitset_t *cpus_to_serve)
 {
 	// Serve a task batch
 	// TODO instead of call scheduler_get_internal in a loop,
@@ -556,17 +570,16 @@ static inline size_t scheduler_serve_batch(int *skip, cpu_bitset_t *cpus)
 	size_t served = 0;
 	int cpu_delegated = 0;
 
-	CPU_BITSET_FOREACH(cpus, cpu_delegated) {
+	CPU_BITSET_FOREACH(cpus_to_serve, cpu_delegated) {
 		assert(cpu_delegated < cpus_count());
 		nosv_task_t task = scheduler_get_internal(cpu_delegated);
 
 		// If we don't get a task, indicate this situation to the server thread
 		// Additionally, don't wake the other thread up
 		if (!task) {
-			*skip = 1;
+			*cpus_were_skipped = 1;
 		} else {
-			arbiter_serve(&scheduler->arbiter, task, cpu_delegated);
-			instr_sched_send();
+			scheduler_serve(task, cpu_delegated);
 			served++;
 		}
 	}
@@ -582,7 +595,7 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
 	const int blocking = !(flags & SCHED_GET_NONBLOCKING);
 	nosv_task_t task = NULL;
 
-	if (arbiter_enter(&scheduler->arbiter, cpu, blocking, &task)) {
+	if (!dtlock_lock_or_delegate(&scheduler->dtlock, (uint64_t) cpu, (void **) &task, blocking)) {
 		// Served item
 		if (task)
 			instr_sched_recv();
@@ -593,36 +606,44 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
 	// Lock acquired
 	instr_sched_server_enter();
 
-	cpu_bitset_t *waiters, *sleepers;
-	arbiter_get_cpumasks(&scheduler->arbiter, &waiters, &sleepers);
+	cpu_bitset_t *waiters = governor_get_waiters(&scheduler->governor);
+	cpu_bitset_t *sleepers = governor_get_sleepers(&scheduler->governor);
 
 	do {
 		scheduler_process_ready_tasks();
 
 		size_t served = 0;
 
-		// If some tasks could not be scheduled, it is a good idea to try
-		// and get work for ourselves, just in case affinities are at play.
-		int skip = 0;
-		int cores_pending = arbiter_process_pending(&scheduler->arbiter, /* do not perform powersaving polcies */0);
+		int pending = governor_update_cpumasks(&scheduler->governor, &scheduler->dtlock);
 
 		// Serve everyone waiting
 		// As soon as we cannot schedule one CPU, stop the loop and try to schedule ourselves
 		// This is needed because otherwise strict affinity tasks may have problems
-		while (served < MAX_SERVED_TASKS && cores_pending && !skip) {
+		int skip = 0;
+		while (served < MAX_SERVED_TASKS && pending && !skip) {
 			// First, schedule waiters
 			served += scheduler_serve_batch(&skip, waiters);
 			// Then, sleepers
 			served += scheduler_serve_batch(&skip, sleepers);
-			// Now, process any newly arrived cores, and perform powersaving policies
-			cores_pending = arbiter_process_pending(&scheduler->arbiter, /* perform powersaving polcies */1);
+
+			// Apply some powersaving policies to all threads kept waiting
+			// Do this before reading the newly arrived cores, otherwise all non-blocking
+			// waiters would be released immediately without a chance to get a scheduled task
+			governor_apply_policy(&scheduler->governor, &scheduler->dtlock);
+
+			// Process any newly arrived cores
+			pending = governor_update_cpumasks(&scheduler->governor, &scheduler->dtlock);
 		}
 
 		// Work for myself
 		task = scheduler_get_internal(cpu);
 	} while (!task && blocking && !worker_should_shutdown());
 
-	arbiter_exit(&scheduler->arbiter, /* currently the server */1);
+	// Keep one thread inside the lock
+	if (dtlock_empty(&scheduler->dtlock))
+		governor_wake_one(&scheduler->governor, &scheduler->dtlock);
+
+	dtlock_unlock(&scheduler->dtlock);
 
 	if (task)
 		instr_sched_self_assign();

@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef GOVERNOR_H
@@ -44,7 +44,10 @@ __internal int governor_served(governor_t *governor, const int cpu);
 __internal void governor_wake_one(governor_t *governor, delegation_lock_t *dtlock);
 
 // Notify a process has to shut down
-__internal void governor_pid_shutdown(governor_t *governor, pid_t pid, delegation_lock_t *dtlock);
+__internal void governor_shutdown_process(governor_t *governor, pid_t pid, delegation_lock_t *dtlock);
+
+// Update waiters and sleepers masks. Return the number of waiting threads
+__internal int governor_update_cpumasks(governor_t *governor, delegation_lock_t *dtlock);
 
 static inline cpu_bitset_t *governor_get_waiters(governor_t *governor)
 {

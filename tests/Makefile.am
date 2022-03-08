@@ -7,9 +7,9 @@
 AM_CFLAGS = $(asan_CFLAGS) -D_GNU_SOURCE -I$(top_srcdir)/tests/include $(PTHREAD_CFLAGS) -I$(top_srcdir)/src/include -I$(top_srcdir)/api $(ovni_CPPFLAGS)
 AM_LDFLAGS = $(asan_LDFLAGS) -L$(top_builddir)/.libs -rpath $(abs_top_builddir)/.libs $(top_builddir)/libnosv.la $(ovni_LIBS)
 
-UNIT_CFLAGS = -D_GNU_SOURCE -I$(top_srcdir)/tests/include $(PTHREAD_CFLAGS) -I$(top_srcdir)/src/include -I$(top_srcdir)/api -g3 -O2
-UNIT_LDFLAGS = -lrt $(PTHREAD_LIBS)
-UNIT_SOURCES = unit/main.c
+unit_CFLAGS = -D_GNU_SOURCE -I$(top_srcdir)/tests/include $(PTHREAD_CFLAGS) -I$(top_srcdir)/src/include -I$(top_srcdir)/api -g3 -O2
+unit_LIBS = -lrt $(PTHREAD_LIBS)
+unit_SOURCES = unit/main.c
 
 a_tests = basic-init.test \
 	basic-init-procs.test \
@@ -63,13 +63,13 @@ basic_yield_test_SOURCES = basic/yield.c
 basic_yield_test_CFLAGS = $(AM_CFLAGS)
 basic_yield_test_LDFLAGS = $(AM_LDFLAGS)
 
-unit_dtlock_test_SOURCES = unit/test-dtlock.c $(UNIT_SOURCES)
-unit_dtlock_test_CFLAGS = $(UNIT_CFLAGS)
-unit_dtlock_test_LDFLAGS = $(UNIT_LDFLAGS)
+unit_dtlock_test_SOURCES = unit/test-dtlock.c $(unit_SOURCES)
+unit_dtlock_test_CFLAGS = $(unit_CFLAGS)
+unit_dtlock_test_LDFLAGS = $(unit_LIBS)
 
-unit_ring_buffer_test_SOURCES = unit/test-ring-buffer.c $(UNIT_SOURCES)
-unit_ring_buffer_test_CFLAGS = $(UNIT_CFLAGS)
-unit_ring_buffer_test_LDFLAGS = $(UNIT_LDFLAGS)
+unit_ring_buffer_test_SOURCES = unit/test-ring-buffer.c $(unit_SOURCES)
+unit_ring_buffer_test_CFLAGS = $(unit_CFLAGS)
+unit_ring_buffer_test_LDFLAGS = $(unit_LIBS)
 
 driver_SOURCES = common/driver.c
 driver_CFLAGS = -O3 -g -Wall -Wpedantic $(PTHREAD_CFLAGS)

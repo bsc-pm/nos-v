@@ -140,7 +140,7 @@ static inline int dtlock_lock_or_delegate(delegation_lock_t *dtlock, const uint6
 		// or we have been moved to the second waiting location
 		if (dtlock->items[cpu_index].ticket != head) {
 			// Lock acquired
-			return 0;
+			return 1;
 		}
 
 		// We have to wait again
@@ -169,7 +169,7 @@ static inline int dtlock_lock_or_delegate(delegation_lock_t *dtlock, const uint6
 
 	*item = recv_item;
 	// Served
-	return 1;
+	return 0;
 }
 
 // Must be called with lock acquired
@@ -177,7 +177,7 @@ static inline int dtlock_lock_or_delegate(delegation_lock_t *dtlock, const uint6
 static inline void dtlock_popfront_wait(delegation_lock_t *dtlock, uint64_t cpu)
 {
 	const uint64_t id = dtlock->next % dtlock->size;
-	assert(id < dtlock->size);
+	assert(cpu < dtlock->size);
 
 	dtlock->items[cpu].ticket = dtlock->next;
 	atomic_store_explicit(&dtlock->waitqueue[id].ticket, dtlock->next++, memory_order_release);
@@ -187,7 +187,6 @@ static inline void dtlock_popfront_wait(delegation_lock_t *dtlock, uint64_t cpu)
 static inline void dtlock_popfront(delegation_lock_t *dtlock)
 {
 	const uint64_t id = dtlock->next % dtlock->size;
-	assert(id < dtlock->size);
 	atomic_store_explicit(&dtlock->waitqueue[id].ticket, dtlock->next++, memory_order_release);
 }
 
@@ -248,6 +247,7 @@ static inline void dtlock_unlock(delegation_lock_t *dtlock)
 // Must be called with lock acquired
 static inline int dtlock_is_cpu_blockable(const delegation_lock_t *dtlock, const int cpu)
 {
+	assert(cpu < dtlock->size);
 	return !(dtlock->items[cpu].flags & DTLOCK_FLAGS_NONBLOCK);
 }
 

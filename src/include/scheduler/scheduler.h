@@ -15,7 +15,8 @@
 #include "generic/heap.h"
 #include "generic/list.h"
 #include "generic/spinlock.h"
-#include "scheduler/arbiter.h"
+#include "scheduler/dtlock.h"
+#include "scheduler/governor.h"
 #include "scheduler/mpsc.h"
 
 // Flags for the scheduler_get function
@@ -57,7 +58,8 @@ typedef struct scheduler {
 	list_head_t queues; // One scheduler_queue per process
 	process_scheduler_t *queues_direct[MAX_PIDS]; // Support both lists and random-access
 	nosv_spinlock_t in_lock;
-	arbiter_t arbiter;
+	delegation_lock_t dtlock;
+	governor_t governor;
 } scheduler_t;
 
 __internal void scheduler_init(int initialize);

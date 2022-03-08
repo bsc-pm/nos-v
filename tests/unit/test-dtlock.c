@@ -48,6 +48,7 @@ static void *dtlock_check_delegation_serving_routine(void *arg)
 {
 	struct thread_arg_dtlock *args = (struct thread_arg_dtlock *) arg;
 	int fail = 0;
+	int r;
 
 	for (int i = 0; i < 1000000; ++i) {
 		void *item = NULL;
@@ -55,9 +56,9 @@ static void *dtlock_check_delegation_serving_routine(void *arg)
 		switch (i % 3) {
 			case 0:
 				// Delegate
-				int r = dtlock_lock_or_delegate(&args->fixture->dtlock, (uint64_t) args->cpu, &item, 1);
+				r = dtlock_lock_or_delegate(&args->fixture->dtlock, (uint64_t) args->cpu, &item, 1);
 
-				if (r) {
+				if (!r) {
 					// Delegated
 					if (item == NULL)
 						fail = 1;

@@ -90,7 +90,7 @@ int governor_served(governor_t *governor, const int cpu)
 	}
 }
 
-void governor_pid_shutdown(governor_t *governor, pid_t pid, delegation_lock_t *dtlock)
+void governor_shutdown_process(governor_t *governor, pid_t pid, delegation_lock_t *dtlock)
 {
 	int cpu;
 
@@ -109,4 +109,11 @@ void governor_pid_shutdown(governor_t *governor, pid_t pid, delegation_lock_t *d
 			governor_served(governor, cpu);
 		}
 	}
+}
+
+int governor_update_cpumasks(governor_t *governor, delegation_lock_t *dtlock)
+{
+	int nwaiters = dtlock_update_waiters(dtlock, &governor->waiters);
+	int nsleepers = cpu_bitset_count(&governor->sleepers);
+	return nwaiters + nsleepers;
 }

@@ -51,7 +51,6 @@ libnosv_la_SOURCES = \
 	src/monitoring/cpumonitor.c \
 	src/monitoring/cpustats.c \
 	src/monitoring/monitoring.c \
-	src/scheduler/arbiter.c \
 	src/scheduler/governor.c \
 	src/scheduler/scheduler.c \
 	src/system/tasks.c
@@ -113,7 +112,6 @@ noinst_HEADERS = \
 	src/include/monitoring/taskmonitor.h \
 	src/include/monitoring/taskstats.h \
 	src/include/monitoring/tasktypestats.h \
-	src/include/scheduler/arbiter.h \
 	src/include/scheduler/cpubitset.h \
 	src/include/scheduler/dtlock.h \
 	src/include/scheduler/governor.h \
