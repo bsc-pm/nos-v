@@ -757,6 +757,11 @@ int nosv_detach(
 	// Otherwise the sfree inside worker_free_external does not have exclusive access to the cpu buckets
 	worker_free_external(worker);
 
+	// Now before waking another thread, let's unset our cpu
+	// Otherwise following operations after this thread has detached may use the wrong CPU when accessing
+	// the SLAB allocator
+	cpu_set_current(-1);
+
 	// Then resume a thread on the current cpu
 	worker_wake_idle(logic_pid, cpu, NULL);
 
