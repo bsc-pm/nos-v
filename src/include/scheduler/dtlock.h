@@ -127,7 +127,7 @@ static inline int dtlock_lock_or_delegate(delegation_lock_t *dtlock, const uint6
 		assert(id < dtlock->size);
 
 		// Register into the first waitqueue, which the server should empty as soon as possible
-		dtlock->items[cpu_index].flags = blocking ? DTLOCK_FLAGS_NONBLOCK : DTLOCK_FLAGS_NONE;
+		dtlock->items[cpu_index].flags = blocking ? DTLOCK_FLAGS_NONE : DTLOCK_FLAGS_NONBLOCK;
 		atomic_store_explicit(&dtlock->waitqueue[id].cpu, head + cpu_index, memory_order_release);
 
 		while (atomic_load_explicit(&dtlock->waitqueue[id].ticket, memory_order_relaxed) < head)
