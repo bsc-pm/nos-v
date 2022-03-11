@@ -53,6 +53,8 @@ static inline void config_init(rt_config_t *config)
 	config->governor_policy = strdup("hybrid");
 	config->governor_spins = 10000;
 
+	config->cpumanager_binding = strdup(CPUMANAGER_BINDING);
+
 	config->debug_dump_config = 0;
 
 	config->hwcounters_verbose = HWCOUNTERS_VERBOSE;
@@ -97,6 +99,8 @@ static inline int config_check(rt_config_t *config)
 	sanity_check(gov_policy_ok, "Governor policy must be one of: hybrid, idle or busy");
 	if (!strcmp(config->governor_policy, "hybrid") && config->governor_spins == 0)
 		nosv_warn("The governor was configured with the \"hybrid\" policy, but the number of spins is zero.\n The governor will behave like an \"idle\" policy.")
+
+	sanity_check(config->cpumanager_binding, "The CPU binding for the CPU manager cannot be empty");
 
 	sanity_check(
 		!strcmp(config->hwcounters_backend, "none") ||

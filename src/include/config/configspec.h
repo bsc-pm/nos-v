@@ -53,6 +53,7 @@ static config_spec_t config_spec_list[] = {
 	DECLARE_CONFIG(TYPE_STR, "shared_memory.name", shm_name),
 	DECLARE_CONFIG(TYPE_PTR, "shared_memory.start", shm_start),
 	DECLARE_CONFIG(TYPE_SIZE, "shared_memory.size", shm_size),
+	DECLARE_CONFIG(TYPE_STR,  "cpumanager.binding", cpumanager_binding),
 	DECLARE_CONFIG(TYPE_BOOL, "debug.dump_config", debug_dump_config),
 	DECLARE_CONFIG(TYPE_STR, "governor.policy", governor_policy),
 	DECLARE_CONFIG(TYPE_UINT64, "governor.spins", governor_spins),

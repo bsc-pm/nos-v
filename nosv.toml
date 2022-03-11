@@ -58,6 +58,12 @@
 	# When "idle" or "busy" are selected, this setting is ignored
 	spins = 10000
 
+# CPU Manager
+[cpumanager]
+	# CPU binding for the execution. The valid values are "inherit" which inherits the cpu mask of the
+	# first process that initializes the runtime, or a CPU mask in hexadecimal with the format "0xFFFF"
+	binding = "inherit"
+
 # Debug options
 [debug]
 	# Dump all the configuration options nOS-V is running with, its final parsed values and the

@@ -7,8 +7,10 @@
 #include <assert.h>
 #include <errno.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include "compiler.h"
+#include "config/config.h"
 #include "hardware/cpus.h"
 #include "hardware/locality.h"
 #include "hardware/threads.h"
@@ -103,6 +105,43 @@ static inline void cpu_find_siblings(cpu_set_t *set)
 	}
 }
 
+static inline void cpus_get_binding_mask(const char *binding, cpu_set_t *cpuset)
+{
+	assert(binding);
+	assert(cpuset);
+
+	CPU_ZERO(cpuset);
+
+	if (strcmp(binding, "inherit") == 0) {
+		sched_getaffinity(0, sizeof(cpu_set_t), cpuset);
+		assert(CPU_COUNT(cpuset) > 0);
+	} else {
+		if (binding[0] != '0' || (binding[1] != 'x' && binding[1] != 'X')) {
+			nosv_abort("invalid binding mask");
+		}
+
+		const int len = strlen(binding);
+		for (int c = len-1, b = 0; c >= 2; --c, b += 4) {
+			int number = 0;
+			if (binding[c] >= '0' && binding[c] <= '9') {
+				number = binding[c] - '0';
+			} else if (binding[c] >= 'a' && binding[c] <= 'f') {
+				number = (binding[c] - 'a') + 10;
+			} else if (binding[c] >= 'A' && binding[c] <= 'F') {
+				number = (binding[c] - 'A') + 10;
+			} else {
+				nosv_abort("Invalid binding mask");
+			}
+			assert(number >= 0 && number < 16);
+
+			if (number & 0x1) CPU_SET(b + 0, cpuset);
+			if (number & 0x2) CPU_SET(b + 1, cpuset);
+			if (number & 0x4) CPU_SET(b + 2, cpuset);
+			if (number & 0x8) CPU_SET(b + 3, cpuset);
+		}
+	}
+}
+
 void cpus_init(int initialize)
 {
 	if (!initialize) {
@@ -112,8 +151,10 @@ void cpus_init(int initialize)
 	}
 
 	cpu_set_t set;
-	sched_getaffinity(0, sizeof(set), &set);
+	cpus_get_binding_mask(nosv_config.cpumanager_binding, &set);
+
 	int cnt = CPU_COUNT(&set);
+	assert(cnt > 0);
 
 	// The CPU array is located just after the CPU manager, as a flexible array member.
 	cpumanager = salloc(sizeof(cpumanager_t) + cnt * sizeof(cpu_t), 0);

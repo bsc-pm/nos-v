@@ -49,6 +49,11 @@
 // Size of each SPSC queue
 #define SCHED_IN_QUEUE_SIZE 256
 
+// CPU MANAGER
+
+// The default CPU binding mask
+#define CPUMANAGER_BINDING "inherit"
+
 // HARDWARE COUNTERS
 
 // Whether to print verbose info of hwcounters, disabled by default
