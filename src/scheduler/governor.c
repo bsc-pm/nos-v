@@ -45,9 +45,6 @@ static inline void governor_sleep_cpu(governor_t *governor, const int waiter, de
 
 void governor_apply_policy(governor_t *governor, delegation_lock_t *dtlock)
 {
-	// This matches with the release on dtlock->item which sets the flags for each access.
-	atomic_thread_fence(memory_order_acquire);
-
 	int cpu = 0;
 	CPU_BITSET_FOREACH(&governor->waiters, cpu) {
 		uint64_t *cpu_spins = &governor->cpu_spin_counter[cpu];

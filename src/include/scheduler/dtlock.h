@@ -30,9 +30,18 @@
 #define DTLOCK_FLAGS_NONE 0x0
 #define DTLOCK_FLAGS_NONBLOCK 0x1
 
+// Union to decode the bits forming the dtlock_item.signal field
+union dtlock_node_cpu {
+	uint64_t raw_val;
+	struct {
+		unsigned char flags : 1;
+		uint64_t cpu : 63;
+	};
+};
+
 struct dtlock_node {
 	atomic_uint64_t ticket __cacheline_aligned;
-	atomic_uint64_t cpu;
+	atomic_uint64_t cpu; // Accessed through bitfield union dtlock_node_cpu
 };
 
 // Union to decode the bits forming the dtlock_item.signal field
@@ -47,7 +56,7 @@ union dtlock_signal {
 struct dtlock_item {
 	uint64_t ticket __cacheline_aligned;
 	void *item;
-	atomic_uint32_t signal;
+	atomic_uint32_t signal; // Accessed through union dtlock_signal
 	uint32_t next;
 	unsigned char flags;
 };
@@ -127,8 +136,10 @@ static inline int dtlock_lock_or_delegate(delegation_lock_t *dtlock, const uint6
 		assert(id < dtlock->size);
 
 		// Register into the first waitqueue, which the server should empty as soon as possible
-		dtlock->items[cpu_index].flags = blocking ? DTLOCK_FLAGS_NONE : DTLOCK_FLAGS_NONBLOCK;
-		atomic_store_explicit(&dtlock->waitqueue[id].cpu, head + cpu_index, memory_order_release);
+		union dtlock_node_cpu wait_cpu;
+		wait_cpu.cpu = head + cpu_index;
+		wait_cpu.flags = blocking ? DTLOCK_FLAGS_NONE : DTLOCK_FLAGS_NONBLOCK;
+		atomic_store_explicit(&dtlock->waitqueue[id].cpu, wait_cpu.raw_val, memory_order_relaxed);
 
 		while (atomic_load_explicit(&dtlock->waitqueue[id].ticket, memory_order_relaxed) < head)
 			spin_wait();
@@ -179,6 +190,11 @@ static inline void dtlock_popfront_wait(delegation_lock_t *dtlock, uint64_t cpu)
 	const uint64_t id = dtlock->next % dtlock->size;
 	assert(cpu < dtlock->size);
 
+	// Transfer flags from waitqueue to items
+	union dtlock_node_cpu wait_cpu;
+	wait_cpu.raw_val = atomic_load_explicit(&dtlock->waitqueue[dtlock->next % dtlock->size].cpu, memory_order_relaxed);
+	dtlock->items[cpu].flags = wait_cpu.flags;
+
 	dtlock->items[cpu].ticket = dtlock->next;
 	atomic_store_explicit(&dtlock->waitqueue[id].ticket, dtlock->next++, memory_order_release);
 }
@@ -193,15 +209,19 @@ static inline void dtlock_popfront(delegation_lock_t *dtlock)
 // Must be called with lock acquired
 static inline int dtlock_empty(const delegation_lock_t *dtlock)
 {
-	const uint64_t cpu = atomic_load_explicit(&dtlock->waitqueue[dtlock->next % dtlock->size].cpu, memory_order_relaxed);
-	return (cpu < dtlock->next);
+	union dtlock_node_cpu wait_cpu;
+	wait_cpu.raw_val = atomic_load_explicit(&dtlock->waitqueue[dtlock->next % dtlock->size].cpu, memory_order_relaxed);
+
+	return (wait_cpu.cpu < dtlock->next);
 }
 
 // Must be called with lock acquired
 static inline uint64_t dtlock_front(const delegation_lock_t *dtlock)
 {
-	const uint64_t cpu = atomic_load_explicit(&dtlock->waitqueue[dtlock->next % dtlock->size].cpu, memory_order_relaxed);
-	return cpu - dtlock->next;
+	union dtlock_node_cpu wait_cpu;
+	wait_cpu.raw_val = atomic_load_explicit(&dtlock->waitqueue[dtlock->next % dtlock->size].cpu, memory_order_relaxed);
+
+	return wait_cpu.cpu - dtlock->next;
 }
 
 // Must be called with lock acquired
