@@ -32,7 +32,7 @@ nosv_task_t task_attach;
 nosv_task_t task_immediate;
 test_t t;
 
-_Thread_local unsigned int test = 0;
+volatile unsigned int test = 0;
 
 void run_deadline(nosv_task_t task)
 {
