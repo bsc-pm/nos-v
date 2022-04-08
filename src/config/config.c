@@ -57,7 +57,7 @@ static inline void config_init(rt_config_t *config)
 
 	uint64_t num_papi_events = 2;
 	config->hwcounters_papi_events.num_strings = num_papi_events;
-	config->hwcounters_papi_events.strings = (char **) malloc(sizeof(string_list_t));
+	config->hwcounters_papi_events.strings = (char **) malloc(num_papi_events * sizeof(char *));
 	for (int i = 0; i < num_papi_events; ++i) {
 		config->hwcounters_papi_events.strings[i] = (char *) malloc(sizeof(char) * 16);
 	}
@@ -319,7 +319,7 @@ static inline int string_parse_bool(int *ptr, const char *value)
 
 static inline int toml_parse_list_str(string_list_t *ptr, toml_table_t *table, const char *name)
 {
-	if (ptr) {
+	if (ptr->strings) {
 		int num_strings = ptr->num_strings;
 		for (int i = 0; i < num_strings; ++i) {
 			free(ptr->strings[i]);
