@@ -30,7 +30,7 @@
 #define DTLOCK_FLAGS_NONE 0x0
 #define DTLOCK_FLAGS_NONBLOCK 0x1
 
-// Union to decode the bits forming the dtlock_item.signal field
+// Union to decode the bits forming the dtlock_node.cpu field
 union dtlock_node_cpu {
 	uint64_t raw_val;
 	struct {
@@ -62,12 +62,15 @@ struct dtlock_item {
 };
 
 typedef struct delegation_lock {
-	atomic_uint64_t head __cacheline_aligned;
-	uint64_t size __cacheline_aligned;
-	uint64_t next __cacheline_aligned;
-	struct dtlock_node *waitqueue;
+	// The three constant fields in the same cacheline
+	struct dtlock_node *waitqueue __cacheline_aligned;
 	struct dtlock_item *items;
+	uint64_t size;
 	nosv_futex_t *cpu_sleep_vars;
+
+	atomic_uint64_t head __2xcacheline_aligned;
+	uint64_t next __2xcacheline_aligned;
+
 } delegation_lock_t;
 
 static inline void dtlock_init(delegation_lock_t *dtlock, int size)
@@ -126,13 +129,15 @@ static inline int dtlock_lock_or_delegate(delegation_lock_t *dtlock, const uint6
 	union dtlock_signal prev_signal, signal;
 	void *recv_item;
 
+	assert(dtlock);
+	assert(cpu_index < dtlock->size);
+
 	do {
 		prev_signal.raw_val = atomic_load_explicit(&dtlock->items[cpu_index].signal, memory_order_relaxed);
 
 		const uint64_t head = atomic_fetch_add_explicit(&dtlock->head, 1, memory_order_relaxed);
 		const uint64_t id = head % dtlock->size;
 
-		assert(cpu_index < dtlock->size);
 		assert(id < dtlock->size);
 
 		// Register into the first waitqueue, which the server should empty as soon as possible
@@ -192,7 +197,7 @@ static inline void dtlock_popfront_wait(delegation_lock_t *dtlock, uint64_t cpu)
 
 	// Transfer flags from waitqueue to items
 	union dtlock_node_cpu wait_cpu;
-	wait_cpu.raw_val = atomic_load_explicit(&dtlock->waitqueue[dtlock->next % dtlock->size].cpu, memory_order_relaxed);
+	wait_cpu.raw_val = atomic_load_explicit(&dtlock->waitqueue[id].cpu, memory_order_relaxed);
 	dtlock->items[cpu].flags = wait_cpu.flags;
 
 	dtlock->items[cpu].ticket = dtlock->next;

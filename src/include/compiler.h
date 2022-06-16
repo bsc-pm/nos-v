@@ -12,6 +12,7 @@
 #include "defaults.h"
 
 #define __cacheline_aligned __attribute__((aligned(CACHELINE_SIZE)))
+#define __2xcacheline_aligned __attribute__((aligned(CACHELINE_SIZE * 2)))
 
 #define __constructor __attribute__((constructor))
 #define __destructor __attribute__((destructor))
