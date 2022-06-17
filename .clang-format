@@ -40,4 +40,5 @@ IncludeBlocks: Preserve
 SortIncludes: false
 MaxEmptyLinesToKeep: 2
 AlwaysBreakTemplateDeclarations: true
+SpaceAfterCStyleCast: true
 ...

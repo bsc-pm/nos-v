@@ -9,13 +9,13 @@
 
 #include <stdatomic.h>
 
+#include "compiler.h"
+#include "generic/heap.h"
+#include "generic/list.h"
 #include "nosv.h"
 #include "nosv/affinity.h"
-#include "generic/list.h"
-#include "generic/heap.h"
 
 struct nosv_worker;
-typedef atomic_uint_fast32_t atomic_uint32_t;
 typedef uint64_t deadline_t;
 typedef size_t yield_t;
 typedef struct task_hwcounters task_hwcounters_t;

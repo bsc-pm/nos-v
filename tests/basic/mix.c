@@ -1,4 +1,8 @@
-#define _GNU_SOURCE
+/*
+	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
+
+	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+*/
 
 #include <assert.h>
 #include <semaphore.h>
@@ -28,7 +32,7 @@ nosv_task_t task_attach;
 nosv_task_t task_immediate;
 test_t t;
 
-_Thread_local unsigned int test = 0;
+volatile unsigned int test = 0;
 
 void run_deadline(nosv_task_t task)
 {

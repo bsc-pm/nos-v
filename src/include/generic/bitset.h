@@ -296,6 +296,8 @@ struct t {								\
 	__bit;								\
 })
 
+#define __bitcountl(a) __builtin_popcountl(a)
+
 #define	BIT_COUNT(_s, p) __extension__ ({				\
 	size_t __i;							\
 	long __count;							\

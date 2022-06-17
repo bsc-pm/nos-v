@@ -7,6 +7,8 @@
 #ifndef SCHEDULER_H
 #define SCHEDULER_H
 
+#include <stdatomic.h>
+
 #include "defaults.h"
 #include "compiler.h"
 #include "nosv-internal.h"
@@ -14,6 +16,7 @@
 #include "generic/list.h"
 #include "generic/spinlock.h"
 #include "scheduler/dtlock.h"
+#include "scheduler/governor.h"
 #include "scheduler/mpsc.h"
 
 // Flags for the scheduler_get function
@@ -26,6 +29,8 @@ typedef struct scheduler_queue {
 
 typedef struct process_scheduler {
 	int pid;
+	int last_shutdown;
+	atomic_int shutdown;
 	size_t tasks;
 	size_t preferred_affinity_tasks;
 	heap_head_t deadline_tasks;
@@ -45,7 +50,6 @@ typedef struct timestamp {
 } timestamp_t;
 
 typedef struct scheduler {
-	delegation_lock_t dtlock;
 	size_t tasks;
 	size_t served_tasks;
 	mpsc_queue_t *in_queue;
@@ -54,10 +58,12 @@ typedef struct scheduler {
 	list_head_t queues; // One scheduler_queue per process
 	process_scheduler_t *queues_direct[MAX_PIDS]; // Support both lists and random-access
 	nosv_spinlock_t in_lock;
+	delegation_lock_t dtlock;
+	governor_t governor;
 } scheduler_t;
 
 __internal void scheduler_init(int initialize);
-__internal void scheduler_shutdown(void);
+__internal void scheduler_shutdown(int pid);
 
 __internal int scheduler_should_yield(int pid, int cpu, uint64_t *timestamp);
 __internal void scheduler_reset_accounting(int pid, int cpu);

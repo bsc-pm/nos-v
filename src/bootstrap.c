@@ -52,7 +52,7 @@ int nosv_shutdown(void)
 		return 1;
 
 	pidmanager_shutdown();
-	scheduler_shutdown();
+	scheduler_shutdown(logic_pid);
 
 	// Display reports of statistics before deleting task types
 	monitoring_display_stats();

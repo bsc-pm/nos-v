@@ -4,8 +4,6 @@
 	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
 */
 
-#define _GNU_SOURCE
-
 #include <assert.h>
 #include <pthread.h>
 #include <sched.h>

@@ -11,6 +11,9 @@
 
 #include "compiler.h"
 
+#include <stddef.h>
+#include <stdint.h>
+
 __internal void config_parse(void);
 __internal void config_free(void);
 
@@ -40,6 +43,10 @@ typedef struct rt_config {
 	uint64_t sched_batch_size;
 	uint64_t sched_quantum_ns;
 	uint64_t sched_in_queue_size;
+
+	// Governor
+	const char *governor_policy;
+	uint64_t governor_spins;
 
 	// Debug
 	int debug_dump_config;

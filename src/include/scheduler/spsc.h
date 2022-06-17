@@ -24,10 +24,6 @@
 		- Have pop_many variants that do the same
 */
 
-typedef atomic_uint_fast64_t atomic_uint64_t;
-
-#define read_memory_uint64_t(a) (*((volatile uint64_t *)&(a)))
-
 struct spsc_queue_entry {
 	void *entry;
 };

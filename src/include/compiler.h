@@ -7,9 +7,12 @@
 #ifndef COMPILER_H
 #define COMPILER_H
 
+#include <stdatomic.h>
+
 #include "defaults.h"
 
 #define __cacheline_aligned __attribute__((aligned(CACHELINE_SIZE)))
+#define __2xcacheline_aligned __attribute__((aligned(CACHELINE_SIZE * 2)))
 
 #define __constructor __attribute__((constructor))
 #define __destructor __attribute__((destructor))
@@ -44,5 +47,16 @@
 #ifndef typeof
 #define typeof __typeof__
 #endif
+
+// Define standard atomic int types
+typedef atomic_uint_fast64_t atomic_uint64_t;
+_Static_assert(sizeof(atomic_uint64_t) == 8, "atomic_uint64_t must be 64-bit");
+typedef atomic_uint_least32_t atomic_uint32_t;
+_Static_assert(sizeof(atomic_uint32_t) == 4, "atomic_uint32_t must be 32-bit");
+typedef atomic_int_fast64_t atomic_int64_t;
+_Static_assert(sizeof(atomic_int64_t) == 8, "atomic_int64_t must be 64-bit");
+typedef atomic_int_least32_t atomic_int32_t;
+_Static_assert(sizeof(atomic_int32_t) == 4, "atomic_int32_t must be 32-bit");
+
 
 #endif // COMPILER_H
