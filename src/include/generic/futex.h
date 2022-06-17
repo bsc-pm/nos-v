@@ -21,7 +21,7 @@
 // for example a condition variable or a semaphore, in another OS
 
 typedef struct futex {
-	atomic_int32_t memory;
+	atomic_int32_t memory __cacheline_aligned;
 } nosv_futex_t;
 
 // Define the futex wrapper for type safety
