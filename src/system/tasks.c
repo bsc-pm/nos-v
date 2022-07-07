@@ -549,6 +549,8 @@ static inline void task_complete(nosv_task_t task)
 	nosv_task_t wakeup = task->wakeup;
 	task->wakeup = NULL;
 
+	atomic_store_explicit(&task->event_count, 1, memory_order_relaxed);
+
 	if (task->type->completed_callback)
 		task->type->completed_callback(task);
 	// From here, task may be freed!
@@ -586,6 +588,12 @@ void task_execute(nosv_task_t task)
 	// Task just completed, read and accumulate hardware counters for the task
 	hwcounters_update_task_counters(task);
 	monitoring_task_changed_status(task, paused_status);
+
+	// After the run and end callbacks, we can safely reset the task in case it has to be re-entrant
+	// Reset the blocking count
+	atomic_store_explicit(&task->blocking_count, 1, memory_order_relaxed);
+	// Remove the worker assigned to this task
+	task->worker = NULL;
 
 	uint64_t res = atomic_fetch_sub_explicit(&task->event_count, 1, memory_order_relaxed) - 1;
 	if (!res) {
