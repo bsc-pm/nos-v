@@ -54,6 +54,8 @@ static inline void config_init(rt_config_t *config)
 	config->governor_spins = 10000;
 
 	config->cpumanager_binding = strdup(CPUMANAGER_BINDING);
+	config->affinity_default = strdup(AFFINITY_DEFAULT);
+	config->affinity_default_policy = strdup(AFFINITY_DEFAULT_POLICY);
 
 	config->debug_dump_config = 0;
 
@@ -98,9 +100,15 @@ static inline int config_check(rt_config_t *config)
 	const int gov_policy_ok = !strcmp(config->governor_policy, "hybrid") || !strcmp(config->governor_policy, "busy") || !strcmp(config->governor_policy, "idle");
 	sanity_check(gov_policy_ok, "Governor policy must be one of: hybrid, idle or busy");
 	if (!strcmp(config->governor_policy, "hybrid") && config->governor_spins == 0)
-		nosv_warn("The governor was configured with the \"hybrid\" policy, but the number of spins is zero.\n The governor will behave like an \"idle\" policy.")
+		nosv_warn("The governor was configured with the \"hybrid\" policy, but the number of spins is zero.\n The governor will behave like an \"idle\" policy.");
 
 	sanity_check(config->cpumanager_binding, "The CPU binding for the CPU manager cannot be empty");
+
+	sanity_check(config->affinity_default, "The default affinity cannot be empty");
+	sanity_check(config->affinity_default_policy, "The default affinity policy cannot be empty");
+
+	const int aff_policy_ok = !strcmp(config->affinity_default_policy, "strict") || !strcmp(config->affinity_default_policy, "preferred");
+	sanity_check(aff_policy_ok, "Affinity policy must be one of: strict or preferred");
 
 	sanity_check(
 		!strcmp(config->hwcounters_backend, "none") ||

@@ -41,6 +41,10 @@ typedef struct rt_config {
 	// CPU Manager
 	const char *cpumanager_binding;
 
+	// Affinity
+	const char *affinity_default;
+	const char *affinity_default_policy;
+
 	// Scheduler
 	uint64_t sched_cpus_per_queue;
 	uint64_t sched_batch_size;

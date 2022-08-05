@@ -64,6 +64,18 @@
 	# first process that initializes the runtime, or a CPU mask in hexadecimal with the format "0xFFFF"
 	binding = "inherit"
 
+# Affinity
+[affinity]
+	# Default affinity for all created tasks. This will be the default value for nosv task affinity in the
+	# current process. This setting is normally used in conjunction with "binding" and makes it possible to
+	# easily combine multiple processes in the same nOS-V instance.
+	# Values can be: "all" or "cpu-X", "numa-X", "complex-X" where "X" is the physical index of the resource.
+	# For example, "numa-1" will set affinity of all tasks to the NUMA Node 1.
+	default = "all"
+	# Default affinity policy, either "strict" or "preferred". When the default affinity is "all", this value
+	# is not used.
+	default_policy = "strict"
+
 # Debug options
 [debug]
 	# Dump all the configuration options nOS-V is running with, its final parsed values and the

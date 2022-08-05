@@ -54,6 +54,12 @@
 // The default CPU binding mask
 #define CPUMANAGER_BINDING "inherit"
 
+// AFFINITY
+
+// Default affinity values
+#define AFFINITY_DEFAULT "all"
+#define AFFINITY_DEFAULT_POLICY "strict"
+
 // HARDWARE COUNTERS
 
 // Whether to print verbose info of hwcounters, disabled by default
