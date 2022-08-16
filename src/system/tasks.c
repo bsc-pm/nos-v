@@ -237,6 +237,7 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	atomic_init(&res->event_count, 1);
 	atomic_init(&res->blocking_count, 1);
 	res->affinity = default_affinity;
+	res->priority = 0;
 
 	res->deadline = 0;
 	res->yield = 0;

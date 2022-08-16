@@ -72,10 +72,73 @@ void scheduler_shutdown(int pid)
 	free(task_batch_buffer);
 }
 
+#if ENABLE_PRIORITY
+
+static inline int scheduler_task_priority_compare(heap_node_t *a, heap_node_t *b)
+{
+	nosv_task_t task_a = heap_elem(a, struct nosv_task, heap_hook);
+	nosv_task_t task_b = heap_elem(b, struct nosv_task, heap_hook);
+
+	// When priorities are equal, we have to factor in when was the task inserted
+	// Failing to do so can result in livelocks when working with nosv_yield or nosv_schedpoint,
+	// because the heap looses the FIFO guarantees given by the queues
+
+	int result = (task_a->priority > task_b->priority) - (task_b->priority > task_a->priority);
+	if (!result)
+		return (task_a->tasks_when_inserted < task_b->tasks_when_inserted) - (task_b->tasks_when_inserted < task_a->tasks_when_inserted);
+
+	return result;
+}
+
+static inline void scheduler_init_queue(scheduler_queue_t *queue)
+{
+	heap_init(&queue->tasks);
+}
+
+static inline int scheduler_find_task_queue(scheduler_queue_t *queue, nosv_task_t *task /*out*/)
+{
+	heap_node_t *head = heap_pop_max(&queue->tasks, scheduler_task_priority_compare);
+
+	if (head) {
+		*task = heap_elem(head, struct nosv_task, heap_hook);
+		// Clear heap fields since it is in a union
+		heap_clean(head);
+		return 1;
+	}
+
+	return 0;
+}
+
+static inline void scheduler_add_queue(scheduler_queue_t *queue, nosv_task_t task)
+{
+	heap_insert(&queue->tasks, &task->heap_hook, scheduler_task_priority_compare);
+}
+
+#else
+
 static inline void scheduler_init_queue(scheduler_queue_t *queue)
 {
 	list_init(&queue->tasks);
 }
+
+static inline int scheduler_find_task_queue(scheduler_queue_t *queue, nosv_task_t *task /*out*/)
+{
+	list_head_t *head = list_pop_head(&queue->tasks);
+
+	if (head) {
+		*task = list_elem(head, struct nosv_task, list_hook);
+		return 1;
+	}
+
+	return 0;
+}
+
+static inline void scheduler_add_queue(scheduler_queue_t *queue, nosv_task_t task)
+{
+	list_add_tail(&queue->tasks, &task->list_hook);
+}
+
+#endif
 
 static inline process_scheduler_t *scheduler_init_pid(int pid)
 {
@@ -109,7 +172,7 @@ static inline process_scheduler_t *scheduler_init_pid(int pid)
 	list_add_tail(&scheduler->queues, &sched->list_hook);
 
 	heap_init(&sched->deadline_tasks);
-	scheduler_init_queue(&sched->yield_tasks);
+	list_init(&sched->yield_tasks.tasks);
 	sched->now = clock_ns();
 
 	sched->last_shutdown = 0;
@@ -169,7 +232,9 @@ static inline void scheduler_process_ready_tasks(void)
 			} else if (task->deadline) {
 				heap_insert(&pidqueue->deadline_tasks, &task->heap_hook, &deadline_cmp);
 			} else {
-				list_add_tail(&pidqueue->queue.tasks, &task->list_hook);
+				// Account to add FIFO behaviour to priority queues
+				task->tasks_when_inserted = scheduler->served_tasks + scheduler->tasks;
+				scheduler_add_queue(&pidqueue->queue, task);
 			}
 
 			pidqueue->tasks++;
@@ -248,18 +313,6 @@ void scheduler_submit(nosv_task_t task)
 	instr_sched_submit_exit();
 }
 
-static inline int scheduler_find_task_queue(scheduler_queue_t *queue, nosv_task_t *task /*out*/)
-{
-	list_head_t *head = list_pop_head(&queue->tasks);
-
-	if (head) {
-		*task = list_elem(head, struct nosv_task, list_hook);
-		return 1;
-	}
-
-	return 0;
-}
-
 static inline int task_affine(nosv_task_t task, cpu_t *cpu)
 {
 	switch (task->affinity.level) {
@@ -302,7 +355,9 @@ static inline void scheduler_insert_affine(process_scheduler_t *sched, nosv_task
 	assert(queue != NULL);
 	if (task->affinity.type == NOSV_AFFINITY_TYPE_PREFERRED)
 		sched->preferred_affinity_tasks++;
-	list_add_tail(&queue->tasks, &task->list_hook);
+
+	task->tasks_when_inserted = scheduler->served_tasks + scheduler->tasks;
+	scheduler_add_queue(queue, task);
 }
 
 static inline int scheduler_get_yield_expired(process_scheduler_t *sched, nosv_task_t *task /*out*/)

@@ -7,6 +7,8 @@
 #ifndef DEFAULTS_H
 #define DEFAULTS_H
 
+#include <config.h>
+
 /*
 	This file is intended to contain all the static limits that may need to be edited
 	in some cases by nOS-V users.
@@ -19,9 +21,6 @@
 
 // Maximum number of concurrent nOS-V processes
 #define MAX_PIDS 512
-
-// Cacheline Size
-#define CACHELINE_SIZE 64
 
 // Max served tasks by delegation
 #define MAX_SERVED_TASKS 1024

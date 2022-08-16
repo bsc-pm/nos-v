@@ -24,8 +24,16 @@
 #define SCHED_GET_NONBLOCKING __BIT(0)
 
 typedef struct scheduler_queue {
+#if ENABLE_PRIORITY
+	heap_head_t tasks;
+#else
 	list_head_t tasks;
+#endif
 } scheduler_queue_t;
+
+typedef struct scheduler_queue_yield {
+	list_head_t tasks;
+} scheduler_queue_yield_t;
 
 typedef struct process_scheduler {
 	int pid;
@@ -35,7 +43,7 @@ typedef struct process_scheduler {
 	size_t preferred_affinity_tasks;
 	heap_head_t deadline_tasks;
 	deadline_t now;
-	scheduler_queue_t yield_tasks;
+	scheduler_queue_yield_t yield_tasks;
 	scheduler_queue_t *per_cpu_queue_strict;
 	scheduler_queue_t *per_cpu_queue_preferred;
 	scheduler_queue_t *per_numa_queue_strict;

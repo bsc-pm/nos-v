@@ -10,6 +10,7 @@
 #include <stdatomic.h>
 
 #include "compiler.h"
+#include "defaults.h"
 #include "generic/heap.h"
 #include "generic/list.h"
 #include "nosv.h"
@@ -44,7 +45,11 @@ struct nosv_task {
 	struct nosv_affinity affinity;
 
 	int priority;
-	list_head_t list_hook;
+
+	union {
+		size_t tasks_when_inserted;
+		list_head_t list_hook;
+	};
 
 	// Maybe this could be on-demand allocated
 	deadline_t deadline;
