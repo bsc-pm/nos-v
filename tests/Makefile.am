@@ -63,9 +63,17 @@ basic_yield_test_SOURCES = basic/yield.c
 basic_yield_test_CFLAGS = $(AM_CFLAGS)
 basic_yield_test_LDFLAGS = $(AM_LDFLAGS)
 
+basic_deadline_test_SOURCES = basic/deadline.c
+basic_deadline_test_CFLAGS = $(AM_CFLAGS)
+basic_deadline_test_LDFLAGS = $(AM_LDFLAGS)
+
 unit_dtlock_test_SOURCES = unit/test-dtlock.c $(unit_SOURCES)
 unit_dtlock_test_CFLAGS = $(unit_CFLAGS)
 unit_dtlock_test_LDFLAGS = $(unit_LIBS)
+
+unit_heap_test_SOURCES = unit/test-heap.c $(unit_SOURCES)
+unit_heap_test_CFLAGS = $(unit_CFLAGS)
+unit_heap_test_LDFLAGS = $(unit_LIBS)
 
 unit_ring_buffer_test_SOURCES = unit/test-ring-buffer.c $(unit_SOURCES)
 unit_ring_buffer_test_CFLAGS = $(unit_CFLAGS)

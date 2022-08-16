@@ -123,11 +123,10 @@ static inline int deadline_cmp(heap_node_t *a, heap_node_t *b)
 	nosv_task_t task_a = heap_elem(a, struct nosv_task, heap_hook);
 	nosv_task_t task_b = heap_elem(b, struct nosv_task, heap_hook);
 
-	// Comparing two uint64_t fields
-	// First, we check c = (a > b), which will be either 1 or 0
-	// Then, we do d = (b > a), either 1 or 0
-	// If we then calculate e = c - d, e will be 1 if a > b, -1 if b > a, or 0 if a = b.
-	return (task_a->deadline > task_b->deadline) - (task_b->deadline > task_a->deadline);
+	// Returns 1 if task a goes before b
+	// Returns -1 if task b goes before a
+	// Returns 0 if both tasks have the same deadline
+	return (task_a->deadline < task_b->deadline) - (task_b->deadline < task_a->deadline);
 }
 
 // Check if any schedulers need shutting down
