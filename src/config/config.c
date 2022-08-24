@@ -31,6 +31,9 @@
 #define PTR_TO(type, struct_ptr, offset) \
 	((type *)(((char *)(struct_ptr)) + (offset)))
 
+#define PTR_TO_ELEM(type, struct_ptr, offset) \
+	((type *)(((char *)(struct_ptr)) + (offset) * sizeof(type)))
+
 __internal rt_config_t nosv_config;
 
 static char config_path[MAX_CONFIG_PATH];
@@ -60,6 +63,7 @@ static inline void config_init(rt_config_t *config)
 	config->cpumanager_binding = strdup(CPUMANAGER_BINDING);
 	config->affinity_default = strdup(AFFINITY_DEFAULT);
 	config->affinity_default_policy = strdup(AFFINITY_DEFAULT_POLICY);
+	config->affinity_numa_nodes.n = 0;
 
 	config->debug_dump_config = 0;
 
@@ -130,10 +134,25 @@ static inline int config_check(rt_config_t *config)
 
 // Support functions to parse the different data types from TOML or strings
 
-static inline int toml_parse_int64(int64_t *ptr, toml_table_t *table, const char *name)
-{
-	toml_datum_t datum = toml_int_in(table, name);
+#define TOML_PARSE_FN(_name_, _type_, _toml_fn_datum_) \
+	static inline int __toml_parse_ ## _name_(_type_ *ptr, toml_datum_t datum); \
+	static inline int toml_table_parse_ ## _name_(_type_ *ptr, toml_table_t *table, const char *name) \
+	{ \
+		toml_datum_t datum = _toml_fn_datum_ ## _in(table, name); \
+		return __toml_parse_ ## _name_(ptr, datum); \
+	} \
+	static inline int toml_array_parse_ ## _name_(_type_ *ptr, toml_array_t *array, int idx) \
+	{ \
+		toml_datum_t datum = _toml_fn_datum_ ## _at(array, idx); \
+		return __toml_parse_ ## _name_(ptr, datum); \
+	} \
+	static inline int __toml_parse_ ## _name_(_type_ *ptr, toml_datum_t datum)
 
+// Each of these functions has two arguments then, a "ptr" which is a pointer to
+// the parsed type (in this case, int64_t *ptr), and then a "datum" which is the obtained
+// toml_datum_t. The generated functions are toml_array_parse_int64 and toml_table_parse_int64
+TOML_PARSE_FN(int64, int64_t, toml_int)
+{
 	if (datum.ok) {
 		*ptr = datum.u.i;
 		return 0;
@@ -155,10 +174,8 @@ static inline int string_parse_int64(int64_t *ptr, const char *value)
 	return 1;
 }
 
-static inline int toml_parse_ptr(void **ptr, toml_table_t *table, const char *name)
+TOML_PARSE_FN(ptr, void *, toml_int)
 {
-	toml_datum_t datum = toml_int_in(table, name);
-
 	if (datum.ok) {
 		*ptr = ((void *)datum.u.i);
 		return 0;
@@ -237,10 +254,8 @@ valid:
 	return 0;
 }
 
-static inline int toml_parse_size(size_t *ptr, toml_table_t *table, const char *name)
+TOML_PARSE_FN(size, size_t, toml_string)
 {
-	toml_datum_t datum = toml_string_in(table, name);
-
 	if (datum.ok) {
 		int ret = parse_str_size(ptr, datum.u.s);
 		free(datum.u.s);
@@ -255,10 +270,8 @@ static inline int string_parse_size(size_t *ptr, const char *value)
 	return parse_str_size(ptr, value);
 }
 
-static inline int toml_parse_uint64(uint64_t *ptr, toml_table_t *table, const char *name)
+TOML_PARSE_FN(uint64, uint64_t, toml_int)
 {
-	toml_datum_t datum = toml_int_in(table, name);
-
 	if (datum.ok && datum.u.i >= 0) {
 		*ptr = ((uint64_t)datum.u.i);
 		return 0;
@@ -280,10 +293,8 @@ static inline int string_parse_uint64(uint64_t *ptr, const char *value)
 	return 1;
 }
 
-static inline int toml_parse_str(char **ptr, toml_table_t *table, const char *name)
+TOML_PARSE_FN(str, char *, toml_string)
 {
-	toml_datum_t datum = toml_string_in(table, name);
-
 	if (datum.ok) {
 		// Free the old option
 		if (*ptr)
@@ -320,10 +331,8 @@ static inline int string_parse_str(char **ptr, const char *value)
 	return 0;
 }
 
-static inline int toml_parse_bool(int *ptr, toml_table_t *table, const char *name)
+TOML_PARSE_FN(bool, int, toml_bool)
 {
-	toml_datum_t datum = toml_bool_in(table, name);
-
 	if (datum.ok) {
 		*ptr = datum.u.b;
 		return 0;
@@ -346,7 +355,7 @@ static inline int string_parse_bool(int *ptr, const char *value)
 	return 0;
 }
 
-static inline int toml_parse_list_str(string_list_t *ptr, toml_table_t *table, const char *name)
+static inline int toml_table_parse_list_str(string_list_t *ptr, toml_table_t *table, const char *name)
 {
 	if (ptr->strings) {
 		int num_strings = ptr->num_strings;
@@ -456,6 +465,71 @@ static inline void config_find(void)
 			   "or place a nosv.toml file in the current working directory.");
 }
 
+static inline int config_parse_array_internal(
+	config_spec_t *spec, rt_config_t *config, toml_array_t *toml_array, generic_array_t *parsed_array, int dimensions_left)
+{
+	// This can only happen if we have an extraneous element
+	if (!toml_array)
+		return 1;
+
+	int ret;
+
+	int nelem = toml_array_nelem(toml_array);
+	parsed_array->n = nelem;
+
+	if (dimensions_left == 1) {
+		// Parse directly
+		parsed_array->items = malloc(nelem * config_spec_type_size[spec->type]);
+
+		for (int i = 0; i < nelem; ++i) {
+			switch (spec->type) {
+				case TYPE_INT64:
+					ret = toml_array_parse_int64(PTR_TO_ELEM(int64_t, parsed_array->items, i), toml_array, i);
+					break;
+				case TYPE_PTR:
+					ret = toml_array_parse_ptr(PTR_TO_ELEM(void *, parsed_array->items, i), toml_array, i);
+					break;
+				case TYPE_SIZE:
+					ret = toml_array_parse_size(PTR_TO_ELEM(size_t, parsed_array->items, i), toml_array, i);
+					break;
+				case TYPE_UINT64:
+					ret = toml_array_parse_uint64(PTR_TO_ELEM(uint64_t, parsed_array->items, i), toml_array, i);
+					break;
+				case TYPE_STR:
+					ret = toml_array_parse_str(PTR_TO_ELEM(char *, parsed_array->items, i), toml_array, i);
+					break;
+				case TYPE_BOOL:
+					ret = toml_array_parse_bool(PTR_TO_ELEM(int, parsed_array->items, i), toml_array, i);
+					break;
+				default:
+					ret = 1;
+			}
+
+			if (ret)
+				return 1;
+		}
+	} else {
+		// Build array and go one dimension lower
+		parsed_array->items = malloc(nelem * sizeof(generic_array_t));
+		generic_array_t *subarrays = (generic_array_t *) parsed_array->items;
+
+		for (int i = 0; i < nelem; ++i) {
+			ret = config_parse_array_internal(spec, config, toml_array_at(toml_array, i), &subarrays[i], dimensions_left - 1);
+			if (ret)
+				return 1;
+		}
+	}
+
+	return 0;
+}
+
+static inline int config_parse_array(config_spec_t *spec, rt_config_t *config, toml_table_t *table, const char *element_name)
+{
+	generic_array_t *parsed_array = PTR_TO(generic_array_t, config, spec->member_offset);
+
+	return config_parse_array_internal(spec, config, toml_array_in(table, element_name), parsed_array, spec->dimensions);
+}
+
 static inline int config_parse_single_element(config_spec_t *spec, rt_config_t *config, toml_table_t *table, const char *element_name)
 {
 	// Try to parse a single TOML element
@@ -464,19 +538,19 @@ static inline int config_parse_single_element(config_spec_t *spec, rt_config_t *
 
 	switch (spec->type) {
 		case TYPE_INT64:
-			return toml_parse_int64(PTR_TO(int64_t, config, spec->member_offset), table, element_name);
+			return toml_table_parse_int64(PTR_TO(int64_t, config, spec->member_offset), table, element_name);
 		case TYPE_PTR:
-			return toml_parse_ptr(PTR_TO(void *, config, spec->member_offset), table, element_name);
+			return toml_table_parse_ptr(PTR_TO(void *, config, spec->member_offset), table, element_name);
 		case TYPE_SIZE:
-			return toml_parse_size(PTR_TO(size_t, config, spec->member_offset), table, element_name);
+			return toml_table_parse_size(PTR_TO(size_t, config, spec->member_offset), table, element_name);
 		case TYPE_UINT64:
-			return toml_parse_uint64(PTR_TO(uint64_t, config, spec->member_offset), table, element_name);
+			return toml_table_parse_uint64(PTR_TO(uint64_t, config, spec->member_offset), table, element_name);
 		case TYPE_STR:
-			return toml_parse_str(PTR_TO(char *, config, spec->member_offset), table, element_name);
+			return toml_table_parse_str(PTR_TO(char *, config, spec->member_offset), table, element_name);
 		case TYPE_BOOL:
-			return toml_parse_bool(PTR_TO(int, config, spec->member_offset), table, element_name);
+			return toml_table_parse_bool(PTR_TO(int, config, spec->member_offset), table, element_name);
 		case TYPE_LIST_STR:
-			return toml_parse_list_str(PTR_TO(string_list_t, config, spec->member_offset), table, element_name);
+			return toml_table_parse_list_str(PTR_TO(string_list_t, config, spec->member_offset), table, element_name);
 		default:
 			return 1;
 	}
@@ -523,7 +597,10 @@ static inline int config_parse_single_spec(config_spec_t *spec, rt_config_t *con
 	if (!toml_raw_in(curr_table, curr_str) && !toml_array_in(curr_table, curr_str))
 		goto empty;
 
-	ret = config_parse_single_element(spec, config, curr_table, curr_str);
+	if (spec->dimensions)
+		ret = config_parse_array(spec, config, curr_table, curr_str);
+	else
+		ret = config_parse_single_element(spec, config, curr_table, curr_str);
 
 	if (ret)
 		nosv_warn("Error parsing configuration option %s", orig_str);

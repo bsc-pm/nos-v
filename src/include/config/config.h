@@ -32,6 +32,11 @@ typedef struct string_list {
 	uint64_t num_strings;
 } string_list_t;
 
+typedef struct generic_array {
+	void *items;
+	uint64_t n;
+} generic_array_t;
+
 typedef struct rt_config {
 	// Shared Memory
 	const char *shm_name;
@@ -45,6 +50,7 @@ typedef struct rt_config {
 	// Affinity
 	const char *affinity_default;
 	const char *affinity_default_policy;
+	generic_array_t affinity_numa_nodes;
 
 	// Scheduler
 	uint64_t sched_cpus_per_queue;

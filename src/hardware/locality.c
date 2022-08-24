@@ -10,11 +10,13 @@
 
 #include "common.h"
 #include "compiler.h"
+#include "config/config.h"
 #include "hardware/locality.h"
 
 __internal int *numa_logical_to_system;
 __internal int *numa_system_to_logical;
 __internal int numa_count;
+__internal int numa_fromcfg;
 
 static inline void locality_numa_disabled(void)
 {
@@ -24,15 +26,12 @@ static inline void locality_numa_disabled(void)
 
 	numa_logical_to_system[0] = 0;
 	numa_system_to_logical[0] = 0;
+
+	numa_fromcfg = 0;
 }
 
-void locality_init(void)
+static inline void parse_from_libnuma(void)
 {
-	if (numa_available() == -1) {
-		locality_numa_disabled();
-		return;
-	}
-
 	// Use numa_all_nodes_ptr as that contains only the nodes that are actually available,
 	// not all configured. On some machines, some nodes are configured but unavailable.
 	numa_count = numa_bitmask_weight(numa_all_nodes_ptr);
@@ -52,6 +51,42 @@ void locality_init(void)
 	}
 
 	assert(logic_idx == numa_count);
+	numa_fromcfg = 0;
+}
+
+static inline void parse_from_config(void)
+{
+	// Use the relevant configuration option
+	int numa_max = nosv_config.affinity_numa_nodes.n;
+	numa_logical_to_system = malloc(sizeof(int) * numa_max);
+	numa_system_to_logical = malloc(sizeof(int) * numa_max);
+
+	generic_array_t *numa_nodes = (generic_array_t *) nosv_config.affinity_numa_nodes.items;
+
+	// In the logical index, we will skip empty NUMA nodes.
+	int logic_idx = 0;
+	for (int i = 0; i < numa_max; ++i) {
+		if (numa_nodes[i].n > 0) {
+			numa_system_to_logical[i] = logic_idx;
+			numa_logical_to_system[logic_idx++] = i;
+		} else {
+			numa_system_to_logical[i] = -1;
+		}
+	}
+
+	numa_count = logic_idx;
+	numa_fromcfg = 1;
+}
+
+void locality_init(void)
+{
+	if (nosv_config.affinity_numa_nodes.n > 0) {
+		parse_from_config();
+	} else if (numa_available() != -1) {
+		parse_from_libnuma();
+	} else {
+		locality_numa_disabled();
+	}
 }
 
 int locality_numa_count(void)
@@ -59,9 +94,35 @@ int locality_numa_count(void)
 	return numa_count;
 }
 
+static int locality_numa_from_cfg(int system_cpu_id)
+{
+	// Search for CPU's NUMA node.
+	// If not found, return an error for the user to fix
+	int num_nodes = nosv_config.affinity_numa_nodes.n;
+	generic_array_t *numa_nodes = (generic_array_t *) nosv_config.affinity_numa_nodes.items;
+
+	for (int i = 0; i < num_nodes; ++i) {
+		int64_t *cpu_idx = (int64_t *)numa_nodes[i].items;
+		int cpus = numa_nodes[i].n;
+
+		for (int j = 0; j < cpus; ++j) {
+			if (cpu_idx[j] == system_cpu_id)
+				return i;
+		}
+	}
+
+	nosv_abort("Reading NUMA nodes from config, but cpu %d is missing", system_cpu_id);
+}
+
 int locality_get_cpu_numa(int system_cpu_id)
 {
-	return numa_system_to_logical[numa_node_of_cpu(system_cpu_id)];
+	int cpu_numa_id = 0;
+	if (numa_fromcfg)
+		cpu_numa_id = locality_numa_from_cfg(system_cpu_id);
+	else
+		cpu_numa_id = numa_node_of_cpu(system_cpu_id);
+
+	return numa_system_to_logical[cpu_numa_id];
 }
 
 int locality_get_logical_numa(int system_numa_id)
