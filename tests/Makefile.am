@@ -19,10 +19,12 @@ a_tests = basic-init.test \
 	basic-attach.test \
 	basic-attach-external.test \
 	basic-schedpoint.test \
-	basic-yield.test
+	basic-yield.test \
+	basic-deadline.test
 
 unit_tests = unit-dtlock.test \
-	unit-ring-buffer.test
+	unit-ring-buffer.test \
+	unit-heap.test
 
 check_PROGRAMS = driver $(a_tests) $(unit_tests)
 TESTS = $(a_tests) $(unit_tests)
