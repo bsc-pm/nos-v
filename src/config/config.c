@@ -710,7 +710,7 @@ static inline void config_preset_isolated(void)
 	nosv_config.affinity_default = strdup("all");
 }
 
-static inline void config_preset_mpi(void)
+static inline void config_preset_shared_mpi(void)
 {
 	free((void *)nosv_config.shm_isolation_level);
 	nosv_config.shm_isolation_level = strdup("user");
@@ -739,7 +739,7 @@ static inline void config_parse_preset(void)
 {
 	// For now, the only preset is the environment variable NOSV_PRESET
 	// On NOSV_PRESET="isolated", we inherit the CPU mask from the process and set isolation_level to process
-	// On NOSV_PRESET="mpi", we use all available CPUs in the system and stablish preferred affinity for all tasks
+	// On NOSV_PRESET="shared-mpi", we use all available CPUs in the system and stablish preferred affinity for all tasks
 
 	const char *preset = getenv("NOSV_PRESET");
 	if (!preset || strlen(preset) == 0)
@@ -747,10 +747,10 @@ static inline void config_parse_preset(void)
 
 	if (!strcmp(preset, "isolated"))
 		config_preset_isolated();
-	else if (!strcmp(preset, "mpi"))
-		config_preset_mpi();
+	else if (!strcmp(preset, "shared-mpi"))
+		config_preset_shared_mpi();
 	else
-		nosv_abort("Unknown value for NOSV_PRESET. Acceptable values are isolated, mpi");
+		nosv_abort("Unknown value for NOSV_PRESET. Acceptable values are isolated, shared-mpi");
 }
 
 // Find and parse the nOS-V config file

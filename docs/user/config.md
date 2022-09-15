@@ -27,4 +27,4 @@ The following presets are currently available:
 | Preset  | Effect |
 | --- | --- |
 | `isolate` | Runs nOS-V applications without sharing the nOS-V instances. CPU binding is inherited from the parent process |
-| `mpi` | Runs applications sharing a single nOS-V instance amongst processes of the same user. CPU binding is set to the whole machine, and default affinity to the parent process' binding. |
+| `shared-mpi` | Runs applications sharing a single nOS-V instance amongst processes of the same user. CPU binding is set to the whole machine, and default affinity to the parent process' binding. |
