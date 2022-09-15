@@ -270,9 +270,6 @@ int main(int argc, char *argv[])
 	if (argc != 2)
 		usage(argv[0]);
 
-	// Clean up shared memory. Ignore return value.
-	unlink("/dev/shm/nosv");
-
 	tap_t tap;
 	tap_init(&tap);
 
@@ -285,13 +282,6 @@ int main(int argc, char *argv[])
 	if (options.parallel) {
 		// Then do so for parallel testing
 		execute_tests(&tap, argv[1], PARALLEL_TESTS, &options);
-	}
-
-	// Check if shared memory exists after the test
-	struct stat buf;
-	int ret = stat("/dev/shm/nosv", &buf);
-	if (ret == 0 || errno != ENOENT) {
-		tap_fail(&tap, "Did not clean shared memory");
 	}
 
 	tap_end(&tap);

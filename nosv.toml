@@ -8,9 +8,16 @@
 
 # Shared memory configuration
 [shared_memory]
-	# Name of the shared memory section. This can be leveraged to create two separate nOS-V instances
-	# in the same system. Generally this has to remain unchanged
+	# Name of the shared memory section. This variable acts as an "id" for each nOS-V instance
+	# Two applications with the same shared memory name will share a nOS-V instance, while different names
+	# will result in independent nOS-V instances.
 	name = "nosv"
+	# Isolation level of nOS-V. Possible values are:
+	# "process" - Each process has a separate nOS-V instance
+	# "user" - nOS-V instances are shared for the same user
+	# "group" - nOS-V instances are shared for the same group
+	# "public" - nOS-V instances are shared for the whole system
+	isolation_level = "user"
 	# Size of the shared memory section. Choose powers of two
 	size = "2G"
 	# Start of the shared memory mapping

@@ -7,6 +7,8 @@
 #ifndef SHARED_MEMORY_H
 #define SHARED_MEMORY_H
 
+#include <sys/stat.h>
+
 #include "compiler.h"
 #include "defaults.h"
 #include "generic/mutex.h"
@@ -31,6 +33,8 @@ typedef struct smem_config {
 typedef struct static_smem_config {
 	smem_config_t *config;
 	int smem_fd;
+	const char *smem_name;
+	mode_t smem_mode;
 } static_smem_config_t;
 
 __internal extern static_smem_config_t st_config;

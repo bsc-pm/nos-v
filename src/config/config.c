@@ -47,6 +47,8 @@ static inline void config_init(rt_config_t *config)
 	// Use strdup for strings by default?
 	config->shm_name = strdup(SHM_NAME);
 	assert(config->shm_name);
+	config->shm_isolation_level = strdup(SHM_ISOLATION_LEVEL);
+	assert(config->shm_isolation_level);
 	config->shm_size = SHM_SIZE;
 	config->shm_start = SHM_START_ADDR;
 
@@ -77,15 +79,25 @@ static inline void config_init(rt_config_t *config)
 	config->monitoring_verbose = 0;
 }
 
+#define sanity_check(cond, explanation)                             \
+	if (!(cond)) {                                                  \
+		nosv_warn("Check \"%s\" failed: %s", #cond, explanation);   \
+		ret = 1;                                                    \
+	}
+
+#define sanity_check_str(str, explanation, ...) 						\
+	do {                                        						\
+		const char *_arr[] = {__VA_ARGS__};      						\
+		int _eq = 0;                             						\
+		for (int _i = 0; _i < (sizeof(_arr) / sizeof(_arr[0])); ++_i) 	\
+			_eq |= !strcmp((str), _arr[_i]); 							\
+		sanity_check(_eq, (explanation)) 								\
+	} while (0)
+
 // Sanity checks for configuration options should be here
 static inline int config_check(rt_config_t *config)
 {
 	int ret = 0;
-#define sanity_check(cond, explanation)                           \
-	if (!(cond)) {                                                  \
-		nosv_warn("Check \"%s\" failed: %s", #cond, explanation); \
-		ret = 1;                                                  \
-	}
 
 	sanity_check(config->sched_batch_size > 0, "Scheduler batch size should be more than 0");
 	sanity_check(config->sched_cpus_per_queue > 0, "CPUs per queue cannot be lower than 1");
@@ -95,10 +107,11 @@ static inline int config_check(rt_config_t *config)
 	sanity_check(config->shm_name, "Shared memory name cannot be empty");
 	sanity_check(config->shm_size > (10 * 2 * 1024 * 1024), "Small shared memory sizes (less than 10 pages) are not supported");
 	sanity_check(((uintptr_t)config->shm_start) >= 4096, "Mapping shared memory at page 0 is not allowed");
+	sanity_check(config->shm_isolation_level, "Isolation level cannot be empty");
+	sanity_check_str(config->shm_isolation_level, "Unknown value for shared memory isolation", "process", "user", "group", "public");
 
 	sanity_check(config->governor_policy, "Governor policy cannot be empty");
-	const int gov_policy_ok = !strcmp(config->governor_policy, "hybrid") || !strcmp(config->governor_policy, "busy") || !strcmp(config->governor_policy, "idle");
-	sanity_check(gov_policy_ok, "Governor policy must be one of: hybrid, idle or busy");
+	sanity_check_str(config->governor_policy, "Unknown value for governor policy", "hybrid", "busy", "idle");
 	if (!strcmp(config->governor_policy, "hybrid") && config->governor_spins == 0)
 		nosv_warn("The governor was configured with the \"hybrid\" policy, but the number of spins is zero.\n The governor will behave like an \"idle\" policy.");
 
@@ -106,17 +119,10 @@ static inline int config_check(rt_config_t *config)
 
 	sanity_check(config->affinity_default, "The default affinity cannot be empty");
 	sanity_check(config->affinity_default_policy, "The default affinity policy cannot be empty");
+	sanity_check_str(config->affinity_default_policy, "Affinity policy must be one of: strict or preferred", "strict", "preferred");
 
-	const int aff_policy_ok = !strcmp(config->affinity_default_policy, "strict") || !strcmp(config->affinity_default_policy, "preferred");
-	sanity_check(aff_policy_ok, "Affinity policy must be one of: strict or preferred");
+	sanity_check_str(config->hwcounters_backend, "Currently available hardware counter backends: 'papi', 'none'", "none", "papi");
 
-	sanity_check(
-		!strcmp(config->hwcounters_backend, "none") ||
-		!strcmp(config->hwcounters_backend, "papi"),
-		"Currently available hardware counter backends: 'papi', 'none'"
-	);
-
-#undef sanity_check
 	return ret;
 }
 

@@ -51,6 +51,7 @@ static config_spec_t config_spec_list[] = {
 	DECLARE_CONFIG(TYPE_UINT64, "scheduler.cpus_per_queue", sched_cpus_per_queue),
 	DECLARE_CONFIG(TYPE_UINT64, "scheduler.in_queue_size", sched_in_queue_size),
 	DECLARE_CONFIG(TYPE_STR, "shared_memory.name", shm_name),
+	DECLARE_CONFIG(TYPE_STR, "shared_memory.isolation_level", shm_isolation_level),
 	DECLARE_CONFIG(TYPE_PTR, "shared_memory.start", shm_start),
 	DECLARE_CONFIG(TYPE_SIZE, "shared_memory.size", shm_size),
 	DECLARE_CONFIG(TYPE_STR,  "cpumanager.binding", cpumanager_binding),
