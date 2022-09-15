@@ -8,6 +8,7 @@
 #include <numa.h>
 #include <stdlib.h>
 
+#include "common.h"
 #include "compiler.h"
 #include "hardware/locality.h"
 
@@ -72,4 +73,59 @@ void locality_shutdown(void)
 {
 	free(numa_logical_to_system);
 	free(numa_system_to_logical);
+}
+
+int locality_get_default_affinity(char **out)
+{
+	struct bitmask *all_affinity = numa_allocate_cpumask();
+	int max_cpus = numa_num_possible_cpus();
+	assert(all_affinity);
+
+	numa_sched_getaffinity(0, all_affinity);
+
+	if (numa_bitmask_weight(all_affinity) == 1) {
+		// Affinity to a single core
+		int i;
+		for (i = 0; i < max_cpus - 1; ++i) {
+			if (numa_bitmask_isbitset(all_affinity, i))
+				break;
+		}
+
+		assert(numa_bitmask_isbitset(all_affinity, i));
+		int res = nosv_asprintf(out, "cpu-%d", i);
+		assert(!res);
+	} else {
+		int selected_node = -1;
+		for (int i = 0; i < max_cpus - 1; ++i) {
+			if (numa_bitmask_isbitset(all_affinity, i)) {
+				int node_of_cpu = numa_node_of_cpu(i);
+				if (selected_node < 0)
+					selected_node = node_of_cpu;
+
+				if (selected_node != node_of_cpu) {
+					// Cannot determine single node affinity
+					numa_free_cpumask(all_affinity);
+					return 1;
+				}
+			}
+		}
+
+		assert(selected_node >= 0);
+		int res = nosv_asprintf(out, "numa-%d", selected_node);
+		assert(!res);
+
+		// So far, we know all CPUs belong to a single node. Nevertheless, it is possible
+		// that the node has more CPUs that we don't have an affinity to.
+		// Detect this case and warn about it
+		struct bitmask *node_affinity = numa_allocate_cpumask();
+		numa_node_to_cpus(selected_node, node_affinity);
+
+		if (!numa_bitmask_equal(all_affinity, node_affinity))
+			nosv_warn("Affinity automatically set to numa-%d, but other non-affine CPUs are present in this node.", selected_node);
+
+		numa_bitmask_free(node_affinity);
+	}
+
+	numa_free_cpumask(all_affinity);
+	return 0;
 }

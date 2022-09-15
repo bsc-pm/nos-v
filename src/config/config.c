@@ -19,6 +19,8 @@
 #include "config/config.h"
 #include "config/configspec.h"
 #include "config/toml.h"
+#include "hardware/cpus.h"
+#include "hardware/locality.h"
 
 #ifndef INSTALLED_CONFIG_DIR
 #error "INSTALLED_CONFIG_DIR should be defined at make time"
@@ -696,6 +698,61 @@ static inline int config_parse_override(rt_config_t *config)
 	return fail;
 }
 
+static inline void config_preset_isolated(void)
+{
+	free((void *)nosv_config.shm_isolation_level);
+	nosv_config.shm_isolation_level = strdup("process");
+
+	free((void *)nosv_config.cpumanager_binding);
+	nosv_config.cpumanager_binding = strdup("inherit");
+
+	free((void *)nosv_config.affinity_default);
+	nosv_config.affinity_default = strdup("all");
+}
+
+static inline void config_preset_mpi(void)
+{
+	free((void *)nosv_config.shm_isolation_level);
+	nosv_config.shm_isolation_level = strdup("user");
+
+	free((void *)nosv_config.cpumanager_binding);
+	cpu_get_all_mask(&nosv_config.cpumanager_binding);
+
+	free((void *)nosv_config.affinity_default_policy);
+	nosv_config.affinity_default_policy = strdup("preferred");
+
+	// Now, see if we can have a best guess at determining a core or NUMA affinity by default
+	char *new_affinity;
+	int ret = locality_get_default_affinity(&new_affinity);
+
+	if (ret) {
+		nosv_warn("Could not determine a valid affinity by default. This can happen if the initial process"
+				  " affinity does not constrain to a single core or NUMA node, and therefore a valid nOS-V affinity annotation"
+				  " does not exist");
+	} else {
+		free((void *) nosv_config.affinity_default);
+		nosv_config.affinity_default = new_affinity;
+	}
+}
+
+static inline void config_parse_preset(void)
+{
+	// For now, the only preset is the environment variable NOSV_PRESET
+	// On NOSV_PRESET="isolated", we inherit the CPU mask from the process and set isolation_level to process
+	// On NOSV_PRESET="mpi", we use all available CPUs in the system and stablish preferred affinity for all tasks
+
+	const char *preset = getenv("NOSV_PRESET");
+	if (!preset || strlen(preset) == 0)
+		return;
+
+	if (!strcmp(preset, "isolated"))
+		config_preset_isolated();
+	else if (!strcmp(preset, "mpi"))
+		config_preset_mpi();
+	else
+		nosv_abort("Unknown value for NOSV_PRESET. Acceptable values are isolated, mpi");
+}
+
 // Find and parse the nOS-V config file
 void config_parse(void)
 {
@@ -729,6 +786,9 @@ void config_parse(void)
 	// Now parse the configuration overrides
 	if (config_parse_override(&nosv_config))
 		nosv_abort("Could not parse configuration override");
+
+	// Now, if a "preset" has been activated, override the specific options
+	config_parse_preset();
 
 	if (nosv_config.debug_dump_config)
 		config_dump(&nosv_config);

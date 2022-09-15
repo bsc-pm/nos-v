@@ -7,6 +7,7 @@
 #ifndef COMMON_H
 #define COMMON_H
 
+#include <assert.h>
 #include <errno.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -45,6 +46,34 @@
 static inline size_t next_power_of_two(uint64_t n)
 {
 	return 64 - __builtin_clzll(n - 1);
+}
+
+#define round_up_div(x, y) (((x) + (y) - 1) / (y))
+
+// Like sprintf but allocate space automatically for the formatted string
+// Prevent using the asprintf GNU extension and use this instead
+static inline int nosv_asprintf(char **restrict output, const char *restrict format, ...) {
+	va_list l;
+
+	va_start(l, format);
+	int size = vsnprintf(NULL, 0, format, l);
+	va_end(l);
+
+	if (size < 0)
+		return size;
+
+	char *buf = malloc(size + 1);
+	va_start(l, format);
+	int ret = vsnprintf(buf, size + 1, format, l);
+	va_end(l);
+	assert(ret <= size);
+
+	if (ret < 0)
+		return ret;
+
+	*output = buf;
+
+	return 0;
 }
 
 #endif // COMMON_H
