@@ -26,6 +26,7 @@
 __internal thread_local nosv_worker_t *current_worker = NULL;
 __internal thread_manager_t *current_process_manager = NULL;
 __internal atomic_int threads_shutdown_signal;
+__internal thread_local struct kinstr *kinstr = NULL;
 
 // The delegate thread is used to create remote workers
 static inline void *delegate_routine(void *args)
@@ -35,6 +36,7 @@ static inline void *delegate_routine(void *args)
 	instr_thread_init();
 	instr_thread_execute(-1, threadmanager->delegate_creator_tid, (uint64_t) args);
 	instr_delegate_enter();
+	instr_kernel_init(&kinstr);
 
 	event_queue_t *queue = &threadmanager->thread_creation_queue;
 	creation_event_t event;
@@ -43,6 +45,7 @@ static inline void *delegate_routine(void *args)
 		instr_thread_pause();
 		event_queue_pull(queue, &event);
 		instr_thread_resume();
+		instr_kernel_flush(kinstr);
 
 		if (event.type == Shutdown)
 			break;
@@ -239,6 +242,7 @@ static inline void *worker_start_routine(void *arg)
 	instr_thread_init();
 	instr_thread_execute(current_worker->cpu->logic_id, current_worker->creator_tid, (uint64_t) arg);
 	instr_worker_enter();
+	instr_kernel_init(&kinstr);
 
 	// At the initialization, we signal the instrumentation to state
 	// that we are looking for work.
@@ -292,6 +296,8 @@ static inline void *worker_start_routine(void *arg)
 			instr_sched_fill();
 
 			worker_execute_or_delegate(task, current_worker->cpu, /* idle thread */ 0);
+
+			instr_kernel_flush(kinstr);
 
 			// As soon as the task is handled, we are now
 			// looking for more work, so we call here
@@ -503,6 +509,8 @@ nosv_worker_t *worker_create_external(void)
 	worker->creator_tid = -1;
 	worker->in_task_body = 1;
 	sched_getaffinity(0, sizeof(worker->original_affinity), &worker->original_affinity);
+
+	instr_kernel_init(&kinstr);
 
 	// Initialize hardware counters for the thread
 	hwcounters_thread_initialize(worker);

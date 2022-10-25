@@ -28,6 +28,8 @@ __internal task_type_manager_t *task_type_manager;
 static atomic_uint64_t taskid_counter = 1;
 static atomic_uint32_t typeid_counter = 1;
 
+extern __internal thread_local struct kinstr *kinstr;
+
 #define LABEL_MAX_CHAR 128
 
 //! \brief Initialize the manager of task types
@@ -445,6 +447,9 @@ int nosv_waitfor(
 int nosv_yield(
 	nosv_flags_t flags)
 {
+	if(kinstr)
+		instr_kernel_flush(kinstr);
+
 	if (!worker_is_in_task())
 		return -EINVAL;
 
@@ -482,6 +487,9 @@ int nosv_schedpoint(
 {
 	int pid, yield, cpuid;
 	uint64_t ts;
+
+	if(kinstr)
+		instr_kernel_flush(kinstr);
 
 	if (!worker_is_in_task())
 		return -EINVAL;
