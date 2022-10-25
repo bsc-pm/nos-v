@@ -17,8 +17,8 @@ lib_age = 0
 lib_major = $(shell expr $(lib_current) - $(lib_age))
 lib_suffix = $(lib_major).$(lib_age).$(lib_revision)
 
-libnosv_la_CPPFLAGS=$(AM_CPPFLAGS) $(ovni_CPPFLAGS) -DINSTALLED_CONFIG_DIR=\"$(datadir)\" $(asan_CPPFLAGS)
-libnosv_la_CFLAGS=$(PTHREAD_CFLAGS) $(libnuma_CFLAGS) $(nosv_CFLAGS) $(asan_CFLAGS)
+libnosv_la_CPPFLAGS=$(AM_CPPFLAGS) $(libnuma_CPPFLAGS) $(ovni_CPPFLAGS) -DINSTALLED_CONFIG_DIR=\"$(datadir)\" $(asan_CPPFLAGS)
+libnosv_la_CFLAGS=$(PTHREAD_CFLAGS) $(nosv_CFLAGS) $(asan_CFLAGS)
 libnosv_la_LDFLAGS=$(PTHREAD_CFLAGS) $(PTHREAD_LIBS) $(libnuma_LIBS) $(ovni_LIBS) $(shm_LIBS) $(asan_LDFLAGS) -lm
 
 # Hardware counters
