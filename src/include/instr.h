@@ -320,8 +320,8 @@ static inline void instr_thread_detach(void)
 // Must be a power of two
 #define INSTR_KBUFLEN (4UL * 1024UL * 1024UL) // 4 MB
 
-struct kinstr {
 #ifdef ENABLE_INSTRUMENTATION
+struct kinstr {
 	int fd;
 
 	size_t bufsize;
@@ -333,8 +333,10 @@ struct kinstr {
 	uint8_t *ringbuf;
 	uint64_t head;
 	uint64_t tail;
-#endif
 };
+#else
+struct kinstr;
+#endif
 
 #ifdef ENABLE_INSTRUMENTATION
 static int perf_event_open(struct perf_event_attr *attr, pid_t pid,
