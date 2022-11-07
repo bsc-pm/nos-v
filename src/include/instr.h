@@ -323,6 +323,7 @@ static inline void instr_thread_detach(void)
 #ifdef ENABLE_INSTRUMENTATION
 struct kinstr {
 	int fd;
+	int enabled;
 
 	size_t bufsize;
 	uint8_t *buf;
@@ -356,6 +357,8 @@ static inline void instr_kernel_init(struct kinstr **ki_ptr)
 	if ((ki = salloc(sizeof(*ki), -1)) == NULL)
 		nosv_abort("salloc failed");
 
+	*ki_ptr = ki;
+
 	// Measure the current thread only
 	tid = 0;
 
@@ -379,10 +382,13 @@ static inline void instr_kernel_init(struct kinstr **ki_ptr)
 	attr.use_clockid = 1;
 	attr.clockid = CLOCK_MONOTONIC;
 
+	ki->enabled = 0;
 	ki->fd = perf_event_open(&attr, tid, cpu, -1, 0UL);
 
-	if (ki->fd < 0)
-		nosv_abort("cannot enable kernel events, perf_event_open failed");
+	if (ki->fd < 0) {
+		nosv_warn("cannot enable kernel events, perf_event_open failed");
+		return;
+	}
 
 	pagesize = sysconf(_SC_PAGE_SIZE);
 	assert(pagesize > 0);
@@ -395,8 +401,10 @@ static inline void instr_kernel_init(struct kinstr **ki_ptr)
 	ki->buf = mmap(NULL, ki->bufsize,
 			PROT_READ | PROT_WRITE, MAP_SHARED, ki->fd, 0);
 
-	if (ki->buf == MAP_FAILED)
-		nosv_abort("cannot enable kernel events, mmap failed");
+	if (ki->buf == MAP_FAILED) {
+		nosv_warn("cannot enable kernel events, mmap failed");
+		return;
+	}
 
 	// The first page is used for metadata and the next one is the data ring
 	ki->meta = (struct perf_event_mmap_page *) ki->buf;
@@ -405,8 +413,7 @@ static inline void instr_kernel_init(struct kinstr **ki_ptr)
 	ki->head = ki->meta->data_head;
 	ki->tail = ki->meta->data_tail;
 
-	// Only modify the pointer if we finished properly
-	*ki_ptr = ki;
+	ki->enabled = 1;
 }
 
 struct sample_id {
@@ -445,6 +452,9 @@ static inline void instr_kernel_flush(struct kinstr *ki)
 	struct ovni_ev ev0 = {0}, ev1 = {0};
 	struct perf_ev *ev;
 	uint8_t *p;
+
+	if (!ki->enabled)
+		return;
 
 	// If there are no events, do nothing
 	if (ki->head == ki->meta->data_head)
