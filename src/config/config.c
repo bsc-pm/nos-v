@@ -19,6 +19,8 @@
 #include "config/config.h"
 #include "config/configspec.h"
 #include "config/toml.h"
+#include "hardware/cpus.h"
+#include "hardware/locality.h"
 
 #ifndef INSTALLED_CONFIG_DIR
 #error "INSTALLED_CONFIG_DIR should be defined at make time"
@@ -47,11 +49,17 @@ static inline void config_init(rt_config_t *config)
 	// Use strdup for strings by default?
 	config->shm_name = strdup(SHM_NAME);
 	assert(config->shm_name);
+	config->shm_isolation_level = strdup(SHM_ISOLATION_LEVEL);
+	assert(config->shm_isolation_level);
 	config->shm_size = SHM_SIZE;
 	config->shm_start = SHM_START_ADDR;
 
 	config->governor_policy = strdup("hybrid");
 	config->governor_spins = 10000;
+
+	config->cpumanager_binding = strdup(CPUMANAGER_BINDING);
+	config->affinity_default = strdup(AFFINITY_DEFAULT);
+	config->affinity_default_policy = strdup(AFFINITY_DEFAULT_POLICY);
 
 	config->debug_dump_config = 0;
 
@@ -73,15 +81,25 @@ static inline void config_init(rt_config_t *config)
 	config->monitoring_verbose = 0;
 }
 
+#define sanity_check(cond, explanation)                             \
+	if (!(cond)) {                                                  \
+		nosv_warn("Check \"%s\" failed: %s", #cond, explanation);   \
+		ret = 1;                                                    \
+	}
+
+#define sanity_check_str(str, explanation, ...) 						\
+	do {                                        						\
+		const char *_arr[] = {__VA_ARGS__};      						\
+		int _eq = 0;                             						\
+		for (int _i = 0; _i < (sizeof(_arr) / sizeof(_arr[0])); ++_i) 	\
+			_eq |= !strcmp((str), _arr[_i]); 							\
+		sanity_check(_eq, (explanation)) 								\
+	} while (0)
+
 // Sanity checks for configuration options should be here
 static inline int config_check(rt_config_t *config)
 {
 	int ret = 0;
-#define sanity_check(cond, explanation)                           \
-	if (!(cond)) {                                                  \
-		nosv_warn("Check \"%s\" failed: %s", #cond, explanation); \
-		ret = 1;                                                  \
-	}
 
 	sanity_check(config->sched_batch_size > 0, "Scheduler batch size should be more than 0");
 	sanity_check(config->sched_cpus_per_queue > 0, "CPUs per queue cannot be lower than 1");
@@ -91,20 +109,22 @@ static inline int config_check(rt_config_t *config)
 	sanity_check(config->shm_name, "Shared memory name cannot be empty");
 	sanity_check(config->shm_size > (10 * 2 * 1024 * 1024), "Small shared memory sizes (less than 10 pages) are not supported");
 	sanity_check(((uintptr_t)config->shm_start) >= 4096, "Mapping shared memory at page 0 is not allowed");
+	sanity_check(config->shm_isolation_level, "Isolation level cannot be empty");
+	sanity_check_str(config->shm_isolation_level, "Unknown value for shared memory isolation", "process", "user", "group", "public");
 
 	sanity_check(config->governor_policy, "Governor policy cannot be empty");
-	const int gov_policy_ok = !strcmp(config->governor_policy, "hybrid") || !strcmp(config->governor_policy, "busy") || !strcmp(config->governor_policy, "idle");
-	sanity_check(gov_policy_ok, "Governor policy must be one of: hybrid, idle or busy");
+	sanity_check_str(config->governor_policy, "Unknown value for governor policy", "hybrid", "busy", "idle");
 	if (!strcmp(config->governor_policy, "hybrid") && config->governor_spins == 0)
-		nosv_warn("The governor was configured with the \"hybrid\" policy, but the number of spins is zero.\n The governor will behave like an \"idle\" policy.")
+		nosv_warn("The governor was configured with the \"hybrid\" policy, but the number of spins is zero.\n The governor will behave like an \"idle\" policy.");
 
-	sanity_check(
-		!strcmp(config->hwcounters_backend, "none") ||
-		!strcmp(config->hwcounters_backend, "papi"),
-		"Currently available hardware counter backends: 'papi', 'none'"
-	);
+	sanity_check(config->cpumanager_binding, "The CPU binding for the CPU manager cannot be empty");
 
-#undef sanity_check
+	sanity_check(config->affinity_default, "The default affinity cannot be empty");
+	sanity_check(config->affinity_default_policy, "The default affinity policy cannot be empty");
+	sanity_check_str(config->affinity_default_policy, "Affinity policy must be one of: strict or preferred", "strict", "preferred");
+
+	sanity_check_str(config->hwcounters_backend, "Currently available hardware counter backends: papi, none", "none", "papi");
+
 	return ret;
 }
 
@@ -678,6 +698,67 @@ static inline int config_parse_override(rt_config_t *config)
 	return fail;
 }
 
+static inline void config_preset_isolated(void)
+{
+	assert(nosv_config.shm_isolation_level);
+	free((void *)nosv_config.shm_isolation_level);
+	nosv_config.shm_isolation_level = strdup("process");
+
+	assert(nosv_config.cpumanager_binding);
+	free((void *)nosv_config.cpumanager_binding);
+	nosv_config.cpumanager_binding = strdup("inherit");
+
+	assert(nosv_config.affinity_default);
+	free((void *)nosv_config.affinity_default);
+	nosv_config.affinity_default = strdup("all");
+}
+
+static inline void config_preset_shared_mpi(void)
+{
+	assert(nosv_config.shm_isolation_level);
+	free((void *)nosv_config.shm_isolation_level);
+	nosv_config.shm_isolation_level = strdup("user");
+
+	assert(nosv_config.cpumanager_binding);
+	free((void *)nosv_config.cpumanager_binding);
+	cpu_get_all_mask(&nosv_config.cpumanager_binding);
+
+	assert(nosv_config.affinity_default_policy);
+	free((void *)nosv_config.affinity_default_policy);
+	nosv_config.affinity_default_policy = strdup("preferred");
+
+	// Now, see if we can have a best guess at determining a core or NUMA affinity by default
+	char *new_affinity;
+	int ret = locality_get_default_affinity(&new_affinity);
+
+	if (ret) {
+		nosv_warn("Could not determine a valid affinity by default. This can happen if the initial process"
+				  " affinity does not constrain to a single core or NUMA node, and therefore a valid nOS-V affinity annotation"
+				  " does not exist");
+	} else {
+		free((void *) nosv_config.affinity_default);
+		nosv_config.affinity_default = new_affinity;
+	}
+}
+
+static inline void config_parse_preset(void)
+{
+	// For now, the only preset is the environment variable NOSV_PRESET
+	// On NOSV_PRESET="isolated", we inherit the CPU mask from the process and set isolation_level to process
+	// On NOSV_PRESET="shared-mpi", we use all available CPUs in the system and stablish preferred affinity for all tasks
+
+	const char *preset = getenv("NOSV_PRESET");
+	if (!preset || strlen(preset) == 0)
+		return;
+
+	if (!strcmp(preset, "isolated"))
+		config_preset_isolated();
+	else if (!strcmp(preset, "shared-mpi"))
+		config_preset_shared_mpi();
+	else
+		nosv_abort("Unknown value for NOSV_PRESET. Acceptable values are isolated, shared-mpi");
+}
+
 // Find and parse the nOS-V config file
 void config_parse(void)
 {
@@ -711,6 +792,9 @@ void config_parse(void)
 	// Now parse the configuration overrides
 	if (config_parse_override(&nosv_config))
 		nosv_abort("Could not parse configuration override");
+
+	// Now, if a "preset" has been activated, override the specific options
+	config_parse_preset();
 
 	if (nosv_config.debug_dump_config)
 		config_dump(&nosv_config);

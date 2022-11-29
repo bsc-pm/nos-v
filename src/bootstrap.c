@@ -41,6 +41,7 @@ int nosv_init(void)
 	hwcounters_initialize();
 	pidmanager_register();
 	task_type_manager_init();
+	task_affinity_init();
 
 	library_initialized = 1;
 	return 0;

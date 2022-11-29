@@ -8,17 +8,17 @@
 #include <stddef.h>
 #include <stdio.h>
 
-#include "defaults.h"
 #include "common.h"
 #include "compiler.h"
-#include "nosv-internal.h"
 #include "config/config.h"
+#include "defaults.h"
 #include "generic/clock.h"
 #include "hardware/cpus.h"
 #include "hardware/locality.h"
 #include "hardware/threads.h"
 #include "instr.h"
 #include "memory/sharedmemory.h"
+#include "nosv-internal.h"
 #include "scheduler/scheduler.h"
 
 __internal scheduler_t *scheduler;

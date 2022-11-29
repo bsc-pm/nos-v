@@ -30,6 +30,8 @@ static atomic_uint32_t typeid_counter = 1;
 
 extern __internal thread_local struct kinstr *kinstr;
 
+static nosv_affinity_t default_affinity;
+
 #define LABEL_MAX_CHAR 128
 
 //! \brief Initialize the manager of task types
@@ -41,6 +43,54 @@ void task_type_manager_init()
 	// Initialize the list of tasktypes and the spinlock
 	list_init(&task_type_manager->types);
 	nosv_spin_init(&task_type_manager->lock);
+}
+
+static inline nosv_affinity_t parse_affinity_from_config()
+{
+	nosv_affinity_t ret;
+
+	// Start by splitting the prefix and the index
+	char *sep = strchr(nosv_config.affinity_default, '-');
+
+	// Check if sep is NULL (not found)
+	if (!sep)
+		nosv_abort("Malformed default_affinity string");
+
+	char *index = sep + 1;
+	// NULL-terminate the string to parse it
+	*sep = '\0';
+
+	if (!strcmp(nosv_config.affinity_default, "cpu"))
+		ret.level = NOSV_AFFINITY_LEVEL_CPU;
+	else if (!strcmp(nosv_config.affinity_default, "numa"))
+		ret.level = NOSV_AFFINITY_LEVEL_NUMA;
+	else
+		nosv_abort("Unknown default affinity level");
+
+	errno = 0;
+	unsigned long parsed_index = strtoul(index, NULL, 10);
+
+	if (errno)
+		nosv_abort("Invalid default affinity index");
+
+	ret.index = parsed_index;
+
+	if (!strcmp(nosv_config.affinity_default_policy, "strict"))
+		ret.type = NOSV_AFFINITY_TYPE_STRICT;
+	else
+		ret.type = NOSV_AFFINITY_TYPE_PREFERRED;
+
+	return ret;
+}
+
+// Initialize the task default affinity parsing the configuration
+void task_affinity_init()
+{
+	if (!strcmp(nosv_config.affinity_default, "all")) {
+		default_affinity.index = default_affinity.level = default_affinity.type = 0;
+	} else {
+		default_affinity = parse_affinity_from_config();
+	}
 }
 
 list_head_t *task_type_manager_get_list()
@@ -186,9 +236,8 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	res->worker = NULL;
 	atomic_init(&res->event_count, 1);
 	atomic_init(&res->blocking_count, 1);
-	res->affinity.type = 0;
-	res->affinity.index = 0;
-	res->affinity.level = 0;
+	res->affinity = default_affinity;
+
 	res->deadline = 0;
 	res->yield = 0;
 	res->wakeup = NULL;

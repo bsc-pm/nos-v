@@ -162,7 +162,8 @@ static inline void bucket_refill_cpu_cache(cache_bucket_t *bucket, cpu_cache_buc
 		nosv_spin_unlock(&bucket->lock);
 
 		metadata = balloc();
-		assert(metadata);
+		if (unlikely(!metadata))
+			nosv_abort("Out of shared memory. Please increase the shared_memory.size config variable.");
 
 		// Initialize and add to cache
 		bucket_initialize_page(bucket, metadata);

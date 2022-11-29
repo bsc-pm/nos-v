@@ -31,6 +31,7 @@
 #define SHM_START_ADDR ((void *) 0x0000200000000000)
 #define SHM_SIZE (1ULL << 31)
 #define SHM_NAME "nosv"
+#define SHM_ISOLATION_LEVEL "user"
 
 // SCHEDULER
 
@@ -48,6 +49,17 @@
 
 // Size of each SPSC queue
 #define SCHED_IN_QUEUE_SIZE 256
+
+// CPU MANAGER
+
+// The default CPU binding mask
+#define CPUMANAGER_BINDING "inherit"
+
+// AFFINITY
+
+// Default affinity values
+#define AFFINITY_DEFAULT "all"
+#define AFFINITY_DEFAULT_POLICY "strict"
 
 // HARDWARE COUNTERS
 

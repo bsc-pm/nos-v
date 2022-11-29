@@ -7,8 +7,10 @@
 #include <assert.h>
 #include <errno.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include "compiler.h"
+#include "config/config.h"
 #include "hardware/cpus.h"
 #include "hardware/locality.h"
 #include "hardware/threads.h"
@@ -17,6 +19,8 @@
 #include "memory/sharedmemory.h"
 #include "memory/slab.h"
 #include "monitoring/monitoring.h"
+
+#define SYS_CPU_PATH "/sys/devices/system/cpu"
 
 thread_local int __current_cpu = -1;
 __internal cpumanager_t *cpumanager;
@@ -27,7 +31,7 @@ static inline void cpu_find_siblings(cpu_set_t *set)
 	assert(num_cpus > 0);
 
 	// Keeps track of which CPUs have been visited
-	cpu_set_t cpu_id_visited = *set;
+	cpu_set_t cpu_id_visited;
 	CPU_ZERO(&cpu_id_visited);
 
 	// Allocate space for each of the lists
@@ -103,6 +107,125 @@ static inline void cpu_find_siblings(cpu_set_t *set)
 	}
 }
 
+// Parse a CPU set which is specified in separation by "-" and "," into a CPU set
+static inline void cpu_parse_set(cpu_set_t *set, char *string_to_parse)
+{
+	CPU_ZERO(set);
+
+	char *tok = strtok(string_to_parse, ",");
+	while(tok) {
+		int first_id, last_id;
+		int ret = sscanf(tok, "%d-%d", &first_id, &last_id);
+		if (ret == 1)
+			last_id = first_id;
+		else if (ret == 0)
+			nosv_abort("Could not parse cpu list");
+
+		for (int i = first_id; i <= last_id; ++i)
+			CPU_SET(i, set);
+
+		tok = strtok(NULL, ",");
+	}
+}
+
+// Get a valid binding mask which includes all online CPUs in the system
+void cpu_get_all_mask(const char **mask)
+{
+	// One would reasonably think that we can discover all runnable CPUs by
+	// parsing /sys/devices/system/cpu/online, but the A64FX reports as online
+	// CPUs 0-1,12-59, and 0-1 are not actually usable CPUs.
+	// The only way to properly determine CPUs there is to use the parsed mask
+	// for sched_setaffinity and then get the "corrected" affinity back with
+	// sched_setaffinity.
+
+	cpu_set_t set, bkp;
+	char online_mask[400];
+
+	FILE *fp = fopen(SYS_CPU_PATH "/online", "r");
+	if (!fp)
+		nosv_abort("Failed to open online CPU list");
+
+	fgets(online_mask, sizeof(online_mask), fp);
+	fclose(fp);
+
+	cpu_parse_set(&set, online_mask);
+
+	// Now the A64FX dance
+	sched_getaffinity(0, sizeof(cpu_set_t), &bkp);
+	sched_setaffinity(0, sizeof(cpu_set_t), &set);
+	sched_getaffinity(0, sizeof(cpu_set_t), &set);
+	sched_setaffinity(0, sizeof(cpu_set_t), &bkp);
+
+	// At this point, "set" should contain all *really* online CPUs
+	// Now we have to translate it to an actual mask
+	assert(CPU_COUNT(&set) > 0);
+	int maxcpu = CPU_SETSIZE - 1;
+	while (!CPU_ISSET(maxcpu, &set))
+		--maxcpu;
+
+	assert(maxcpu >= 0);
+	int num_digits = round_up_div(maxcpu, 4);
+	int str_size = num_digits + 2 /* 0x */ + 1 /* \0 */;
+
+	char *res = malloc(str_size);
+	res[str_size - 1] = '\0';
+	res[0] = '0';
+	res[1] = 'x';
+	char *curr_digit = &res[str_size - 2];
+
+	for (int i = 0; i < num_digits; ++i) {
+		int tmp = 0;
+		for (int cpu = i * 4; cpu < (i + 1) * 4 && cpu <= maxcpu; ++cpu)
+			tmp |= ((!!CPU_ISSET(cpu, &set)) << (cpu % 4));
+
+		if (tmp < 10)
+			*curr_digit = '0' + tmp;
+		else
+			*curr_digit = 'a' - 10 + tmp;
+
+		curr_digit--;
+	}
+
+	*mask = res;
+}
+
+static inline void cpus_get_binding_mask(const char *binding, cpu_set_t *cpuset)
+{
+	assert(binding);
+	assert(cpuset);
+
+	CPU_ZERO(cpuset);
+
+	if (strcmp(binding, "inherit") == 0) {
+		sched_getaffinity(0, sizeof(cpu_set_t), cpuset);
+		assert(CPU_COUNT(cpuset) > 0);
+	} else {
+		if (binding[0] != '0' || (binding[1] != 'x' && binding[1] != 'X')) {
+			nosv_abort("invalid binding mask");
+		}
+
+		const int len = strlen(binding);
+		for (int c = len-1, b = 0; c >= 2; --c, b += 4) {
+			int number = 0;
+			if (binding[c] >= '0' && binding[c] <= '9') {
+				number = binding[c] - '0';
+			} else if (binding[c] >= 'a' && binding[c] <= 'f') {
+				number = (binding[c] - 'a') + 10;
+			} else if (binding[c] >= 'A' && binding[c] <= 'F') {
+				number = (binding[c] - 'A') + 10;
+			} else {
+				nosv_abort("Invalid binding mask");
+			}
+			assert(number >= 0 && number < 16);
+
+			if (number & 0x1) CPU_SET(b + 0, cpuset);
+			if (number & 0x2) CPU_SET(b + 1, cpuset);
+			if (number & 0x4) CPU_SET(b + 2, cpuset);
+			if (number & 0x8) CPU_SET(b + 3, cpuset);
+		}
+	}
+}
+
 void cpus_init(int initialize)
 {
 	if (!initialize) {
@@ -112,8 +235,10 @@ void cpus_init(int initialize)
 	}
 
 	cpu_set_t set;
-	sched_getaffinity(0, sizeof(set), &set);
+	cpus_get_binding_mask(nosv_config.cpumanager_binding, &set);
+
 	int cnt = CPU_COUNT(&set);
+	assert(cnt > 0);
 
 	// The CPU array is located just after the CPU manager, as a flexible array member.
 	cpumanager = salloc(sizeof(cpumanager_t) + cnt * sizeof(cpu_t), 0);

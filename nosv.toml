@@ -8,9 +8,17 @@
 
 # Shared memory configuration
 [shared_memory]
-	# Name of the shared memory section. This can be leveraged to create two separate nOS-V instances
-	# in the same system. Generally this has to remain unchanged
+	# Name of the shared memory section. This variable acts as an "id" for each nOS-V instance
+	# Two applications with the same shared memory name will share a nOS-V instance, while different names
+	# will result in independent nOS-V instances. Note that both the name of the shared memory as well as the
+	# isolation level have to match for nOS-V instances to connect
 	name = "nosv"
+	# Isolation level of nOS-V. Possible values are:
+	# "process" - Each process has a separate nOS-V instance
+	# "user" - nOS-V instances are shared for the same user
+	# "group" - nOS-V instances are shared for the same group
+	# "public" - nOS-V instances are shared for the whole system
+	isolation_level = "user"
 	# Size of the shared memory section. Choose powers of two
 	size = "2G"
 	# Start of the shared memory mapping
@@ -57,6 +65,24 @@
 	# Number of times a CPU will spin without sleeping in the "hybrid" policy.
 	# When "idle" or "busy" are selected, this setting is ignored
 	spins = 10000
+
+# CPU Manager
+[cpumanager]
+	# CPU binding for the execution. The valid values are "inherit" which inherits the cpu mask of the
+	# first process that initializes the runtime, or a CPU mask in hexadecimal with the format "0xFFFF"
+	binding = "inherit"
+
+# Affinity
+[affinity]
+	# Default affinity for all created tasks. This will be the default value for nosv task affinity in the
+	# current process. This setting is normally used in conjunction with "binding" and makes it possible to
+	# easily combine multiple processes in the same nOS-V instance.
+	# Values can be: "all" or "cpu-X", "numa-X", "complex-X" where "X" is the physical index of the resource.
+	# For example, "numa-1" will set affinity of all tasks to the NUMA Node 1.
+	default = "all"
+	# Default affinity policy, either "strict" or "preferred". When the default affinity is "all", this value
+	# is not used.
+	default_policy = "strict"
 
 # Debug options
 [debug]

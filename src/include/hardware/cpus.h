@@ -42,6 +42,7 @@ __internal void cpu_transfer(int destination_pid, cpu_t *cpu, nosv_task_t task);
 __internal void cpu_mark_free(cpu_t *cpu);
 __internal int cpu_system_to_logical(int cpu);
 __internal void cpu_affinity_reset(void);
+__internal void cpu_get_all_mask(const char **mask);
 
 __internal extern thread_local int __current_cpu;
 __internal extern cpumanager_t *cpumanager;

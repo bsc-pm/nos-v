@@ -118,14 +118,44 @@ static inline int check_processes_correct(void)
 	return 1;
 }
 
+static inline void calculate_shared_memory_permissions(void)
+{
+	int ret = 0;
+
+	if (!strcmp(nosv_config.shm_isolation_level, "process")) {
+		st_config.smem_mode = 0600;
+		ret = nosv_asprintf((char **) &st_config.smem_name, "%s-u%ld-p%ld", nosv_config.shm_name, (long) geteuid(), (long) getpid());
+	} else if (!strcmp(nosv_config.shm_isolation_level, "user")) {
+		st_config.smem_mode = 0600;
+		ret = nosv_asprintf((char **) &st_config.smem_name, "%s-u%ld", nosv_config.shm_name, (long) geteuid());
+	} else if (!strcmp(nosv_config.shm_isolation_level, "group")) {
+		st_config.smem_mode = 0660;
+		ret = nosv_asprintf((char **) &st_config.smem_name, "%s-g%ld", nosv_config.shm_name, (long) getegid());
+	} else if (!strcmp(nosv_config.shm_isolation_level, "public")) {
+		st_config.smem_mode = 0666;
+		ret = nosv_asprintf((char **) &st_config.smem_name, "%s", nosv_config.shm_name);
+	} else {
+		// Allegedly unreachable condition
+		nosv_abort("Unknown isolation level!");
+	}
+
+	if (ret)
+		nosv_abort("Error determining shared memory name");
+}
+
 static void segment_create(void)
 {
 	int ret;
 	struct stat st;
 
+	calculate_shared_memory_permissions();
+
 	st_config.smem_fd = 0;
 	while (!st_config.smem_fd) {
-		st_config.smem_fd = shm_open(nosv_config.shm_name, O_CREAT | O_RDWR, 0644);
+		// Reset the umask as we are correctly setting the file permissions
+		mode_t old_umask = umask(0000);
+		st_config.smem_fd = shm_open(st_config.smem_name, O_CREAT | O_RDWR, st_config.smem_mode);
+		umask(old_umask);
 
 		if (st_config.smem_fd < 0)
 			nosv_abort("Cannot open shared memory segment");
@@ -165,7 +195,7 @@ static void segment_create(void)
 					if (ret)
 						nosv_abort("Cannot unmap shared memory");
 
-					ret = shm_unlink(nosv_config.shm_name);
+					ret = shm_unlink(st_config.smem_name);
 					if (ret)
 						nosv_abort("Cannot unlink shared memory");
 
@@ -225,7 +255,7 @@ static void segment_unregister(void)
 		nosv_warn("Cannot unmap shared memory");
 
 	if (!cnt) {
-		ret = shm_unlink(nosv_config.shm_name);
+		ret = shm_unlink(st_config.smem_name);
 		if (ret)
 			nosv_warn("Cannot unlink shared memory");
 	}
@@ -247,4 +277,5 @@ void smem_initialize(void)
 void smem_shutdown(void)
 {
 	segment_unregister();
+	free((void *)st_config.smem_name);
 }
