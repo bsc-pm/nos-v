@@ -10,7 +10,8 @@
 [shared_memory]
 	# Name of the shared memory section. This variable acts as an "id" for each nOS-V instance
 	# Two applications with the same shared memory name will share a nOS-V instance, while different names
-	# will result in independent nOS-V instances.
+	# will result in independent nOS-V instances. Note that both the name of the shared memory as well as the
+	# isolation level have to match for nOS-V instances to connect
 	name = "nosv"
 	# Isolation level of nOS-V. Possible values are:
 	# "process" - Each process has a separate nOS-V instance

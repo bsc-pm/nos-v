@@ -123,7 +123,7 @@ static inline int config_check(rt_config_t *config)
 	sanity_check(config->affinity_default_policy, "The default affinity policy cannot be empty");
 	sanity_check_str(config->affinity_default_policy, "Affinity policy must be one of: strict or preferred", "strict", "preferred");
 
-	sanity_check_str(config->hwcounters_backend, "Currently available hardware counter backends: 'papi', 'none'", "none", "papi");
+	sanity_check_str(config->hwcounters_backend, "Currently available hardware counter backends: papi, none", "none", "papi");
 
 	return ret;
 }
@@ -700,24 +700,30 @@ static inline int config_parse_override(rt_config_t *config)
 
 static inline void config_preset_isolated(void)
 {
+	assert(nosv_config.shm_isolation_level);
 	free((void *)nosv_config.shm_isolation_level);
 	nosv_config.shm_isolation_level = strdup("process");
 
+	assert(nosv_config.cpumanager_binding);
 	free((void *)nosv_config.cpumanager_binding);
 	nosv_config.cpumanager_binding = strdup("inherit");
 
+	assert(nosv_config.affinity_default);
 	free((void *)nosv_config.affinity_default);
 	nosv_config.affinity_default = strdup("all");
 }
 
 static inline void config_preset_shared_mpi(void)
 {
+	assert(nosv_config.shm_isolation_level);
 	free((void *)nosv_config.shm_isolation_level);
 	nosv_config.shm_isolation_level = strdup("user");
 
+	assert(nosv_config.cpumanager_binding);
 	free((void *)nosv_config.cpumanager_binding);
 	cpu_get_all_mask(&nosv_config.cpumanager_binding);
 
+	assert(nosv_config.affinity_default_policy);
 	free((void *)nosv_config.affinity_default_policy);
 	nosv_config.affinity_default_policy = strdup("preferred");
 
