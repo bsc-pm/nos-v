@@ -481,22 +481,6 @@ static inline nosv_task_t scheduler_find_task_process(process_scheduler_t *sched
 		scheduler_insert_affine(sched, task);
 	}
 
-	if (sched->preferred_affinity_tasks) {
-		int cpus = cpus_count();
-		int numas = locality_numa_count();
-		// We can try to steal from somewhere
-		// Note that we don't skip our own cpus, although we know nothing is there, just for simplicity
-		for (int i = 0; i < cpus; ++i) {
-			if (scheduler_find_task_queue(&sched->per_cpu_queue_preferred[i], &task))
-				goto task_obtained_preferred;
-		}
-
-		for (int i = 0; i < numas; ++i) {
-			if (scheduler_find_task_queue(&sched->per_numa_queue_preferred[i], &task))
-				goto task_obtained_preferred;
-		}
-	}
-
 	// If we get here, we didn't find any tasks, otherwise we would've gone to task_obtained
 	return NULL;
 
@@ -504,6 +488,41 @@ task_obtained_preferred:
 	sched->preferred_affinity_tasks--;
 task_obtained:
 	sched->tasks--;
+	return task;
+}
+
+// Find tasks by stealing preferred affinity ones
+static inline nosv_task_t scheduler_find_task_noaffine_process(process_scheduler_t *sched, cpu_t *cpu)
+{
+	nosv_task_t task = NULL;
+
+	// Are there any tasks?
+	if (!sched->tasks)
+		return NULL;
+
+	if (sched->preferred_affinity_tasks) {
+		int cpus = cpus_count();
+		int numas = locality_numa_count();
+		// We can try to steal from somewhere
+		// Note that we don't skip our own cpus, although we know nothing is there, just for simplicity
+		for (int i = 0; i < cpus; ++i) {
+			if (scheduler_find_task_queue(&sched->per_cpu_queue_preferred[i], &task))
+				goto task_obtained;
+		}
+
+		for (int i = 0; i < numas; ++i) {
+			if (scheduler_find_task_queue(&sched->per_numa_queue_preferred[i], &task))
+				goto task_obtained;
+		}
+	}
+
+	// Got here, there were no tasks
+	return NULL;
+
+task_obtained:
+	sched->preferred_affinity_tasks--;
+	sched->tasks--;
+
 	return task;
 }
 
@@ -579,6 +598,23 @@ static inline nosv_task_t scheduler_get_internal(int cpu)
 		sched = list_elem(it, process_scheduler_t, list_hook);
 
 		nosv_task_t task = scheduler_find_task_process(sched, cpu_str);
+
+		if (task) {
+			scheduler->tasks--;
+			scheduler->served_tasks++;
+			scheduler_update_accounting(pid, task, cpu, ts);
+			return task;
+		}
+
+		it = list_next_circular(it, &scheduler->queues);
+	} while (it != stop);
+
+	// If we didn't find any affine or "normal" tasks to execute, we can search now
+	// for the "next best thing", which is stealing affine tasks
+	do {
+		sched = list_elem(it, process_scheduler_t, list_hook);
+
+		nosv_task_t task = scheduler_find_task_noaffine_process(sched, cpu_str);
 
 		if (task) {
 			scheduler->tasks--;
