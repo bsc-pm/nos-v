@@ -47,6 +47,9 @@ void *nosv_get_task_metadata(nosv_task_t task);
 nosv_task_type_t nosv_get_task_type(nosv_task_t task);
 
 /* Read-write task attributes */
+/* Note that getting priority while another thread is setting it, or
+   setting the priority when the task has been submitted has undefined
+   behaviour */
 int nosv_get_task_priority(nosv_task_t task);
 void nosv_set_task_priority(nosv_task_t task, int priority);
 

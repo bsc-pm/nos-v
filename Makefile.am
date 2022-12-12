@@ -135,7 +135,8 @@ endif
 
 subincludedir = $(includedir)/nosv
 subinclude_HEADERS = \
-	api/nosv/affinity.h
+	api/nosv/affinity.h \
+	api/nosv/hwinfo.h
 
 # Install config file
 data_DATA = nosv.toml

@@ -15,6 +15,7 @@
 #include "generic/list.h"
 #include "nosv.h"
 #include "nosv/affinity.h"
+#include "nosv/hwinfo.h"
 
 struct nosv_worker;
 typedef uint64_t deadline_t;

@@ -11,7 +11,9 @@
 #include "common.h"
 #include "compiler.h"
 #include "config/config.h"
+#include "hardware/cpus.h"
 #include "hardware/locality.h"
+#include "nosv-internal.h"
 
 __internal int *numa_logical_to_system;
 __internal int *numa_system_to_logical;
@@ -189,4 +191,35 @@ int locality_get_default_affinity(char **out)
 
 	numa_free_cpumask(all_affinity);
 	return 0;
+}
+
+/* Public API functions */
+int nosv_get_num_numa_nodes(void)
+{
+	return numa_count;
+}
+
+int nosv_get_system_numa_id(int logical_numa_id)
+{
+	if (logical_numa_id >= numa_count)
+		return -EINVAL;
+
+	return numa_logical_to_system[logical_numa_id];
+}
+
+int nosv_get_logical_numa_id(int system_numa_id)
+{
+	// We don't store the max numa id, so this access could
+	// be out-of-bounds
+	return numa_system_to_logical[system_numa_id];
+}
+
+int nosv_get_num_cpus_in_numa(int system_numa_id)
+{
+	int logical_node = numa_system_to_logical[system_numa_id];
+	int count = 0;
+	for (int i = 0; i < cpus_count(); ++i)
+		count += (cpu_get(i)->numa_node == logical_node);
+
+	return count;
 }

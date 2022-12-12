@@ -848,6 +848,11 @@ void nosv_set_task_affinity(nosv_task_t task, nosv_affinity_t *affinity)
 	task->affinity = *affinity;
 }
 
+nosv_affinity_t nosv_get_default_affinity(void)
+{
+	return default_affinity;
+}
+
 nosv_task_t nosv_self(void)
 {
 	return worker_current_task();
