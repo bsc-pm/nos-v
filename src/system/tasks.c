@@ -328,7 +328,7 @@ int nosv_submit(
 		return -EINVAL;
 
 	const bool is_blocking = (flags & NOSV_SUBMIT_BLOCKING);
-	const bool is_immediate = (flags & NOSV_SUBMIT_IMMEDIATE);
+	const bool is_immediate = (flags & NOSV_SUBMIT_IMMEDIATE) && nosv_config.sched_immediate_successor;
 	const bool is_inline = (flags & NOSV_SUBMIT_INLINE);
 
 	// These submit modes are mutually exclusive

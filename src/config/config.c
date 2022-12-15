@@ -48,6 +48,7 @@ static inline void config_init(rt_config_t *config)
 	config->sched_quantum_ns = SCHED_QUANTUM_NS;
 	config->sched_cpus_per_queue = SCHED_MPSC_CPU_BATCH;
 	config->sched_in_queue_size = SCHED_IN_QUEUE_SIZE;
+	config->sched_immediate_successor = 1;
 
 	// Use strdup for strings by default?
 	config->shm_name = strdup(SHM_NAME);

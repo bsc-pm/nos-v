@@ -57,6 +57,7 @@ typedef struct rt_config {
 	uint64_t sched_batch_size;
 	uint64_t sched_quantum_ns;
 	uint64_t sched_in_queue_size;
+	int sched_immediate_successor;
 
 	// Governor
 	const char *governor_policy;

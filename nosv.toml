@@ -51,6 +51,9 @@
 	# Size of the queues that are used to place tasks into the scheduler
 	# A good value should be a multiple of queue_batch
 	in_queue_size = 256
+	# Enable the immediate successor policy, which controls wether nOS-V honors the NOSV_SUBMIT_IMMEDIATE
+	# to execute a task immediately after the current one
+	immediate_successor = true
 
 # CPU Governor configuration
 # Controls the policy that nOS-V follows to block idle CPUs to save energy and resources
