@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef INSTR_H
@@ -218,7 +218,7 @@ static inline void instr_thread_end(void)
 	ovni_flush();
 }
 
-static inline void instr_proc_init(void)
+static inline void instr_proc_init(const char *suffix)
 {
 	char hostname[HOST_NAME_MAX + 1];
 	int appid;
@@ -230,6 +230,10 @@ static inline void instr_proc_init(void)
 
 	// gethostname() may not null-terminate the buffer
 	hostname[HOST_NAME_MAX] = '\0';
+
+	char loom[FILENAME_MAX];
+	if (snprintf(loom, FILENAME_MAX, "%s.%s", hostname, suffix) >= FILENAME_MAX)
+		nosv_abort("Error building the ovni loom name");
 
 	if ((appid_str = getenv("NOSV_APPID")) == NULL) {
 		nosv_warn("NOSV_APPID not set, using 1 as default");
@@ -243,7 +247,7 @@ static inline void instr_proc_init(void)
 			nosv_abort("NOSV_APPID must be larger than 0");
 	}
 
-	ovni_proc_init(appid, hostname, getpid());
+	ovni_proc_init(appid, loom, getpid());
 }
 
 static inline void instr_proc_fini(void)
@@ -294,7 +298,7 @@ static inline void instr_cpu_id(int index, int phyid)
 static inline void instr_thread_end(void)
 {
 }
-static inline void instr_proc_init(void)
+static inline void instr_proc_init(const char *suffix)
 {
 }
 static inline void instr_proc_fini(void)
