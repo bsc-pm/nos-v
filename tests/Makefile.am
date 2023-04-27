@@ -86,4 +86,4 @@ driver_CFLAGS = -O3 -g -Wall -Wpedantic $(PTHREAD_CFLAGS)
 driver_LDFLAGS = -lrt $(PTHREAD_LIBS)
 
 TEST_LOG_DRIVER = env AM_TAP_AWK='$(AWK)' $(SHELL) $(top_srcdir)/tests/wrapper.sh $(top_srcdir) $(top_builddir)/tests/driver $(top_srcdir)/tests/tap-driver.sh
-EXTRA_DIST = tap-driver.sh driver wrapper.sh $(TESTS)
+EXTRA_DIST = tap-driver.sh wrapper.sh

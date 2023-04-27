@@ -80,7 +80,9 @@ noinst_HEADERS = \
 	src/include/generic/arch/arm64.h \
 	src/include/generic/arch/power.h \
 	src/include/generic/arch/x86.h \
+	src/include/generic/accumulator.h \
 	src/include/generic/bitset.h \
+	src/include/generic/chrono.h \
 	src/include/generic/clock.h \
 	src/include/generic/condvar.h \
 	src/include/generic/futex.h \
