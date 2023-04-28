@@ -21,6 +21,13 @@
 
 // getcpu is only included in GLIBC since 2.29
 #if !__GLIBC_PREREQ(2, 29)
+
+// Fix for very old Linux versions
+#ifndef SYS_getcpu
+#define SYS_getcpu 0
+#define SKIP_CPU_TEST 1
+#endif
+
 static inline int getcpu(unsigned int *cpu, unsigned int *node)
 {
 	return syscall(SYS_getcpu, cpu, node);
@@ -76,11 +83,13 @@ void run_immediate_2(nosv_task_t task)
 
 void run(nosv_task_t task)
 {
+#ifndef SKIP_CPU_TEST
 	unsigned int cpu;
 	getcpu(&cpu, NULL);
 
 	int *metadata = nosv_get_task_metadata(task);
 	assert(*metadata == -1 || *metadata == cpu);
+#endif
 }
 
 void completed(nosv_task_t task)
