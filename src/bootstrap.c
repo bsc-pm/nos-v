@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
 */
 
 #include <stdio.h>
@@ -30,12 +30,6 @@ int nosv_init(void)
 
 	config_parse();
 
-	instr_proc_init();
-	instr_thread_init();
-	instr_thread_execute(-1, -1, 0);
-
-	// Generate some events to measure the latency
-	instr_gen_bursts();
 	locality_init();
 	smem_initialize();
 	hwcounters_initialize();

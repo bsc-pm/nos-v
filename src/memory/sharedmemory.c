@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
@@ -19,8 +19,9 @@
 #include "config/config.h"
 #include "hardware/cpus.h"
 #include "hardware/pids.h"
-#include "memory/sharedmemory.h"
+#include "instr.h"
 #include "memory/backbone.h"
+#include "memory/sharedmemory.h"
 #include "memory/slab.h"
 #include "monitoring/monitoring.h"
 #include "scheduler/scheduler.h"
@@ -143,12 +144,23 @@ static inline void calculate_shared_memory_permissions(void)
 		nosv_abort("Error determining shared memory name");
 }
 
+static inline void initialize_instrumentation(void)
+{
+	instr_proc_init(st_config.smem_name);
+	instr_thread_init();
+	instr_thread_execute(-1, -1, 0);
+
+	// Generate some events to measure the latency
+	instr_gen_bursts();
+}
+
 static void segment_create(void)
 {
 	int ret;
 	struct stat st;
 
 	calculate_shared_memory_permissions();
+	initialize_instrumentation();
 
 	st_config.smem_fd = 0;
 	while (!st_config.smem_fd) {
