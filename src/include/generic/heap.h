@@ -23,7 +23,7 @@ typedef struct heap_node {
 	struct heap_node *right;
 } heap_node_t;
 
-typedef struct head_head {
+typedef struct heap_head {
 	struct heap_node *root;
 	size_t size;
 	// ...
@@ -32,11 +32,11 @@ typedef struct head_head {
 #define heap_elem(head, type, name) \
 	((type *) (((char *) (head)) - offsetof(type, name)))
 
-#define heap_swap(a, b)                \
-	{                                  \
+#define heap_swap(a, b)      \
+	{                        \
 		typeof(a) aux = (a); \
-		(a) = (b);                     \
-		(b) = aux;                     \
+		(a) = (b);           \
+		(b) = aux;           \
 	}
 
 /*
@@ -64,10 +64,14 @@ static inline void heap_clean(heap_node_t *node)
 
 /*
 	max_heapify maintains the max-heap property
-	When it is called for a node "a", a->left and a->right are max-heaps, but "a" may be smaller than a->left or a->right, violating the max-heap property
+	When it is called for a node "a", a->left and a->right are max-heaps,
+	but "a" may be smaller than a->left or a->right, violating the max-heap property
 	max_heapify will float "a" down in the max-heap
 */
-static inline void heap_max_heapify(heap_head_t *head, heap_node_t *a, heap_node_compare_t cmp)
+static inline void heap_max_heapify(
+	heap_head_t *head,
+	heap_node_t *a,
+	heap_node_compare_t cmp)
 {
 	heap_node_t *largest = a;
 
@@ -217,7 +221,10 @@ static inline heap_node_t *heap_pop_max(heap_head_t *head, heap_node_compare_t c
 	return max;
 }
 
-static inline void heap_insert(heap_head_t *head, heap_node_t *node, heap_node_compare_t cmp)
+static inline void heap_insert(
+	heap_head_t *head,
+	heap_node_t *node,
+	heap_node_compare_t cmp)
 {
 	node->left = NULL;
 	node->right = NULL;

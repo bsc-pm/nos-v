@@ -13,6 +13,7 @@
 #include "defaults.h"
 #include "generic/heap.h"
 #include "generic/list.h"
+#include "generic/tree.h"
 #include "nosv.h"
 #include "nosv/affinity.h"
 #include "nosv/hwinfo.h"
@@ -46,11 +47,7 @@ struct nosv_task {
 	struct nosv_affinity affinity;
 
 	int priority;
-
-	union {
-		size_t tasks_when_inserted;
-		list_head_t list_hook;
-	};
+	list_head_t list_hook;
 
 	// Maybe this could be on-demand allocated
 	deadline_t deadline;
@@ -58,6 +55,7 @@ struct nosv_task {
 	union {
 		yield_t yield;
 		heap_node_t heap_hook;
+		RB_ENTRY(nosv_task) tree_hook;
 	};
 
 	nosv_task_t wakeup;

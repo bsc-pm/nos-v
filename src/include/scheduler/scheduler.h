@@ -15,6 +15,7 @@
 #include "generic/heap.h"
 #include "generic/list.h"
 #include "generic/spinlock.h"
+#include "generic/tree.h"
 #include "scheduler/dtlock.h"
 #include "scheduler/governor.h"
 #include "scheduler/mpsc.h"
@@ -24,11 +25,11 @@
 #define SCHED_GET_NONBLOCKING __BIT(0)
 
 typedef struct scheduler_queue {
-#if ENABLE_PRIORITY
-	heap_head_t tasks;
-#else
+	int priority_enabled;
+	union {
+		RB_HEAD(priority_tree, nosv_task) tasks_priority;
 	list_head_t tasks;
-#endif
+	};
 } scheduler_queue_t;
 
 typedef struct scheduler_queue_yield {

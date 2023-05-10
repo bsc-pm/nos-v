@@ -18,12 +18,19 @@
 #include "hardware/threads.h"
 #include "instr.h"
 #include "memory/sharedmemory.h"
-#include "nosv-internal.h"
 #include "scheduler/scheduler.h"
 
 __internal scheduler_t *scheduler;
 __internal thread_local process_scheduler_t *last;
 __internal nosv_task_t *task_batch_buffer;
+
+static inline int task_priority_compare(nosv_task_t a, nosv_task_t b)
+{
+	return (a->priority > b->priority) - (b->priority > a->priority);
+}
+
+RB_PROTOTYPE_STATIC(priority_tree, nosv_task, tree_hook, task_priority_compare)
+RB_GENERATE_STATIC(priority_tree, nosv_task, tree_hook, task_priority_compare)
 
 void scheduler_init(int initialize)
 {
@@ -72,62 +79,42 @@ void scheduler_shutdown(int pid)
 	free(task_batch_buffer);
 }
 
-#if ENABLE_PRIORITY
-
-static inline int scheduler_task_priority_compare(heap_node_t *a, heap_node_t *b)
-{
-	nosv_task_t task_a = heap_elem(a, struct nosv_task, heap_hook);
-	nosv_task_t task_b = heap_elem(b, struct nosv_task, heap_hook);
-
-	// When priorities are equal, we have to factor in when was the task inserted
-	// Failing to do so can result in livelocks when working with nosv_yield or nosv_schedpoint,
-	// because the heap looses the FIFO guarantees given by the queues
-
-	int result = (task_a->priority > task_b->priority) - (task_b->priority > task_a->priority);
-	if (!result)
-		return (task_a->tasks_when_inserted < task_b->tasks_when_inserted) - (task_b->tasks_when_inserted < task_a->tasks_when_inserted);
-
-	return result;
-}
-
-static inline void scheduler_init_queue(scheduler_queue_t *queue)
-{
-	heap_init(&queue->tasks);
-}
-
-static inline int scheduler_find_task_queue(scheduler_queue_t *queue, nosv_task_t *task /*out*/)
-{
-	heap_node_t *head = heap_pop_max(&queue->tasks, scheduler_task_priority_compare);
-
-	if (head) {
-		*task = heap_elem(head, struct nosv_task, heap_hook);
-		// Clear heap fields since it is in a union
-		heap_clean(head);
-		return 1;
-	}
-
-	return 0;
-}
-
-static inline void scheduler_add_queue(scheduler_queue_t *queue, nosv_task_t task)
-{
-	heap_insert(&queue->tasks, &task->heap_hook, scheduler_task_priority_compare);
-}
-
-#else
-
 static inline void scheduler_init_queue(scheduler_queue_t *queue)
 {
 	list_init(&queue->tasks);
+	queue->priority_enabled = 0;
 }
 
 static inline int scheduler_find_task_queue(scheduler_queue_t *queue, nosv_task_t *task /*out*/)
 {
-	list_head_t *head = list_pop_head(&queue->tasks);
+	if (queue->priority_enabled) {
+		nosv_task_t t = RB_MAX(priority_tree, &queue->tasks_priority);
 
-	if (head) {
-		*task = list_elem(head, struct nosv_task, list_hook);
-		return 1;
+		if (t) {
+			list_head_t *next = list_front(&t->list_hook);
+			nosv_task_t next_task = list_elem(next, struct nosv_task, list_hook);
+			if (next) {
+				// Change the list "head" to be the next task.
+				next->prev = t->list_hook.prev;
+				// Now transplant the element to replace the current element in the Red-Black Tree
+				RB_TRANSPLANT(priority_tree, &queue->tasks_priority, t, next_task);
+			} else {
+				RB_REMOVE(priority_tree, &queue->tasks_priority, t);
+			}
+
+			// Clean the tree hooks
+			memset(&t->tree_hook, 0, sizeof(t->tree_hook));
+
+			*task = t;
+			return 1;
+		}
+	} else {
+		list_head_t *head = list_pop_head(&queue->tasks);
+
+		if (head) {
+			*task = list_elem(head, struct nosv_task, list_hook);
+			return 1;
+		}
 	}
 
 	return 0;
@@ -135,10 +122,39 @@ static inline int scheduler_find_task_queue(scheduler_queue_t *queue, nosv_task_
 
 static inline void scheduler_add_queue(scheduler_queue_t *queue, nosv_task_t task)
 {
-	list_add_tail(&queue->tasks, &task->list_hook);
-}
+	if (queue->priority_enabled) {
+		nosv_task_t found = RB_FIND(priority_tree, &queue->tasks_priority, task);
 
-#endif
+		if (found) {
+			list_add_tail(&found->list_hook, &task->list_hook);
+		} else {
+			// Insert the new task with priority
+			list_init(&task->list_hook);
+			RB_INSERT(priority_tree, &queue->tasks_priority, task);
+		}
+	} else {
+		if (unlikely(task->priority)) {
+			// Enabling priorities
+			queue->priority_enabled = 1;
+			list_head_t previous = queue->tasks;
+			RB_INIT(&queue->tasks_priority);
+			list_head_t *new_head = list_front(&previous);
+
+			if (new_head) {
+				// There are elements in the current list
+				new_head->prev = previous.prev;
+				RB_INSERT(priority_tree, &queue->tasks_priority, list_elem(new_head, struct nosv_task, list_hook));
+			}
+
+			// Insert the new task with priority
+			list_init(&task->list_hook);
+			RB_INSERT(priority_tree, &queue->tasks_priority, task);
+		} else {
+			// Fast path
+			list_add_tail(&queue->tasks, &task->list_hook);
+		}
+	}
+}
 
 static inline process_scheduler_t *scheduler_init_pid(int pid)
 {
@@ -233,7 +249,7 @@ static inline void scheduler_process_ready_tasks(void)
 				heap_insert(&pidqueue->deadline_tasks, &task->heap_hook, &deadline_cmp);
 			} else {
 				// Account to add FIFO behaviour to priority queues
-				task->tasks_when_inserted = scheduler->served_tasks + scheduler->tasks;
+				// task->tasks_when_inserted = scheduler->served_tasks + scheduler->tasks;
 				scheduler_add_queue(&pidqueue->queue, task);
 			}
 
@@ -356,7 +372,7 @@ static inline void scheduler_insert_affine(process_scheduler_t *sched, nosv_task
 	if (task->affinity.type == NOSV_AFFINITY_TYPE_PREFERRED)
 		sched->preferred_affinity_tasks++;
 
-	task->tasks_when_inserted = scheduler->served_tasks + scheduler->tasks;
+	// task->tasks_when_inserted = scheduler->served_tasks + scheduler->tasks;
 	scheduler_add_queue(queue, task);
 }
 

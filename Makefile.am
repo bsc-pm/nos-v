@@ -93,6 +93,8 @@ noinst_HEADERS = \
 	src/include/generic/ringbuffer.h \
 	src/include/generic/signalmutex.h \
 	src/include/generic/spinlock.h \
+	src/include/generic/tree.h \
+	src/include/generic/_null.h \
 	src/include/hardware/cpus.h \
 	src/include/hardware/eventqueue.h \
 	src/include/hardware/locality.h \

@@ -20,6 +20,7 @@ a_tests = basic-init.test \
 	basic-attach-external.test \
 	basic-schedpoint.test \
 	basic-yield.test \
+	basic-priority.test \
 	basic-deadline.test
 
 unit_tests = unit-dtlock.test \
@@ -64,6 +65,10 @@ basic_schedpoint_test_LDFLAGS = $(AM_LDFLAGS)
 basic_yield_test_SOURCES = basic/yield.c
 basic_yield_test_CFLAGS = $(AM_CFLAGS)
 basic_yield_test_LDFLAGS = $(AM_LDFLAGS)
+
+basic_priority_test_SOURCES = basic/priority.c
+basic_priority_test_CFLAGS = $(AM_CFLAGS)
+basic_priority_test_LDFLAGS = $(AM_LDFLAGS)
 
 basic_deadline_test_SOURCES = basic/deadline.c
 basic_deadline_test_CFLAGS = $(AM_CFLAGS)

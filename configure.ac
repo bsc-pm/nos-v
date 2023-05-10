@@ -80,9 +80,6 @@ AC_CHECK_HEADER_STDBOOL
 AC_TYPE_SIZE_T
 AC_C_RESTRICT
 
-# Enables optional compile-time features
-AC_NOSV_FEATURES
-
 AC_CONFIG_FILES([Makefile nos-v.pc tests/Makefile])
 AC_OUTPUT
 
