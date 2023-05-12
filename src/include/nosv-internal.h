@@ -10,10 +10,13 @@
 #include <stdatomic.h>
 
 #include "compiler.h"
+#include "defaults.h"
 #include "generic/heap.h"
 #include "generic/list.h"
+#include "generic/tree.h"
 #include "nosv.h"
 #include "nosv/affinity.h"
+#include "nosv/hwinfo.h"
 
 struct nosv_worker;
 typedef uint64_t deadline_t;
@@ -52,6 +55,7 @@ struct nosv_task {
 	union {
 		yield_t yield;
 		heap_node_t heap_hook;
+		RB_ENTRY(nosv_task) tree_hook;
 	};
 
 	nosv_task_t wakeup;

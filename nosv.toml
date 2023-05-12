@@ -51,6 +51,9 @@
 	# Size of the queues that are used to place tasks into the scheduler
 	# A good value should be a multiple of queue_batch
 	in_queue_size = 256
+	# Enable the immediate successor policy, which controls wether nOS-V honors the NOSV_SUBMIT_IMMEDIATE
+	# to execute a task immediately after the current one
+	immediate_successor = true
 
 # CPU Governor configuration
 # Controls the policy that nOS-V follows to block idle CPUs to save energy and resources
@@ -83,6 +86,13 @@
 	# Default affinity policy, either "strict" or "preferred". When the default affinity is "all", this value
 	# is not used.
 	default_policy = "strict"
+	# It is also possible to define the composition of the NUMA Nodes, which will override the autodiscovered
+	# composition that nOS-V can do through libnuma.
+	# It should be deffined as a 2-dimensional array, which has one row per NUMA node, and each column is one
+	# core that belongs to that NUMA Node. Use the system ids for the cores. Consider the following example
+	# in a system with 2 NUMA Nodes, each one with 4 cores:
+	# numa_nodes = [[0, 1, 2, 3], [4, 5, 6, 7]]
+
 
 # Debug options
 [debug]

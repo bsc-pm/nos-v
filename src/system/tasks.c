@@ -237,6 +237,7 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	atomic_init(&res->event_count, 1);
 	atomic_init(&res->blocking_count, 1);
 	res->affinity = default_affinity;
+	res->priority = 0;
 
 	res->deadline = 0;
 	res->yield = 0;
@@ -327,7 +328,7 @@ int nosv_submit(
 		return -EINVAL;
 
 	const bool is_blocking = (flags & NOSV_SUBMIT_BLOCKING);
-	const bool is_immediate = (flags & NOSV_SUBMIT_IMMEDIATE);
+	const bool is_immediate = (flags & NOSV_SUBMIT_IMMEDIATE) && nosv_config.sched_immediate_successor;
 	const bool is_inline = (flags & NOSV_SUBMIT_INLINE);
 
 	// These submit modes are mutually exclusive
@@ -845,6 +846,11 @@ void nosv_set_task_affinity(nosv_task_t task, nosv_affinity_t *affinity)
 	assert(affinity != NULL);
 
 	task->affinity = *affinity;
+}
+
+nosv_affinity_t nosv_get_default_affinity(void)
+{
+	return default_affinity;
 }
 
 nosv_task_t nosv_self(void)

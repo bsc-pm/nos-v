@@ -93,6 +93,8 @@ noinst_HEADERS = \
 	src/include/generic/ringbuffer.h \
 	src/include/generic/signalmutex.h \
 	src/include/generic/spinlock.h \
+	src/include/generic/tree.h \
+	src/include/generic/_null.h \
 	src/include/hardware/cpus.h \
 	src/include/hardware/eventqueue.h \
 	src/include/hardware/locality.h \
@@ -135,7 +137,8 @@ endif
 
 subincludedir = $(includedir)/nosv
 subinclude_HEADERS = \
-	api/nosv/affinity.h
+	api/nosv/affinity.h \
+	api/nosv/hwinfo.h
 
 # Install config file
 data_DATA = nosv.toml
