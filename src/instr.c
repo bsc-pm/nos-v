@@ -9,6 +9,10 @@
 
 uint64_t instr_ovni_control = 0;
 
+#ifdef ENABLE_INSTRUMENTATION
+thread_local int thread_resting = 0;
+#endif
+
 static const uint64_t control_levels[] = {
 	INSTR_LEVEL_0,
 	INSTR_LEVEL_1,

@@ -22,6 +22,7 @@
 
 #include "common.h"
 #include "compat.h"
+#include "compiler.h"
 #include "config/config.h"
 #include "hardware/pids.h"
 #include "hardware/threads.h"
@@ -221,7 +222,29 @@ INSTR_2ARG(TASK, instr_task_pause, "VTp", uint32_t, task_id, uint32_t, body_id)
 INSTR_2ARG(TASK, instr_task_resume, "VTr", uint32_t, task_id, uint32_t, body_id)
 INSTR_2ARG(TASK, instr_task_end, "VTe", uint32_t, task_id, uint32_t, body_id)
 
+INSTR_0ARG(instr_worker_progressing_internal, "VPp")
+INSTR_0ARG(instr_worker_resting_internal, "VPr")
+
 #ifdef ENABLE_INSTRUMENTATION
+__internal extern thread_local int thread_resting;
+
+static inline void instr_worker_progressing()
+{
+	CHECK_INSTR_ENABLED
+	if (thread_resting) {
+		thread_resting = 0;
+		instr_worker_progressing_internal();
+	}
+}
+
+static inline void instr_worker_resting()
+{
+	CHECK_INSTR_ENABLED
+	if (!thread_resting) {
+		thread_resting = 1;
+		instr_worker_resting_internal();
+	}
+}
 
 // A jumbo event is needed to encode a large label
 static inline void instr_type_create(uint32_t typeid, const char *label)
