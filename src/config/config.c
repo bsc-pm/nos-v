@@ -1,7 +1,7 @@
 /*
 	This file is part of Nanos6 and nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2020-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2020-2023 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
@@ -84,6 +84,8 @@ static inline void config_init(rt_config_t *config)
 
 	config->monitoring_enabled = 0;
 	config->monitoring_verbose = 0;
+
+	config->instr_enabled = 0;
 }
 
 #define sanity_check(cond, explanation)                             \

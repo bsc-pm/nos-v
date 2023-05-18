@@ -1,6 +1,6 @@
 # This file is part of nOS-V and is licensed under the terms contained in the COPYING file
 #
-# Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+# Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
 
 # Default nOS-V configuration file.
 # Note that every process in the same nOS-V instance should load an identical configuration file,
@@ -124,3 +124,7 @@
 	enabled = false
 	# Whether to print verbose information if monitoring is enabled
 	verbose = false
+
+# Instrumentation. Only applies if nOS-V was configured with --with-ovni
+[instrumentation]
+	enabled = false
