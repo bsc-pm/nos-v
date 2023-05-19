@@ -28,7 +28,7 @@
 #include "nosv-internal.h"
 
 #ifdef ENABLE_INSTRUMENTATION
-#define CHECK_INSTR_ENABLED \
+#define CHECK_INSTR_ENABLED 			\
 	if (!nosv_config.instr_enabled)     \
 		return;
 
