@@ -327,7 +327,7 @@ static inline void scheduler_process_ready_task_buffer(nosv_task_t first_task)
 }
 
 // Must be called inside the dtlock
-static inline void scheduler_process_ready_tasks(void)
+static inline void scheduler_process_ready_tasks(int fromServer)
 {
 	const uint64_t batch_size = nosv_config.sched_batch_size;
 	size_t cnt = 0;
@@ -335,6 +335,9 @@ static inline void scheduler_process_ready_tasks(void)
 	// TODO maybe we want to limit how many tasks we pop
 	while ((cnt = mpsc_pop_batch(scheduler->in_queue, (void **) task_batch_buffer, batch_size))) {
 		for (size_t i = 0; i < cnt; ++i) {
+			if (fromServer)
+				instr_worker_progressing();
+
 			assert(task_batch_buffer[i]);
 			scheduler_process_ready_task_buffer(task_batch_buffer[i]);
 		}
@@ -418,7 +421,7 @@ static inline void scheduler_submit_internal(nosv_task_t task)
 
 		if (!success) {
 			if (dtlock_try_lock(&scheduler->dtlock)) {
-				scheduler_process_ready_tasks();
+				scheduler_process_ready_tasks(0);
 				dtlock_unlock(&scheduler->dtlock);
 			}
 		}
@@ -886,21 +889,27 @@ task_execution_handle_t scheduler_get(int cpu, nosv_flags_t flags)
 
 	if (!dtlock_lock_or_delegate(&scheduler->dtlock, (uint64_t) cpu, (void **) &handle.task, &handle.execution_id, blocking, external)) {
 		// Served item
-		if (handle.task)
+		if (handle.task) {
+			instr_worker_progressing();
 			instr_sched_recv();
+		} else if (!blocking) {
+			// Otherwise we would mark non-blocking gets as idle all the time, which is not correct
+			instr_worker_progressing();
+		}
 
 		assert(handle.task == NULL || handle.execution_id != 0);
 		return handle;
 	}
 
 	// Lock acquired
+	instr_worker_progressing();
 	instr_sched_server_enter();
 
 	cpu_bitset_t *waiters = governor_get_waiters(&scheduler->governor);
 	cpu_bitset_t *sleepers = governor_get_sleepers(&scheduler->governor);
 
 	do {
-		scheduler_process_ready_tasks();
+		scheduler_process_ready_tasks(1);
 
 		scheduler_deadline_purge();
 
@@ -913,10 +922,12 @@ task_execution_handle_t scheduler_get(int cpu, nosv_flags_t flags)
 		// This is needed because otherwise strict affinity tasks may have problems
 		int skip = 0;
 		while (served < MAX_SERVED_TASKS && pending && !skip) {
+			size_t served_current = 0;
+
 			// First, schedule waiters
-			served += scheduler_serve_batch(&skip, waiters);
+			served_current += scheduler_serve_batch(&skip, waiters);
 			// Then, sleepers
-			served += scheduler_serve_batch(&skip, sleepers);
+			served_current += scheduler_serve_batch(&skip, sleepers);
 
 			// Apply some powersaving policies to all threads kept waiting
 			// Do this before reading the newly arrived cores, otherwise all non-blocking
@@ -925,6 +936,13 @@ task_execution_handle_t scheduler_get(int cpu, nosv_flags_t flags)
 
 			// Process any newly arrived cores
 			pending = governor_update_cpumasks(&scheduler->governor, &scheduler->dtlock);
+
+			if (served_current)
+				instr_worker_progressing();
+			else
+				instr_worker_resting();
+
+			served += served_current;
 		}
 
 		// Work for myself
@@ -934,6 +952,8 @@ task_execution_handle_t scheduler_get(int cpu, nosv_flags_t flags)
 	// Record execution count when serving myself
 	if (handle.task)
 		handle.execution_id = handle.task->scheduled_count;
+
+	instr_worker_progressing();
 
 	// Keep one thread inside the lock
 	if (dtlock_empty(&scheduler->dtlock))

@@ -77,4 +77,7 @@
 // Enabled instrumentation. None by default
 #define INSTR_DEFAULT_VERSION "none"
 
+// How many idle spins will a lock have before it is considered "idling"
+#define IDLE_SPINS_THRESHOLD 1
+
 #endif // DEFAULTS_H

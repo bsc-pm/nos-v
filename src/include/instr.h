@@ -312,6 +312,14 @@ static inline uint32_t instr_get_bodyid(task_execution_handle_t handle)
 	return 0;
 }
 
+static inline void instr_worker_progressing()
+{
+}
+
+static inline void instr_worker_resting()
+{
+}
+
 #endif // ENABLE_INSTRUMENTATION
 
 // ----------------------- Ovni events  ---------------------------
