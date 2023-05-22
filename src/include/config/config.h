@@ -79,7 +79,7 @@ typedef struct rt_config {
 	int monitoring_verbose;
 
 	// Instrumentation
-	int instr_enabled;
+	const char *instrumentation_version;
 } rt_config_t;
 
 __internal extern rt_config_t nosv_config;

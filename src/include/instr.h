@@ -28,8 +28,10 @@
 #include "nosv-internal.h"
 
 #ifdef ENABLE_INSTRUMENTATION
+__internal extern int instr_ovni_enabled;
+
 #define CHECK_INSTR_ENABLED 			\
-	if (!nosv_config.instr_enabled)     \
+	if (!instr_ovni_enabled)     \
 		return;
 
 #define INSTR_0ARG(name, mcv)                     \

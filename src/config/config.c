@@ -85,7 +85,7 @@ static inline void config_init(rt_config_t *config)
 	config->monitoring_enabled = 0;
 	config->monitoring_verbose = 0;
 
-	config->instr_enabled = 0;
+	config->instrumentation_version = strdup(INSTR_DEFAULT_VERSION);
 }
 
 #define sanity_check(cond, explanation)                             \
@@ -131,6 +131,8 @@ static inline int config_check(rt_config_t *config)
 	sanity_check_str(config->affinity_default_policy, "Affinity policy must be one of: strict or preferred", "strict", "preferred");
 
 	sanity_check_str(config->hwcounters_backend, "Currently available hardware counter backends: papi, none", "none", "papi");
+
+	sanity_check_str(config->instrumentation_version, "Currently available instrumentations: ovni, none", "ovni", "none");
 
 	return ret;
 }

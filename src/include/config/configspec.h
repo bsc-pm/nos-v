@@ -83,7 +83,7 @@ static config_spec_t config_spec_list[] = {
 	DECLARE_CONFIG(TYPE_BOOL, "turbo.enabled", turbo_enabled),
 	DECLARE_CONFIG(TYPE_BOOL, "monitoring.enabled", monitoring_enabled),
 	DECLARE_CONFIG(TYPE_BOOL, "monitoring.verbose", monitoring_verbose),
-	DECLARE_CONFIG(TYPE_BOOL, "instrument.enabled", instr_enabled),
+	DECLARE_CONFIG(TYPE_STR, "instrumentation.version", instrumentation_version),
 };
 
 #endif // CONFIG_PARSE_H

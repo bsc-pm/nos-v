@@ -68,4 +68,7 @@
 // The enabled HWCounter backend, "none" by default
 #define HWCOUNTERS_BACKEND "none"
 
+// Enabled instrumentation. None by default
+#define INSTR_DEFAULT_VERSION "none"
+
 #endif // DEFAULTS_H

@@ -146,6 +146,14 @@ static inline void calculate_shared_memory_permissions(void)
 
 static inline void initialize_instrumentation(void)
 {
+	if (strcmp(nosv_config.instrumentation_version, "ovni") == 0) {
+#ifdef ENABLE_INSTRUMENTATION
+		instr_ovni_enabled = 1;
+#else
+		nosv_warn("ovni instrumentation requested, but nOS-V was built without ovni support");
+#endif
+	}
+
 	instr_proc_init(st_config.smem_name);
 	instr_thread_init();
 	instr_thread_execute(-1, -1, 0);
