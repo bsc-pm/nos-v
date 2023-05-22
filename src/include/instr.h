@@ -22,69 +22,80 @@
 
 #include "common.h"
 #include "compat.h"
+#include "config/config.h"
 #include "hardware/pids.h"
 #include "hardware/threads.h"
 #include "nosv-internal.h"
 
 #ifdef ENABLE_INSTRUMENTATION
-#define INSTR_0ARG(name, mcv)              \
-	static inline void name(void)      \
-	{                                  \
-		struct ovni_ev ev = {0};   \
+__internal extern int instr_ovni_enabled;
+
+#define CHECK_INSTR_ENABLED 			\
+	if (!instr_ovni_enabled)     \
+		return;
+
+#define INSTR_0ARG(name, mcv)                     \
+	static inline void name(void)                 \
+	{                                             \
+		CHECK_INSTR_ENABLED                       \
+		struct ovni_ev ev = {0};                  \
 		ovni_ev_set_clock(&ev, ovni_clock_now()); \
-		ovni_ev_set_mcv(&ev, mcv); \
-		ovni_ev_emit(&ev);              \
+		ovni_ev_set_mcv(&ev, mcv);                \
+		ovni_ev_emit(&ev);                        \
 	}
 
-#define INSTR_1ARG(name, mcv, ta, a)                             \
-	static inline void name(ta a)                            \
-	{                                                        \
-		struct ovni_ev ev = {0};                         \
-		ovni_ev_set_clock(&ev, ovni_clock_now());        \
-		ovni_ev_set_mcv(&ev, mcv);                       \
-		ovni_payload_add(&ev, (uint8_t *)&a, sizeof(a)); \
-		ovni_ev_emit(&ev);                                    \
+#define INSTR_1ARG(name, mcv, ta, a)                      \
+	static inline void name(ta a)                         \
+	{                                                     \
+		CHECK_INSTR_ENABLED                               \
+		struct ovni_ev ev = {0};                          \
+		ovni_ev_set_clock(&ev, ovni_clock_now());         \
+		ovni_ev_set_mcv(&ev, mcv);                        \
+		ovni_payload_add(&ev, (uint8_t *) &a, sizeof(a)); \
+		ovni_ev_emit(&ev);                                \
 	}
 
-#define INSTR_2ARG(name, mcv, ta, a, tb, b)                      \
-	static inline void name(ta a, tb b)                      \
-	{                                                        \
-		struct ovni_ev ev = {0};                         \
-		ovni_ev_set_clock(&ev, ovni_clock_now());        \
-		ovni_ev_set_mcv(&ev, mcv);                       \
-		ovni_payload_add(&ev, (uint8_t *)&a, sizeof(a)); \
-		ovni_payload_add(&ev, (uint8_t *)&b, sizeof(b)); \
-		ovni_ev_emit(&ev);                                    \
+#define INSTR_2ARG(name, mcv, ta, a, tb, b)               \
+	static inline void name(ta a, tb b)                   \
+	{                                                     \
+		CHECK_INSTR_ENABLED                               \
+		struct ovni_ev ev = {0};                          \
+		ovni_ev_set_clock(&ev, ovni_clock_now());         \
+		ovni_ev_set_mcv(&ev, mcv);                        \
+		ovni_payload_add(&ev, (uint8_t *) &a, sizeof(a)); \
+		ovni_payload_add(&ev, (uint8_t *) &b, sizeof(b)); \
+		ovni_ev_emit(&ev);                                \
 	}
 
-#define INSTR_3ARG(name, mcv, ta, a, tb, b, tc, c)               \
-	static inline void name(ta a, tb b, tc c)                \
-	{                                                        \
-		struct ovni_ev ev = {0};                         \
-		ovni_ev_set_clock(&ev, ovni_clock_now());        \
-		ovni_ev_set_mcv(&ev, mcv);                       \
-		ovni_payload_add(&ev, (uint8_t *)&a, sizeof(a)); \
-		ovni_payload_add(&ev, (uint8_t *)&b, sizeof(b)); \
-		ovni_payload_add(&ev, (uint8_t *)&c, sizeof(c)); \
-		ovni_ev_emit(&ev);                                    \
+#define INSTR_3ARG(name, mcv, ta, a, tb, b, tc, c)        \
+	static inline void name(ta a, tb b, tc c)             \
+	{                                                     \
+		CHECK_INSTR_ENABLED                               \
+		struct ovni_ev ev = {0};                          \
+		ovni_ev_set_clock(&ev, ovni_clock_now());         \
+		ovni_ev_set_mcv(&ev, mcv);                        \
+		ovni_payload_add(&ev, (uint8_t *) &a, sizeof(a)); \
+		ovni_payload_add(&ev, (uint8_t *) &b, sizeof(b)); \
+		ovni_payload_add(&ev, (uint8_t *) &c, sizeof(c)); \
+		ovni_ev_emit(&ev);                                \
 	}
 #else // ENABLE_INSTRUMENTATION
-#define INSTR_0ARG(name, mcv)         \
+#define INSTR_0ARG(name, mcv)     \
 	static inline void name(void) \
 	{                             \
 	}
 
-#define INSTR_1ARG(name, mcv, ta, a)     \
+#define INSTR_1ARG(name, mcv, ta, a) \
 	static inline void name(ta a)    \
 	{                                \
 	}
 
-#define INSTR_2ARG(name, mcv, ta, a, tb, b)     \
+#define INSTR_2ARG(name, mcv, ta, a, tb, b) \
 	static inline void name(ta a, tb b)     \
 	{                                       \
 	}
 
-#define INSTR_3ARG(name, mcv, ta, a, tb, b, tc, c)     \
+#define INSTR_3ARG(name, mcv, ta, a, tb, b, tc, c) \
 	static inline void name(ta a, tb b, tc c)      \
 	{                                              \
 	}
@@ -135,6 +146,7 @@ INSTR_1ARG(instr_task_end, "VTe", uint32_t, task_id)
 // A jumbo event is needed to encode a large label
 static inline void instr_type_create(uint32_t typeid, const char *label)
 {
+	CHECK_INSTR_ENABLED
 	size_t bufsize, label_len, size_left;
 	uint8_t buf[1024], *p;
 
@@ -203,11 +215,13 @@ INSTR_0ARG(instr_thread_warm, "OHw")
 
 static inline void instr_cpu_id(int index, int phyid)
 {
+	CHECK_INSTR_ENABLED
 	ovni_add_cpu(index, phyid);
 }
 
 static inline void instr_thread_end(void)
 {
+	CHECK_INSTR_ENABLED
 	struct ovni_ev ev = {0};
 
 	ovni_ev_set_clock(&ev, ovni_clock_now());
@@ -220,6 +234,7 @@ static inline void instr_thread_end(void)
 
 static inline void instr_proc_init(const char *suffix)
 {
+	CHECK_INSTR_ENABLED
 	char hostname[HOST_NAME_MAX + 1];
 	int appid;
 	char *appid_str;
@@ -252,22 +267,26 @@ static inline void instr_proc_init(const char *suffix)
 
 static inline void instr_proc_fini(void)
 {
+	CHECK_INSTR_ENABLED
 	ovni_proc_fini();
 }
 
 static inline void instr_gen_bursts(void)
 {
+	CHECK_INSTR_ENABLED
 	for (int i = 0; i < 100; i++)
 		instr_burst();
 }
 
 static inline void instr_thread_init(void)
 {
+	CHECK_INSTR_ENABLED
 	ovni_thread_init(gettid());
 }
 
 static inline void instr_thread_attach(void)
 {
+	CHECK_INSTR_ENABLED
 	struct ovni_ev ev = {0};
 
 	if (!ovni_thread_isready())
@@ -280,6 +299,7 @@ static inline void instr_thread_attach(void)
 
 static inline void instr_thread_detach(void)
 {
+	CHECK_INSTR_ENABLED
 	struct ovni_ev ev = {0};
 
 	ovni_ev_set_clock(&ev, ovni_clock_now());
@@ -345,13 +365,14 @@ struct kinstr;
 
 #ifdef ENABLE_INSTRUMENTATION
 static int perf_event_open(struct perf_event_attr *attr, pid_t pid,
-		int cpu, int group_fd, unsigned long flags)
+	int cpu, int group_fd, unsigned long flags)
 {
 	return (int) syscall(SYS_perf_event_open, attr, pid, cpu, group_fd, flags);
 }
 
 static inline void instr_kernel_init(struct kinstr **ki_ptr)
 {
+	CHECK_INSTR_ENABLED
 	struct perf_event_attr attr;
 	struct kinstr *ki;
 	long pagesize;
@@ -403,7 +424,7 @@ static inline void instr_kernel_init(struct kinstr **ki_ptr)
 	// Map the buffer: must be 1+2^n pages
 	ki->bufsize = pagesize + ki->ringsize;
 	ki->buf = mmap(NULL, ki->bufsize,
-			PROT_READ | PROT_WRITE, MAP_SHARED, ki->fd, 0);
+		PROT_READ | PROT_WRITE, MAP_SHARED, ki->fd, 0);
 
 	if (ki->buf == MAP_FAILED) {
 		nosv_warn("cannot enable kernel events, mmap failed");
@@ -421,12 +442,12 @@ static inline void instr_kernel_init(struct kinstr **ki_ptr)
 }
 
 struct sample_id {
-        //u32 pid, tid; }   /* if PERF_SAMPLE_TID set */
-        uint64_t time;      /* if PERF_SAMPLE_TIME set */
-        //u64 id;       }   /* if PERF_SAMPLE_ID set */
-        //u64 stream_id;}   /* if PERF_SAMPLE_STREAM_ID set  */
-        //u32 cpu, res; }   /* if PERF_SAMPLE_CPU set */
-        //u64 id;       }   /* if PERF_SAMPLE_IDENTIFIER set */
+	// u32 pid, tid; }   /* if PERF_SAMPLE_TID set */
+	uint64_t time; /* if PERF_SAMPLE_TIME set */
+				   // u64 id;       }   /* if PERF_SAMPLE_ID set */
+	// u64 stream_id;}   /* if PERF_SAMPLE_STREAM_ID set  */
+	// u32 cpu, res; }   /* if PERF_SAMPLE_CPU set */
+	// u64 id;       }   /* if PERF_SAMPLE_IDENTIFIER set */
 };
 
 struct perf_ev {
@@ -453,6 +474,7 @@ static inline void emit_perf_event(struct perf_ev *ev)
 
 static inline void instr_kernel_flush(struct kinstr *ki)
 {
+	CHECK_INSTR_ENABLED
 	struct ovni_ev ev0 = {0}, ev1 = {0};
 	struct perf_ev *ev;
 	uint8_t *p;
@@ -484,6 +506,7 @@ static inline void instr_kernel_flush(struct kinstr *ki)
 
 static inline void instr_kernel_free(struct kinstr *ki)
 {
+	CHECK_INSTR_ENABLED
 	sfree(ki, sizeof(*ki), -1);
 }
 

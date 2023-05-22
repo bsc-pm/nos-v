@@ -1,7 +1,7 @@
 /*
 	This file is part of Nanos6 and nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2020-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2020-2023 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef CONFIG_PARSE_H
@@ -83,6 +83,7 @@ static config_spec_t config_spec_list[] = {
 	DECLARE_CONFIG(TYPE_BOOL, "turbo.enabled", turbo_enabled),
 	DECLARE_CONFIG(TYPE_BOOL, "monitoring.enabled", monitoring_enabled),
 	DECLARE_CONFIG(TYPE_BOOL, "monitoring.verbose", monitoring_verbose),
+	DECLARE_CONFIG(TYPE_STR, "instrumentation.version", instrumentation_version),
 };
 
 #endif // CONFIG_PARSE_H

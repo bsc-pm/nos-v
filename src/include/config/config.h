@@ -1,7 +1,7 @@
 /*
 	This file is part of Nanos6 and nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2020-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2020-2023 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef CONFIG_H
@@ -77,6 +77,9 @@ typedef struct rt_config {
 	// Monitoring
 	int monitoring_enabled;
 	int monitoring_verbose;
+
+	// Instrumentation
+	const char *instrumentation_version;
 } rt_config_t;
 
 __internal extern rt_config_t nosv_config;

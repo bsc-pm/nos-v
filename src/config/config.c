@@ -1,7 +1,7 @@
 /*
 	This file is part of Nanos6 and nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2020-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2020-2023 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
@@ -84,6 +84,8 @@ static inline void config_init(rt_config_t *config)
 
 	config->monitoring_enabled = 0;
 	config->monitoring_verbose = 0;
+
+	config->instrumentation_version = strdup(INSTR_DEFAULT_VERSION);
 }
 
 #define sanity_check(cond, explanation)                             \
@@ -129,6 +131,8 @@ static inline int config_check(rt_config_t *config)
 	sanity_check_str(config->affinity_default_policy, "Affinity policy must be one of: strict or preferred", "strict", "preferred");
 
 	sanity_check_str(config->hwcounters_backend, "Currently available hardware counter backends: papi, none", "none", "papi");
+
+	sanity_check_str(config->instrumentation_version, "Currently available instrumentations: ovni, none", "ovni", "none");
 
 	return ret;
 }
