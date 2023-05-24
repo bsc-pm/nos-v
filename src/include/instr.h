@@ -228,7 +228,7 @@ INSTR_0ARG(instr_worker_resting_internal, "VPr")
 #ifdef ENABLE_INSTRUMENTATION
 __internal extern thread_local int thread_resting;
 
-static inline void instr_worker_progressing()
+static inline void instr_worker_progressing(void)
 {
 	CHECK_INSTR_ENABLED
 	if (thread_resting) {
@@ -237,7 +237,7 @@ static inline void instr_worker_progressing()
 	}
 }
 
-static inline void instr_worker_resting()
+static inline void instr_worker_resting(void)
 {
 	CHECK_INSTR_ENABLED
 	if (!thread_resting) {
@@ -312,11 +312,11 @@ static inline uint32_t instr_get_bodyid(task_execution_handle_t handle)
 	return 0;
 }
 
-static inline void instr_worker_progressing()
+static inline void instr_worker_progressing(void)
 {
 }
 
-static inline void instr_worker_resting()
+static inline void instr_worker_resting(void)
 {
 }
 

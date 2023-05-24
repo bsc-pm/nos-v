@@ -24,7 +24,6 @@ test_t test;
 
 void task_run(nosv_task_t task)
 {
-	printf("%p\n", task);
 	int current_priority = nosv_get_task_priority(task);
 	int last_priority = atomic_load(&expected_prio);
 	test_check(&test, last_priority == current_priority || last_priority == current_priority - 1,
@@ -65,7 +64,7 @@ int main() {
 
 	atomic_store(&expected_prio, NTASKS);
 
-	// A bit hacky. We have to wait until the thread in the scheduler inserts ALL priority tasks, 
+	// A bit hacky. We have to wait until the thread in the scheduler inserts ALL priority tasks,
 	// otherwise the order is going to be wrong
 	usleep(10000);
 
