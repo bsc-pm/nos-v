@@ -214,8 +214,6 @@ static inline void worker_execute_or_delegate(nosv_task_t task, cpu_t *cpu, int 
 
 		task_execute(task);
 
-		current_worker->task = NULL;
-
 		// The task execution has ended, so do not block the thread
 	}
 }
@@ -368,6 +366,7 @@ int worker_yield_if_needed(nosv_task_t current_task)
 {
 	assert(current_worker);
 	assert(current_worker->task == current_task);
+	assert(current_task->worker == current_worker);
 
 	cpu_t *cpu = current_worker->cpu;
 	assert(cpu);
