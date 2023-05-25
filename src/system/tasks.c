@@ -652,6 +652,8 @@ void task_execute(nosv_task_t task)
 	atomic_store_explicit(&task->blocking_count, 1, memory_order_relaxed);
 	// Remove the worker assigned to this task
 	task->worker = NULL;
+	// Remove the task assigned to the worker as well
+	worker->task = NULL;
 
 	uint64_t res = atomic_fetch_sub_explicit(&task->event_count, 1, memory_order_relaxed) - 1;
 	if (!res) {
