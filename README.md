@@ -1,8 +1,12 @@
 # nOS-V Library
 
-Nanos6 is a runtime that implements the nOS-V tasking API,
+nOS-V is a runtime library that implements the nOS-V tasking API,
 developed by the [*Programming Models group*](https://pm.bsc.es/)
 at the [**Barcelona Supercomputing Center**](http://www.bsc.es/).
+
+Its main goal is to provide a low-level and low-overhead tasking
+runtime which supports co-execution and can be leveraged by higher-level
+programming models.
 
 ## Licensing
 
@@ -57,3 +61,18 @@ The development of nOS-V is based on a few simple principles that are maintained
 1. No dependencies, aside from libc and pthreads
 1. C11 with K&R C indentation. There is a ".clang-format" file provided
 1. Simple is better. Stablishing compile-time limits is encouraged if it simplifies significantly the code
+
+## Citing
+
+If you use nOS-V in your research, we ask that you cite the following [preprint](https://arxiv.org/abs/2204.10768):
+
+```
+@misc{alvarez2022nosv,
+      title={nOS-V: Co-Executing HPC Applications Using System-Wide Task Scheduling},
+      author={David Álvarez and Kevin Sala and Vicenç Beltran},
+      year={2022},
+      eprint={2204.10768},
+      archivePrefix={arXiv},
+      primaryClass={cs.DC}
+}
+```
