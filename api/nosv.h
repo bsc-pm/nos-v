@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef NOSV_H
@@ -52,6 +52,12 @@ nosv_task_type_t nosv_get_task_type(nosv_task_t task);
    behaviour */
 int nosv_get_task_priority(nosv_task_t task);
 void nosv_set_task_priority(nosv_task_t task, int priority);
+/* Set how many -potentially concurrent- times should a task be run before ending */
+/* Degree should be > 0 and only set in parallel tasks */
+int nosv_get_task_degree(nosv_task_t task);
+void nosv_set_task_degree(nosv_task_t task, int degree);
+/* Callable from task context */
+int nosv_get_execution_id(void);
 
 /* Read-only task type attributes */
 nosv_task_run_callback_t nosv_get_task_type_run_callback(nosv_task_type_t type);
@@ -95,7 +101,6 @@ int nosv_type_destroy(
 
 /* Flags */
 #define NOSV_CREATE_NONE 		__ZEROBITS
-#define NOSV_CREATE_TASKFOR 	__BIT(0)
 
 /* May return -ENOMEM. 0 on success */
 /* Callable from everywhere */
@@ -127,6 +132,12 @@ int nosv_submit(
 /* Blocking, yield operation */
 /* Restriction: Can only be called from a task context */
 int nosv_pause(
+	nosv_flags_t flags);
+
+/* Flags */
+#define NOSV_CANCEL_NONE __ZEROBITS
+/* Only callable from task context */
+int nosv_cancel(
 	nosv_flags_t flags);
 
 /* Deadline tasks */
@@ -168,7 +179,7 @@ int nosv_decrease_event_counter(
 	uint64_t decrement);
 
 /* Flags */
-#define NOSV_ATTACH_NONE __ZEROBITS
+#define NOSV_ATTACH_NONE 			__ZEROBITS
 
 /* Thread Attaching API */
 int nosv_attach(

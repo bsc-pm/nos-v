@@ -36,7 +36,7 @@ void governor_init(governor_t *governor)
 static inline void governor_sleep_cpu(governor_t *governor, const int waiter, delegation_lock_t *dtlock)
 {
 	// Tell the waiter to sleep
-	dtlock_serve(dtlock, waiter, NULL, DTLOCK_SIGNAL_SLEEP);
+	dtlock_serve(dtlock, waiter, NULL, 0, DTLOCK_SIGNAL_SLEEP);
 	// Remove it from the waiter mask
 	governor_served(governor, waiter);
 	// Add it to the sleepers mask
@@ -50,7 +50,7 @@ void governor_apply_policy(governor_t *governor, delegation_lock_t *dtlock)
 		uint64_t *cpu_spins = &governor->cpu_spin_counter[cpu];
 
 		if (!dtlock_is_cpu_blockable(dtlock, cpu)) {
-			dtlock_serve(dtlock, cpu, NULL, DTLOCK_SIGNAL_DEFAULT);
+			dtlock_serve(dtlock, cpu, NULL, 0, DTLOCK_SIGNAL_DEFAULT);
 			governor_served(governor, cpu);
 		} else if (++(*cpu_spins) > governor->spins) {
 			governor_sleep_cpu(governor, cpu, dtlock);
@@ -63,14 +63,14 @@ void governor_wake_one(governor_t *governor, delegation_lock_t *dtlock)
 {
 	int candidate = cpu_bitset_ffs(&governor->waiters);
 	if (candidate >= 0) {
-		dtlock_serve(dtlock, candidate, DTLOCK_ITEM_RETRY, DTLOCK_SIGNAL_DEFAULT);
+		dtlock_serve(dtlock, candidate, DTLOCK_ITEM_RETRY, 0, DTLOCK_SIGNAL_DEFAULT);
 		governor_served(governor, candidate);
 		return;
 	}
 
 	candidate = cpu_bitset_ffs(&governor->sleepers);
 	if (candidate >= 0) {
-		dtlock_serve(dtlock, candidate, DTLOCK_ITEM_RETRY, DTLOCK_SIGNAL_WAKE);
+		dtlock_serve(dtlock, candidate, DTLOCK_ITEM_RETRY, 0, DTLOCK_SIGNAL_WAKE);
 		governor_served(governor, candidate);
 	}
 }
@@ -94,7 +94,7 @@ void governor_shutdown_process(governor_t *governor, pid_t pid, delegation_lock_
 	CPU_BITSET_FOREACH(&governor->waiters, cpu) {
 		if (cpu_get_pid(cpu) == pid) {
 			// Wake up the waiter with a NULL to get it to check if it has to shutdown
-			dtlock_serve(dtlock, cpu, NULL, DTLOCK_SIGNAL_DEFAULT);
+			dtlock_serve(dtlock, cpu, NULL, 0, DTLOCK_SIGNAL_DEFAULT);
 			governor_served(governor, cpu);
 		}
 	}
@@ -102,7 +102,7 @@ void governor_shutdown_process(governor_t *governor, pid_t pid, delegation_lock_
 	CPU_BITSET_FOREACH(&governor->sleepers, cpu) {
 		if (cpu_get_pid(cpu) == pid) {
 			// Wake up the sleeper with a NULL to get it to check if it has to shutdown
-			dtlock_serve(dtlock, cpu, NULL, DTLOCK_SIGNAL_WAKE);
+			dtlock_serve(dtlock, cpu, NULL, 0, DTLOCK_SIGNAL_WAKE);
 			governor_served(governor, cpu);
 		}
 	}

@@ -155,7 +155,7 @@ int locality_get_default_affinity(char **out)
 		}
 
 		assert(numa_bitmask_isbitset(all_affinity, i));
-		int res = nosv_asprintf(out, "cpu-%d", i);
+		__maybe_unused int res = nosv_asprintf(out, "cpu-%d", i);
 		assert(!res);
 	} else {
 		int selected_node = -1;
@@ -174,7 +174,7 @@ int locality_get_default_affinity(char **out)
 		}
 
 		assert(selected_node >= 0);
-		int res = nosv_asprintf(out, "numa-%d", selected_node);
+		__maybe_unused int res = nosv_asprintf(out, "numa-%d", selected_node);
 		assert(!res);
 
 		// So far, we know all CPUs belong to a single node. Nevertheless, it is possible

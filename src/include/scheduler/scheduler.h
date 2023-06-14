@@ -22,7 +22,10 @@
 
 // Flags for the scheduler_get function
 #define SCHED_GET_DEFAULT     __ZEROBITS
+/* Do not block inside the scheduler */
 #define SCHED_GET_NONBLOCKING __BIT(0)
+/* Obtain only tasks from different processes */
+#define SCHED_GET_EXTERNAL	  __BIT(1)
 
 typedef struct scheduler_queue {
 	int priority_enabled;
@@ -77,6 +80,6 @@ __internal void scheduler_shutdown(int pid);
 __internal int scheduler_should_yield(int pid, int cpu, uint64_t *timestamp);
 __internal void scheduler_reset_accounting(int pid, int cpu);
 __internal void scheduler_submit(nosv_task_t task);
-__internal nosv_task_t scheduler_get(int cpu, nosv_flags_t flags);
+__internal nosv_task_t scheduler_get(int cpu, nosv_flags_t flags, int *execution_count);
 
 #endif // SCHEDULER_H

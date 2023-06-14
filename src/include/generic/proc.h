@@ -14,6 +14,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "common.h"
+
 typedef struct process_identifier {
 	unsigned long long start_time;
 	pid_t pid;
@@ -29,7 +31,9 @@ static inline void parse_proc_stat(process_identifier_t *pi, FILE *fp)
 	// So we *first* parse the PID and then seek the file past the last closing parenthesis.
 
 	int ret = fscanf(fp, "%d", &pi->pid);
-	assert(ret == 1);
+	if (ret != 1)
+		nosv_abort("Error trying to parse procfs");
+	// TODO: This function should try to fail gracefully, since crashing here leaves the shared memory inoperable
 
 	long pos = 0;
 	rewind(fp);
@@ -43,11 +47,13 @@ static inline void parse_proc_stat(process_identifier_t *pi, FILE *fp)
 	// Now "pos" has the position of the last right bracket
 	assert(pos > 0);
 	ret = fseek(fp, pos + 1, SEEK_SET);
-	assert(!ret);
+	if (ret)
+		nosv_abort("Could not seek in /proc/%d/stat", pi->pid);
 
 	ret = fscanf(fp, "%*c %*d %*d %*d %*d %*d %*u %*u %*u %*u %*u %*u %*u %*u %*d %*d %*d %*d %*d %llu",
 		&pi->start_time);
-	assert(ret == 1);
+	if (ret != 1)
+		nosv_abort("Could not parse /proc/%d/stat", pi->pid);
 	assert(pi->start_time);
 }
 

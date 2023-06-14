@@ -1,13 +1,12 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
 */
 
 #include "generic/clock.h"
 #include "hardware/cpus.h"
 #include "hardware/pids.h"
-#include "hardware/threads.h"
 #include "hwcounters/hwcounters.h"
 #include "instr.h"
 #include "memory/slab.h"
@@ -217,8 +216,7 @@ int nosv_type_destroy(
 
 static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	nosv_task_type_t type,
-	size_t metadata_size,
-	nosv_flags_t flags)
+	size_t metadata_size)
 {
 	nosv_task_t res = salloc(
 		sizeof(struct nosv_task) +   /* Size of the struct itself */
@@ -245,6 +243,9 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	res->taskid = atomic_fetch_add_explicit(&taskid_counter, 1, memory_order_relaxed);
 	res->counters = (task_hwcounters_t *) (((char *) res) + sizeof(struct nosv_task) + metadata_size);
 	res->stats = (task_stats_t *) (((char *) res) + sizeof(struct nosv_task) + metadata_size + hwcounters_get_task_size());
+
+	atomic_store_explicit(&(res->degree), 1, memory_order_relaxed);
+	res->execution_count = 0;
 
 	// Initialize hardware counters and monitoring for the task
 	hwcounters_task_created(res, /* enabled */ 1);
@@ -282,7 +283,7 @@ int nosv_create(
 		monitoring_task_changed_status(current_task, paused_status);
 	}
 
-	int ret = nosv_create_internal(task, type, metadata_size, flags);
+	int ret = nosv_create_internal(task, type, metadata_size);
 
 	if (current_task) {
 		hwcounters_update_runtime_counters();
@@ -341,6 +342,11 @@ int nosv_submit(
 			return -EINVAL;
 	}
 
+	// This combination would make no sense
+	if (is_inline && task_is_parallel(task)) {
+		return -EINVAL;
+	}
+
 	// If we're in a task context, update task counters now since we don't want
 	// the creation to be added to the counters of the task
 	nosv_task_t current_task = worker_current_task();
@@ -364,7 +370,8 @@ int nosv_submit(
 	// If we have an immediate successor we don't place the task into the scheduler
 	// However, if we're not in a worker context, or we are currently executing a task,
 	// we will ignore the request, as it would hang the program.
-	if (is_immediate && worker && !worker->in_task_body) {
+	// Additionally, we will reject to place as IS parallel tasks
+	if (is_immediate && worker && !worker->in_task_body && !task_is_parallel(task)) {
 		if (worker_get_immediate()) {
 			// Setting a new immediate successor, but there was already one.
 			// Place the new one and send the old one to the scheduler
@@ -386,10 +393,7 @@ int nosv_submit(
 		nosv_task_t old_task = worker_current_task();
 		assert(old_task);
 
-		// Assign and execute the new task
-		task->worker = worker;
-		worker->task = task;
-		task_execute(task);
+		task_execute(task, 1);
 
 		// Restore old task
 		worker->task = old_task;
@@ -425,6 +429,10 @@ int nosv_pause(
 	nosv_task_t task = worker_current_task();
 	assert(task);
 
+	// Parallel tasks cannot be blocked
+	if (task_is_parallel(task))
+		return -EINVAL;
+
 	// Thread might yield, read and accumulate hardware counters for the task that blocks
 	hwcounters_update_task_counters(task);
 	monitoring_task_changed_status(task, paused_status);
@@ -448,6 +456,26 @@ int nosv_pause(
 	return 0;
 }
 
+int nosv_cancel(
+	nosv_flags_t flags)
+{
+	if (!worker_is_in_task())
+		return -EINVAL;
+
+	nosv_task_t task = worker_current_task();
+	assert(task);
+
+	int degree = atomic_load_explicit(&(task->degree), memory_order_relaxed);
+	assert(degree != 0);
+
+	do {
+		if (degree < 0)
+			return -EALREADY;
+	} while (!atomic_compare_exchange_weak_explicit(&(task->degree), &degree, -degree, memory_order_relaxed, memory_order_relaxed));
+
+	return 0;
+}
+
 /* Deadline tasks */
 int nosv_waitfor(
 	uint64_t target_ns,
@@ -459,6 +487,10 @@ int nosv_waitfor(
 
 	nosv_task_t task = worker_current_task();
 	assert(task);
+
+	// Parallel tasks cannot be blocked
+	if (task_is_parallel(task))
+		return -EINVAL;
 
 	// Thread is gonna yield, read and accumulate hardware counters for the task
 	hwcounters_update_task_counters(task);
@@ -506,6 +538,10 @@ int nosv_yield(
 	nosv_task_t task = worker_current_task();
 	assert(task);
 
+	// Parallel tasks cannot be blocked
+	if (task_is_parallel(task))
+		return -EINVAL;
+
 	// Thread is gonna yield, read and accumulate hardware counters for the task
 	hwcounters_update_task_counters(task);
 	monitoring_task_changed_status(task, ready_status);
@@ -546,6 +582,10 @@ int nosv_schedpoint(
 
 	nosv_task_t task = worker_current_task();
 	assert(task);
+
+	// Parallel tasks cannot be blocked
+	if (task_is_parallel(task))
+		return -EINVAL;
 
 	// Thread is gonna yield, read and accumulate hardware counters for the task
 	hwcounters_update_task_counters(task);
@@ -617,18 +657,28 @@ static inline void task_complete(nosv_task_t task)
 		nosv_submit(wakeup, NOSV_SUBMIT_UNLOCKED);
 }
 
-void task_execute(nosv_task_t task)
+void task_execute(nosv_task_t task, int execution_count)
 {
+	nosv_worker_t *worker = worker_current();
+	assert(worker);
+	if (!task_is_parallel(task))
+		task->worker = worker;
+	worker->task = task;
+
+	task_stack_t frame = {
+		.task = task,
+		.execution_id = execution_count,
+		.next = worker->task_stack
+	};
+
+	worker->task_stack = &frame;
+
 	// Task is about to execute, update runtime counters
 	hwcounters_update_runtime_counters();
 	monitoring_task_changed_status(task, executing_status);
 
 	const uint32_t taskid = (uint32_t) task->taskid;
 	instr_task_execute(taskid);
-
-	nosv_worker_t *worker = worker_current();
-	assert(worker);
-
 	worker->in_task_body = 1;
 
 	atomic_thread_fence(memory_order_acquire);
@@ -650,6 +700,8 @@ void task_execute(nosv_task_t task)
 	// After the run and end callbacks, we can safely reset the task in case it has to be re-entrant
 	// Reset the blocking count
 	atomic_store_explicit(&task->blocking_count, 1, memory_order_relaxed);
+	// Remove stack frame
+	worker->task_stack = frame.next;
 	// Remove the worker assigned to this task
 	task->worker = NULL;
 	// Remove the task assigned to the worker as well
@@ -744,7 +796,7 @@ int nosv_attach(
 	nosv_worker_t *worker = worker_create_external();
 	assert(worker);
 
-	int ret = nosv_create_internal(task, type, metadata_size, flags);
+	int ret = nosv_create_internal(task, type, metadata_size);
 
 	if (ret) {
 		worker_free_external(worker);
@@ -848,6 +900,34 @@ void nosv_set_task_affinity(nosv_task_t task, nosv_affinity_t *affinity)
 	assert(affinity != NULL);
 
 	task->affinity = *affinity;
+}
+
+void nosv_set_task_degree(nosv_task_t task, int degree)
+{
+	assert(degree > 0);
+	assert(task);
+	atomic_store_explicit(&(task->degree), degree, memory_order_relaxed);
+}
+
+int nosv_get_task_degree(nosv_task_t task)
+{
+	return atomic_load_explicit(&(task->degree), memory_order_relaxed);
+}
+
+int nosv_get_execution_id(void)
+{
+	if (!worker_is_in_task())
+		return -EINVAL;
+
+	nosv_worker_t *worker = worker_current();
+	assert(worker);
+
+	// For attached threads, there may be no task stack
+	// In that case, we return as we're the first
+	if (!worker->task_stack)
+		return 1;
+
+	return worker->task_stack->execution_id;
 }
 
 nosv_affinity_t nosv_get_default_affinity(void)
