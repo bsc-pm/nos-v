@@ -6,6 +6,11 @@
 # Note that every process in the same nOS-V instance should load an identical configuration file,
 # otherwise, the behaviour is unspecified
 
+# Miscellaneous configurations
+[misc]
+	# Default stack size when creating worker threads
+	stack_size = "8M"
+
 # Shared memory configuration
 [shared_memory]
 	# Name of the shared memory section. This variable acts as an "id" for each nOS-V instance

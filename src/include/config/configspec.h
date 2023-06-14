@@ -84,6 +84,7 @@ static config_spec_t config_spec_list[] = {
 	DECLARE_CONFIG(TYPE_BOOL, "monitoring.enabled", monitoring_enabled),
 	DECLARE_CONFIG(TYPE_BOOL, "monitoring.verbose", monitoring_verbose),
 	DECLARE_CONFIG(TYPE_STR, "instrumentation.version", instrumentation_version),
+	DECLARE_CONFIG(TYPE_SIZE, "misc.stack_size", thread_stack_size),
 };
 
 #endif // CONFIG_PARSE_H

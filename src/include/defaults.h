@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef DEFAULTS_H
@@ -24,6 +24,11 @@
 
 // Max served tasks by delegation
 #define MAX_SERVED_TASKS 1024
+
+// MISC
+
+// Thread stack size (8MB)
+#define THREAD_STACK_SIZE (1ULL << 23)
 
 // SHARED MEMORY
 

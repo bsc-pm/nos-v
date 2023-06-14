@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
@@ -66,7 +66,18 @@ static inline void delegate_thread_create(thread_manager_t *threadmanager)
 	// We use the address of the threadmanager structure as it
 	// provides a unique tag known to this thread and the delegate.
 	instr_thread_create(-1, (uint64_t) threadmanager);
-	int ret = pthread_create(&threadmanager->delegate_thread, NULL, delegate_routine, threadmanager);
+
+	pthread_attr_t attr;
+	int ret = pthread_attr_init(&attr);
+	if (ret)
+		nosv_abort("Could not initialize pthread attributes");
+
+	ret = pthread_attr_setstacksize(&attr, nosv_config.thread_stack_size);
+	if (ret)
+		nosv_warn("Could not set thread stack size. Is misc.stack_size a multiple of the OS page size?");
+
+
+	ret = pthread_create(&threadmanager->delegate_thread, &attr, delegate_routine, threadmanager);
 	if (ret)
 		nosv_abort("Cannot create pthread");
 }
@@ -478,7 +489,14 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 	if (ret)
 		nosv_abort("Cannot create pthread attributes");
 
-	pthread_attr_setaffinity_np(&attr, sizeof(cpu->cpuset), &cpu->cpuset);
+	ret = pthread_attr_setaffinity_np(&attr, sizeof(cpu->cpuset), &cpu->cpuset);
+	// Non-critical, but bad
+	if (ret)
+		nosv_warn("Could not set thread affinity correctly");
+
+	ret = pthread_attr_setstacksize(&attr, nosv_config.thread_stack_size);
+	if (ret)
+		nosv_warn("Could not set thread stack size. Is misc.stack_size a multiple of the OS page size?");
 
 	// We use the address of the worker structure as the tag of the
 	// thread create event, as it provides a unique value known to
