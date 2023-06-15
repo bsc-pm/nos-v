@@ -67,7 +67,7 @@ AC_DEFUN([AX_PREPARE_CC_FLAGS], [
 	],[
 		# Debug is disabled
 		nosv_CPPFLAGS=""
-		nosv_CFLAGS="${nosv_COMMON_CFLAGS} -O3 -g"
+		nosv_CFLAGS="${nosv_COMMON_CFLAGS} -O3 -g -DNDEBUG"
 	])
 
 	AC_SUBST(nosv_CPPFLAGS)
