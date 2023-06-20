@@ -141,9 +141,16 @@ static inline int scheduler_get_from_queue(scheduler_queue_t *queue, nosv_task_t
 
 		if (++(t->execution_count) >= degree) {
 			scheduler_pop_queue(queue, t);
+
+			// Cancelled task
+			// Add to removed counter all the pending executions of this task
+			if (degree < 0) {
+				int original_degree = -degree;
+				assert(original_degree >= t->execution_count);
+				*removed += (original_degree - t->execution_count);
+			}
 		} else {
 			atomic_fetch_add_explicit(&t->event_count, 1, memory_order_relaxed);
-			*removed = 0;
 		}
 
 		return 1;
@@ -266,6 +273,8 @@ static inline void scheduler_process_ready_tasks(void)
 			nosv_task_t task = task_batch_buffer[i];
 			int pid = task->type->pid;
 			process_scheduler_t *pidqueue = scheduler->queues_direct[pid];
+			int degree = atomic_load_explicit(&(task->degree), memory_order_relaxed);
+			assert(degree > 0);
 
 			if (!pidqueue)
 				pidqueue = scheduler_init_pid(pid);
@@ -286,8 +295,8 @@ static inline void scheduler_process_ready_tasks(void)
 				scheduler_add_queue(&pidqueue->queue, task);
 			}
 
-			pidqueue->tasks++;
-			scheduler->tasks++;
+			pidqueue->tasks += degree;
+			scheduler->tasks += degree;
 		}
 	}
 
@@ -569,8 +578,8 @@ static inline nosv_task_t scheduler_find_task_noaffine_process(process_scheduler
 	return NULL;
 
 task_obtained:
-	sched->preferred_affinity_tasks--;
-	sched->tasks--;
+	sched->preferred_affinity_tasks -= *removed;
+	sched->tasks -= *removed;
 
 	return task;
 }
