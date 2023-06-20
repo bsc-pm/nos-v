@@ -12,7 +12,8 @@
 #include <unistd.h>
 
 #define NTASKS 200
-#define DEGREE 100
+
+int degree;
 
 atomic_int nr_completed_tasks;
 atomic_int task_cnt[NTASKS];
@@ -26,13 +27,14 @@ void task_run(nosv_task_t task)
 {
 	atomic_int *m = nosv_get_task_metadata(task);
 	atomic_fetch_add(m, 1);
+	nosv_cancel(NOSV_CANCEL_NONE);
 }
 
 void task_comp(nosv_task_t task)
 {
 	atomic_int *m = nosv_get_task_metadata(task);
 	int res = atomic_load(m);
-	test_check(&test, res == DEGREE, "Task has been executed %d times", DEGREE);
+	test_check(&test, res < degree, "Task has been executed less than %d times (actual: %d)", degree, res);
 
 	int total = atomic_fetch_add(&nr_completed_tasks, 1);
 	if (total == NTASKS - 1) {
@@ -52,12 +54,15 @@ int main() {
 	nosv_task_type_t task_type;
 	nosv_type_init(&task_type, task_run, NULL, task_comp, "task", NULL, NULL, NOSV_TYPE_INIT_NONE);
 
+	// Double the number of CPUs in degree to guarantee that we cannot execute everything in parallel
+	degree = nosv_get_num_cpus() * 2;
+
 	// The submitted tasks will execute after we yield, since they also are on CPU 0
 	for (int t = 0; t < NTASKS; ++t) {
 		nosv_create(&tasks[t], task_type, sizeof(atomic_int), NOSV_CREATE_NONE);
 		atomic_int *m = nosv_get_task_metadata(tasks[t]);
 		atomic_store(m, 0);
-		nosv_set_task_degree(tasks[t], DEGREE);
+		nosv_set_task_degree(tasks[t], degree);
 		nosv_submit(tasks[t], NOSV_SUBMIT_NONE);
 	}
 
