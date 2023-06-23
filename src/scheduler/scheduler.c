@@ -273,7 +273,7 @@ static inline void scheduler_process_ready_tasks(void)
 			nosv_task_t task = task_batch_buffer[i];
 			int pid = task->type->pid;
 			process_scheduler_t *pidqueue = scheduler->queues_direct[pid];
-			int degree = atomic_load_explicit(&(task->degree), memory_order_relaxed);
+			int degree = task_get_degree(task);
 			assert(degree > 0);
 
 			if (!pidqueue)

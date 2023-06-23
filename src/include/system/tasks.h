@@ -18,11 +18,16 @@ typedef struct task_type_manager {
 	list_head_t types;
 } task_type_manager_t;
 
+static inline int task_get_degree(nosv_task_t task)
+{
+	return atomic_load_explicit(&(task->degree), memory_order_relaxed);
+}
+
 static inline int task_is_parallel(nosv_task_t task)
 {
 	assert(task);
 
-	int degree = atomic_load_explicit(&(task->degree), memory_order_relaxed);
+	int degree = task_get_degree(task);
 	assert(degree != 0);
 
 	return degree != 1 && degree != -1;

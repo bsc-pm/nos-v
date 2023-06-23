@@ -465,7 +465,7 @@ int nosv_cancel(
 	nosv_task_t task = worker_current_task();
 	assert(task);
 
-	int degree = atomic_load_explicit(&(task->degree), memory_order_relaxed);
+	int degree = task_get_degree(task);
 	assert(degree != 0);
 
 	do {
@@ -911,7 +911,7 @@ void nosv_set_task_degree(nosv_task_t task, int degree)
 
 int nosv_get_task_degree(nosv_task_t task)
 {
-	return atomic_load_explicit(&(task->degree), memory_order_relaxed);
+	return task_get_degree(task);
 }
 
 int nosv_get_execution_id(void)
@@ -925,9 +925,9 @@ int nosv_get_execution_id(void)
 	// For attached threads, there may be no task stack
 	// In that case, we return as we're the first
 	if (!worker->task_stack)
-		return 1;
+		return 0;
 
-	return worker->task_stack->execution_id;
+	return worker->task_stack->execution_id - 1;
 }
 
 nosv_affinity_t nosv_get_default_affinity(void)
