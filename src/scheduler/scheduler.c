@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
@@ -19,6 +19,7 @@
 #include "instr.h"
 #include "memory/sharedmemory.h"
 #include "scheduler/scheduler.h"
+#include "system/tasks.h"
 
 __internal scheduler_t *scheduler;
 __internal thread_local process_scheduler_t *last;
@@ -38,13 +39,13 @@ void scheduler_init(int initialize)
 	assert(task_batch_buffer);
 
 	if (!initialize) {
-		scheduler = (scheduler_t *)st_config.config->scheduler_ptr;
+		scheduler = (scheduler_t *) st_config.config->scheduler_ptr;
 		return;
 	}
 
 	int cpu_count = cpus_count();
 
-	scheduler = (scheduler_t *)salloc(sizeof(scheduler_t), -1);
+	scheduler = (scheduler_t *) salloc(sizeof(scheduler_t), -1);
 	assert(scheduler);
 	st_config.config->scheduler_ptr = scheduler;
 
@@ -59,7 +60,7 @@ void scheduler_init(int initialize)
 	for (int i = 0; i < MAX_PIDS; ++i)
 		scheduler->queues_direct[i] = NULL;
 
-	scheduler->timestamps = (timestamp_t *)salloc(sizeof(timestamp_t) * cpu_count, -1);
+	scheduler->timestamps = (timestamp_t *) salloc(sizeof(timestamp_t) * cpu_count, -1);
 
 	for (int i = 0; i < cpu_count; ++i) {
 		scheduler->timestamps[i].pid = -1;
@@ -85,36 +86,74 @@ static inline void scheduler_init_queue(scheduler_queue_t *queue)
 	queue->priority_enabled = 0;
 }
 
-static inline int scheduler_find_task_queue(scheduler_queue_t *queue, nosv_task_t *task /*out*/)
+static inline int scheduler_find_in_queue(scheduler_queue_t *queue, nosv_task_t *task /*out*/)
 {
 	if (queue->priority_enabled) {
 		nosv_task_t t = RB_MAX(priority_tree, &queue->tasks_priority);
 
 		if (t) {
-			list_head_t *next = list_front(&t->list_hook);
-			nosv_task_t next_task = list_elem(next, struct nosv_task, list_hook);
-			if (next) {
-				// Change the list "head" to be the next task.
-				next->prev = t->list_hook.prev;
-				// Now transplant the element to replace the current element in the Red-Black Tree
-				RB_TRANSPLANT(priority_tree, &queue->tasks_priority, t, next_task);
-			} else {
-				RB_REMOVE(priority_tree, &queue->tasks_priority, t);
-			}
-
-			// Clean the tree hooks
-			memset(&t->tree_hook, 0, sizeof(t->tree_hook));
-
 			*task = t;
 			return 1;
 		}
 	} else {
-		list_head_t *head = list_pop_head(&queue->tasks);
+		list_head_t *head = list_front(&queue->tasks);
 
 		if (head) {
 			*task = list_elem(head, struct nosv_task, list_hook);
 			return 1;
 		}
+	}
+
+	return 0;
+}
+
+static inline void scheduler_pop_queue(scheduler_queue_t *queue, nosv_task_t task)
+{
+	assert(task);
+	if (queue->priority_enabled) {
+		list_head_t *next = list_front(&task->list_hook);
+		nosv_task_t next_task = list_elem(next, struct nosv_task, list_hook);
+		if (next) {
+			// Change the list "head" to be the next task.
+			next->prev = task->list_hook.prev;
+			// Now transplant the element to replace the current element in the Red-Black Tree
+			RB_TRANSPLANT(priority_tree, &queue->tasks_priority, task, next_task);
+		} else {
+			RB_REMOVE(priority_tree, &queue->tasks_priority, task);
+		}
+
+		// Clean the tree hooks
+		memset(&task->tree_hook, 0, sizeof(task->tree_hook));
+	} else {
+		__maybe_unused list_head_t *head = list_pop_head(&queue->tasks);
+		assert(head == &task->list_hook);
+	}
+}
+
+static inline int scheduler_get_from_queue(scheduler_queue_t *queue, nosv_task_t *task /*out*/, int *removed /*out*/)
+{
+	assert(removed);
+	assert(*removed == 1);
+
+	if (scheduler_find_in_queue(queue, task)) {
+		nosv_task_t t = *task;
+		int degree = atomic_load_explicit(&(t->degree), memory_order_relaxed);
+
+		if (++(t->execution_count) >= degree) {
+			scheduler_pop_queue(queue, t);
+
+			// Cancelled task
+			// Add to removed counter all the pending executions of this task
+			if (degree < 0) {
+				int original_degree = -degree;
+				assert(original_degree >= t->execution_count);
+				*removed += (original_degree - t->execution_count);
+			}
+		} else {
+			atomic_fetch_add_explicit(&t->event_count, 1, memory_order_relaxed);
+		}
+
+		return 1;
 	}
 
 	return 0;
@@ -228,12 +267,14 @@ static inline void scheduler_process_ready_tasks(void)
 	size_t cnt = 0;
 
 	// TODO maybe we want to limit how many tasks we pop
-	while ((cnt = mpsc_pop_batch(scheduler->in_queue, (void **)task_batch_buffer, batch_size))) {
+	while ((cnt = mpsc_pop_batch(scheduler->in_queue, (void **) task_batch_buffer, batch_size))) {
 		for (size_t i = 0; i < cnt; ++i) {
 			assert(task_batch_buffer[i]);
 			nosv_task_t task = task_batch_buffer[i];
 			int pid = task->type->pid;
 			process_scheduler_t *pidqueue = scheduler->queues_direct[pid];
+			int degree = task_get_degree(task);
+			assert(degree > 0);
 
 			if (!pidqueue)
 				pidqueue = scheduler_init_pid(pid);
@@ -248,13 +289,14 @@ static inline void scheduler_process_ready_tasks(void)
 			} else if (task->deadline) {
 				heap_insert(&pidqueue->deadline_tasks, &task->heap_hook, &deadline_cmp);
 			} else {
-				// Account to add FIFO behaviour to priority queues
-				// task->tasks_when_inserted = scheduler->served_tasks + scheduler->tasks;
+				// Add to general queue. If this is an affinity task, it will then be removed and
+				// added into one of the affine queues, but this way we don't give implicit priority
+				// to affine tasks
 				scheduler_add_queue(&pidqueue->queue, task);
 			}
 
-			pidqueue->tasks++;
-			scheduler->tasks++;
+			pidqueue->tasks += degree;
+			scheduler->tasks += degree;
 		}
 	}
 
@@ -316,7 +358,7 @@ void scheduler_submit(nosv_task_t task)
 	instr_sched_submit_enter();
 
 	while (!success) {
-		success = mpsc_push(scheduler->in_queue, (void *)task, cpu_get_current());
+		success = mpsc_push(scheduler->in_queue, (void *) task, cpu_get_current());
 
 		if (!success) {
 			if (dtlock_try_lock(&scheduler->dtlock)) {
@@ -372,7 +414,6 @@ static inline void scheduler_insert_affine(process_scheduler_t *sched, nosv_task
 	if (task->affinity.type == NOSV_AFFINITY_TYPE_PREFERRED)
 		sched->preferred_affinity_tasks++;
 
-	// task->tasks_when_inserted = scheduler->served_tasks + scheduler->tasks;
 	scheduler_add_queue(queue, task);
 }
 
@@ -427,10 +468,12 @@ deadline_expired:
 	return 1;
 }
 
-static inline nosv_task_t scheduler_find_task_process(process_scheduler_t *sched, cpu_t *cpu)
+static inline nosv_task_t scheduler_find_task_process(process_scheduler_t *sched, cpu_t *cpu, int *removed)
 {
 	int cpuid = cpu->logic_id;
 	nosv_task_t task = NULL;
+
+	*removed = 1;
 
 	// Are there any tasks?
 	if (!sched->tasks)
@@ -438,6 +481,8 @@ static inline nosv_task_t scheduler_find_task_process(process_scheduler_t *sched
 
 	// Check deadlines
 	while (scheduler_get_deadline_expired(sched, &task)) {
+		assert(!task_is_parallel(task));
+
 		// Check if the task is affine with the current cpu
 		if (task_affine(task, cpu))
 			goto task_obtained;
@@ -448,6 +493,8 @@ static inline nosv_task_t scheduler_find_task_process(process_scheduler_t *sched
 
 	// Check yield
 	while (scheduler_get_yield_expired(sched, &task)) {
+		assert(!task_is_parallel(task));
+
 		// Check if the task is affine with the current cpu
 		if (task_affine(task, cpu))
 			goto task_obtained;
@@ -458,24 +505,34 @@ static inline nosv_task_t scheduler_find_task_process(process_scheduler_t *sched
 
 	// We'll decrease the pointer now, but if we decide to not grab any task we have to increment it back again.
 	// If we obtain a task, we have to decrement the task count and return the pointer
-	if (scheduler_find_task_queue(&sched->per_cpu_queue_strict[cpuid], &task))
+	if (scheduler_get_from_queue(&sched->per_cpu_queue_strict[cpuid], &task, removed)) {
 		goto task_obtained;
+	}
 
-	if (scheduler_find_task_queue(&sched->per_cpu_queue_preferred[cpuid], &task)) {
+	if (scheduler_get_from_queue(&sched->per_cpu_queue_preferred[cpuid], &task, removed)) {
 		goto task_obtained_preferred;
 	}
 
-	if (scheduler_find_task_queue(&sched->per_numa_queue_strict[cpu->numa_node], &task))
+	if (scheduler_get_from_queue(&sched->per_numa_queue_strict[cpu->numa_node], &task, removed)) {
 		goto task_obtained;
+	}
 
-	if (scheduler_find_task_queue(&sched->per_numa_queue_preferred[cpu->numa_node], &task)) {
+	if (scheduler_get_from_queue(&sched->per_numa_queue_preferred[cpu->numa_node], &task, removed)) {
 		goto task_obtained_preferred;
 	}
 
-	while (scheduler_find_task_queue(&sched->queue, &task)) {
+	// This function will return the first task without removing it from the queue
+	while (scheduler_find_in_queue(&sched->queue, &task)) {
 		// Check the task is affine with the current cpu
-		if (task_affine(task, cpu))
+		if (task_affine(task, cpu)) {
+			// Follow normal procedure
+			scheduler_get_from_queue(&sched->queue, &task, removed);
+			assert(task);
 			goto task_obtained;
+		}
+
+		// Remove from queue
+		scheduler_pop_queue(&sched->queue, task);
 
 		// Not affine. Insert to an appropiate queue
 		scheduler_insert_affine(sched, task);
@@ -485,16 +542,17 @@ static inline nosv_task_t scheduler_find_task_process(process_scheduler_t *sched
 	return NULL;
 
 task_obtained_preferred:
-	sched->preferred_affinity_tasks--;
+	sched->preferred_affinity_tasks -= *removed;
 task_obtained:
-	sched->tasks--;
+	sched->tasks -= *removed;
 	return task;
 }
 
 // Find tasks by stealing preferred affinity ones
-static inline nosv_task_t scheduler_find_task_noaffine_process(process_scheduler_t *sched, cpu_t *cpu)
+static inline nosv_task_t scheduler_find_task_noaffine_process(process_scheduler_t *sched, cpu_t *cpu, int *removed)
 {
 	nosv_task_t task = NULL;
+	*removed = 1;
 
 	// Are there any tasks?
 	if (!sched->tasks)
@@ -506,12 +564,12 @@ static inline nosv_task_t scheduler_find_task_noaffine_process(process_scheduler
 		// We can try to steal from somewhere
 		// Note that we don't skip our own cpus, although we know nothing is there, just for simplicity
 		for (int i = 0; i < cpus; ++i) {
-			if (scheduler_find_task_queue(&sched->per_cpu_queue_preferred[i], &task))
+			if (scheduler_get_from_queue(&sched->per_cpu_queue_preferred[i], &task, removed))
 				goto task_obtained;
 		}
 
 		for (int i = 0; i < numas; ++i) {
-			if (scheduler_find_task_queue(&sched->per_numa_queue_preferred[i], &task))
+			if (scheduler_get_from_queue(&sched->per_numa_queue_preferred[i], &task, removed))
 				goto task_obtained;
 		}
 	}
@@ -520,13 +578,13 @@ static inline nosv_task_t scheduler_find_task_noaffine_process(process_scheduler
 	return NULL;
 
 task_obtained:
-	sched->preferred_affinity_tasks--;
-	sched->tasks--;
+	sched->preferred_affinity_tasks -= *removed;
+	sched->tasks -= *removed;
 
 	return task;
 }
 
-static inline nosv_task_t scheduler_find_task_yield_process(process_scheduler_t *sched, cpu_t *cpu)
+static inline nosv_task_t scheduler_find_task_yield_process(process_scheduler_t *sched, cpu_t *cpu, __maybe_unused int *removed)
 {
 	nosv_task_t task;
 
@@ -540,6 +598,7 @@ static inline nosv_task_t scheduler_find_task_yield_process(process_scheduler_t 
 	do {
 		task = list_elem(head, struct nosv_task, list_hook);
 		task->yield = 0;
+		assert(!task_is_parallel(task));
 
 		if (task_affine(task, cpu)) {
 			sched->tasks--;
@@ -564,6 +623,7 @@ static inline nosv_task_t scheduler_get_internal(int cpu)
 	}
 
 	cpu_t *cpu_str = cpu_get(cpu);
+	const int external = dtlock_requires_external(&scheduler->dtlock, cpu);
 
 	// What PID is that CPU running?
 	pid = cpu_get_pid(cpu);
@@ -591,40 +651,32 @@ static inline nosv_task_t scheduler_get_internal(int cpu)
 	}
 
 	list_head_t *stop = it;
+	// Parameter to notify if the task has been removed from the queues or is staying
+	// as a parallel task
+	int task_removed;
+
+#define SCHEDULER_FOREACH_DO(_function)                                  \
+	do {                                                                 \
+		sched = list_elem(it, process_scheduler_t, list_hook);           \
+		if (!external || sched->pid != pid) {                            \
+			nosv_task_t task = _function(sched, cpu_str, &task_removed); \
+			if (task) {                                                  \
+				scheduler->tasks -= task_removed;                        \
+				scheduler->served_tasks += task_removed;                 \
+				scheduler_update_accounting(pid, task, cpu, ts);         \
+				return task;                                             \
+			}                                                            \
+			it = list_next_circular(it, &scheduler->queues);             \
+		}                                                                \
+	} while (it != stop)
 
 	// Search for a ready task to run. If none is found in the current
 	// scheduler, search a ready task in the next scheduler in the list.
-	do {
-		sched = list_elem(it, process_scheduler_t, list_hook);
-
-		nosv_task_t task = scheduler_find_task_process(sched, cpu_str);
-
-		if (task) {
-			scheduler->tasks--;
-			scheduler->served_tasks++;
-			scheduler_update_accounting(pid, task, cpu, ts);
-			return task;
-		}
-
-		it = list_next_circular(it, &scheduler->queues);
-	} while (it != stop);
+	SCHEDULER_FOREACH_DO(scheduler_find_task_process);
 
 	// If we didn't find any affine or "normal" tasks to execute, we can search now
 	// for the "next best thing", which is stealing affine tasks
-	do {
-		sched = list_elem(it, process_scheduler_t, list_hook);
-
-		nosv_task_t task = scheduler_find_task_noaffine_process(sched, cpu_str);
-
-		if (task) {
-			scheduler->tasks--;
-			scheduler->served_tasks++;
-			scheduler_update_accounting(pid, task, cpu, ts);
-			return task;
-		}
-
-		it = list_next_circular(it, &scheduler->queues);
-	} while (it != stop);
+	SCHEDULER_FOREACH_DO(scheduler_find_task_noaffine_process);
 
 	// If we have not been able to find any ready task suitable to be run in
 	// this cpu, search for the first yield task we can find, even if it has
@@ -639,31 +691,20 @@ static inline nosv_task_t scheduler_get_internal(int cpu)
 		stop = it;
 	}
 
-	do {
-		sched = list_elem(it, process_scheduler_t, list_hook);
+	SCHEDULER_FOREACH_DO(scheduler_find_task_yield_process);
 
-		nosv_task_t task = scheduler_find_task_yield_process(sched, cpu_str);
-
-		if (task) {
-			scheduler->tasks--;
-			scheduler->served_tasks++;
-			scheduler_update_accounting(pid, task, cpu, ts);
-			return task;
-		}
-
-		it = list_next_circular(it, &scheduler->queues);
-	} while (it != stop);
+#undef SCHEDULER_FOREACH_DO
 
 	// This may only happen if there are strict bindings that we couldn't steal
 	return NULL;
 }
 
-static inline void scheduler_serve(nosv_task_t task, int cpu)
+static inline void scheduler_serve(nosv_task_t task, int execution_count, int cpu)
 {
 	int waiter = governor_served(&scheduler->governor, cpu);
 	int action = (waiter) ? DTLOCK_SIGNAL_WAKE : DTLOCK_SIGNAL_DEFAULT;
 
-	dtlock_serve(&scheduler->dtlock, cpu, task, action);
+	dtlock_serve(&scheduler->dtlock, cpu, task, execution_count, action);
 
 	instr_sched_send();
 }
@@ -676,7 +717,8 @@ static inline size_t scheduler_serve_batch(int *cpus_were_skipped, cpu_bitset_t 
 	size_t served = 0;
 	int cpu_delegated = 0;
 
-	CPU_BITSET_FOREACH(cpus_to_serve, cpu_delegated) {
+	CPU_BITSET_FOREACH(cpus_to_serve, cpu_delegated)
+	{
 		assert(cpu_delegated < cpus_count());
 		nosv_task_t task = scheduler_get_internal(cpu_delegated);
 
@@ -685,7 +727,7 @@ static inline size_t scheduler_serve_batch(int *cpus_were_skipped, cpu_bitset_t 
 		if (!task) {
 			*cpus_were_skipped = 1;
 		} else {
-			scheduler_serve(task, cpu_delegated);
+			scheduler_serve(task, task->execution_count, cpu_delegated);
 			served++;
 		}
 	}
@@ -693,15 +735,16 @@ static inline size_t scheduler_serve_batch(int *cpus_were_skipped, cpu_bitset_t 
 	return served;
 }
 
-nosv_task_t scheduler_get(int cpu, nosv_flags_t flags)
+nosv_task_t scheduler_get(int cpu, nosv_flags_t flags, int *execution_count)
 {
 	assert(cpu >= 0);
 
 	// Whether the thread can block serving tasks
 	const int blocking = !(flags & SCHED_GET_NONBLOCKING);
+	const int external = (flags & SCHED_GET_EXTERNAL);
 	nosv_task_t task = NULL;
 
-	if (!dtlock_lock_or_delegate(&scheduler->dtlock, (uint64_t) cpu, (void **) &task, blocking)) {
+	if (!dtlock_lock_or_delegate(&scheduler->dtlock, (uint64_t) cpu, (void **) &task, execution_count, blocking, external)) {
 		// Served item
 		if (task)
 			instr_sched_recv();

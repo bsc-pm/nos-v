@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef NOSV_INTERNAL_H
@@ -60,6 +60,12 @@ struct nosv_task {
 
 	nosv_task_t wakeup;
 	uint64_t taskid;
+
+	// Parallel task support
+	// Parallelism degree
+	atomic_int32_t degree;
+	// Current execution count
+	int execution_count;
 
 	// Hardware counters
 	task_hwcounters_t *counters;

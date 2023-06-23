@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef THREADS_H
@@ -21,6 +21,7 @@
 #include "hardware/cpus.h"
 #include "hardware/eventqueue.h"
 #include "hwcounters/threadhwcounters.h"
+#include "system/tasks.h"
 
 extern atomic_int threads_shutdown_signal;
 
@@ -39,6 +40,12 @@ typedef struct thread_manager {
 	// (only used for instrumentation)
 	pid_t delegate_creator_tid;
 } thread_manager_t;
+
+typedef struct task_stack {
+	nosv_task_t task;
+	int execution_id;
+	struct task_stack *next;
+} task_stack_t;
 
 typedef struct nosv_worker {
 	// Hook for linked lists
@@ -67,6 +74,8 @@ typedef struct nosv_worker {
 	int in_task_body;
 	// The hardware counters of the thread
 	thread_hwcounters_t counters;
+	// The task stack
+	task_stack_t *task_stack;
 } nosv_worker_t;
 
 __internal void threadmanager_init(thread_manager_t *threadmanager);

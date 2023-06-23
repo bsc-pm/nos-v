@@ -21,7 +21,9 @@ a_tests = basic-init.test \
 	basic-schedpoint.test \
 	basic-yield.test \
 	basic-priority.test \
-	basic-deadline.test
+	basic-deadline.test \
+	basic-parallel.test \
+	basic-parallel-cancel.test
 
 unit_tests = unit-dtlock.test \
 	unit-ring-buffer.test \
@@ -73,6 +75,14 @@ basic_priority_test_LDFLAGS = $(AM_LDFLAGS)
 basic_deadline_test_SOURCES = basic/deadline.c
 basic_deadline_test_CFLAGS = $(AM_CFLAGS)
 basic_deadline_test_LDFLAGS = $(AM_LDFLAGS)
+
+basic_parallel_test_SOURCES = basic/parallel.c
+basic_parallel_test_CFLAGS = $(AM_CFLAGS)
+basic_parallel_test_LDFLAGS = $(AM_LDFLAGS)
+
+basic_parallel_cancel_test_SOURCES = basic/parallel-cancel.c
+basic_parallel_cancel_test_CFLAGS = $(AM_CFLAGS)
+basic_parallel_cancel_test_LDFLAGS = $(AM_LDFLAGS)
 
 unit_dtlock_test_SOURCES = unit/test-dtlock.c $(unit_SOURCES)
 unit_dtlock_test_CFLAGS = $(unit_CFLAGS)

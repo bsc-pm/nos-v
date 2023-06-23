@@ -49,6 +49,7 @@ static void *dtlock_check_delegation_serving_routine(void *arg)
 	struct thread_arg_dtlock *args = (struct thread_arg_dtlock *) arg;
 	int fail = 0;
 	int r;
+	__attribute__((unused)) int exec_cnt;
 
 	for (int i = 0; i < 1000000; ++i) {
 		void *item = NULL;
@@ -56,7 +57,7 @@ static void *dtlock_check_delegation_serving_routine(void *arg)
 		switch (i % 3) {
 			case 0:
 				// Delegate
-				r = dtlock_lock_or_delegate(&args->fixture->dtlock, (uint64_t) args->cpu, &item, 1);
+				r = dtlock_lock_or_delegate(&args->fixture->dtlock, (uint64_t) args->cpu, &item, &exec_cnt, 1, 0);
 
 				if (!r) {
 					// Delegated
@@ -78,10 +79,10 @@ static void *dtlock_check_delegation_serving_routine(void *arg)
 
 							// Serve something. Randomly send to sleep
 							if (j) {
-								dtlock_serve(&args->fixture->dtlock, cpu, (void *) 1, DTLOCK_SIGNAL_DEFAULT);
+								dtlock_serve(&args->fixture->dtlock, cpu, (void *) 1, 0, DTLOCK_SIGNAL_DEFAULT);
 							} else {
-								dtlock_serve(&args->fixture->dtlock, cpu, (void *) 1, DTLOCK_SIGNAL_SLEEP);
-								dtlock_serve(&args->fixture->dtlock, cpu, (void *) 1, DTLOCK_SIGNAL_WAKE);
+								dtlock_serve(&args->fixture->dtlock, cpu, (void *) 1, 0, DTLOCK_SIGNAL_SLEEP);
+								dtlock_serve(&args->fixture->dtlock, cpu, (void *) 1, 0, DTLOCK_SIGNAL_WAKE);
 							}
 						}
 					}

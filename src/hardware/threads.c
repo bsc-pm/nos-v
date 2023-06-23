@@ -205,7 +205,7 @@ void threadmanager_shutdown(thread_manager_t *threadmanager)
 	}
 }
 
-static inline void worker_execute_or_delegate(nosv_task_t task, cpu_t *cpu, int is_busy_worker)
+static inline void worker_execute_or_delegate(nosv_task_t task, cpu_t *cpu, int is_busy_worker, int execution_count)
 {
 	assert(task);
 	assert(cpu);
@@ -239,11 +239,7 @@ static inline void worker_execute_or_delegate(nosv_task_t task, cpu_t *cpu, int 
 	} else {
 		// Otherwise, start running the task because the current thread is
 		// valid to run the task and it is idle
-		task->worker = current_worker;
-		current_worker->task = task;
-
-		task_execute(task);
-
+		task_execute(task, execution_count);
 		// The task execution has ended, so do not block the thread
 	}
 }
@@ -252,6 +248,7 @@ static inline void *worker_start_routine(void *arg)
 {
 	uint64_t timestamp;
 	int pid;
+	int execution_count;
 
 	current_worker = (nosv_worker_t *)arg;
 	assert(current_worker);
@@ -287,16 +284,13 @@ static inline void *worker_start_routine(void *arg)
 				// To prevent immediate successor chains to be unnecessarily broken if no tasks are up,
 				// try to obtain a new task first
 				// TODO: Ideally there should be a scheduler flag to say: only give me a task if it belongs to a different process
-				nosv_task_t candidate = scheduler_get(cpu, SCHED_GET_NONBLOCKING);
+				nosv_task_t candidate = scheduler_get(cpu, SCHED_GET_NONBLOCKING | SCHED_GET_EXTERNAL, &execution_count);
 
-				if (candidate && candidate->type->pid != pid) {
+				if (candidate) {
+					assert(candidate->type->pid != pid);
 					scheduler_submit(current_worker->immediate_successor);
 					task = candidate;
 				} else {
-					// Return the task because it is from our process
-					// in this case, we just want to keep executing the immediate successors instead
-					if (candidate)
-						scheduler_submit(candidate);
 					task = current_worker->immediate_successor;
 					// Reset the quantum
 					scheduler_reset_accounting(pid, cpu);
@@ -309,7 +303,7 @@ static inline void *worker_start_routine(void *arg)
 		}
 
 		if (!task && current_worker->cpu)
-			task = scheduler_get(cpu, SCHED_GET_DEFAULT);
+			task = scheduler_get(cpu, SCHED_GET_DEFAULT, &execution_count);
 
 		if (task) {
 			// We can only reach this point in two cases:
@@ -323,7 +317,7 @@ static inline void *worker_start_routine(void *arg)
 			// Therefore, we are now filled with work.
 			instr_sched_fill();
 
-			worker_execute_or_delegate(task, current_worker->cpu, /* idle thread */ 0);
+			worker_execute_or_delegate(task, current_worker->cpu, /* idle thread */ 0, execution_count);
 
 			instr_kernel_flush(kinstr);
 
@@ -400,11 +394,12 @@ int worker_yield_if_needed(nosv_task_t current_task)
 
 	cpu_t *cpu = current_worker->cpu;
 	assert(cpu);
+	int execution_count;
 
 	instr_sched_hungry();
 
 	// Try to get a ready task without blocking
-	nosv_task_t new_task = scheduler_get(cpu->logic_id, SCHED_GET_NONBLOCKING);
+	nosv_task_t new_task = scheduler_get(cpu->logic_id, SCHED_GET_NONBLOCKING, &execution_count);
 
 	instr_sched_fill();
 
@@ -415,7 +410,7 @@ int worker_yield_if_needed(nosv_task_t current_task)
 	scheduler_submit(current_task);
 
 	// Wake up the corresponding thread to execute the task
-	worker_execute_or_delegate(new_task, cpu, /* busy thread */ 1);
+	worker_execute_or_delegate(new_task, cpu, /* busy thread */ 1, execution_count);
 
 	return 1;
 }
@@ -501,6 +496,7 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 	worker->creator_tid = gettid();
 	worker->in_task_body = 0;
 	nosv_condvar_init(&worker->condvar);
+	worker->task_stack = NULL;
 
 	// We use the address of the worker structure as the tag of the
 	// thread create event, as it provides a unique value known to
@@ -526,6 +522,7 @@ nosv_worker_t *worker_create_external(void)
 	worker->creator_tid = -1;
 	worker->in_task_body = 1;
 	sched_getaffinity(0, sizeof(worker->original_affinity), &worker->original_affinity);
+	worker->task_stack = NULL;
 
 	instr_kernel_init(&kinstr);
 

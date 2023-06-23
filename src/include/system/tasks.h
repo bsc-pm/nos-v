@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef TASKS_H
@@ -9,6 +9,7 @@
 
 #include "compiler.h"
 #include "nosv.h"
+#include "nosv-internal.h"
 #include "generic/list.h"
 #include "generic/spinlock.h"
 
@@ -17,8 +18,22 @@ typedef struct task_type_manager {
 	list_head_t types;
 } task_type_manager_t;
 
-__internal void task_execute(nosv_task_t task);
+static inline int task_get_degree(nosv_task_t task)
+{
+	return atomic_load_explicit(&(task->degree), memory_order_relaxed);
+}
 
+static inline int task_is_parallel(nosv_task_t task)
+{
+	assert(task);
+
+	int degree = task_get_degree(task);
+	assert(degree != 0);
+
+	return degree != 1 && degree != -1;
+}
+
+__internal void task_execute(nosv_task_t task, int execution_count);
 __internal void task_type_manager_init();
 __internal void task_type_manager_shutdown();
 __internal void task_affinity_init();
