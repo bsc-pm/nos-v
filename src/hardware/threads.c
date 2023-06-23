@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
@@ -60,15 +60,45 @@ static inline void *delegate_routine(void *args)
 	return NULL;
 }
 
+static inline void common_pthread_create(
+	pthread_t *thread,
+	void *(*start_routine)(void *),
+	void *arg,
+	cpu_set_t *cpuset
+) {
+	pthread_attr_t attr;
+	int ret = pthread_attr_init(&attr);
+	if (unlikely(ret))
+		nosv_abort("Could not initialize pthread attributes");
+
+	ret = pthread_attr_setstacksize(&attr, nosv_config.thread_stack_size);
+	if (unlikely(ret))
+		nosv_warn("Could not set thread stack size. Is misc.stack_size a multiple of the OS page size?");
+
+	if (cpuset) {
+		ret = pthread_attr_setaffinity_np(&attr, sizeof(*cpuset), cpuset);
+		// Non-critical, but bad
+		if (unlikely(ret))
+			nosv_abort("Could not set thread affinity correctly during creation");
+	}
+
+	ret = pthread_create(thread, &attr, start_routine, arg);
+	if (unlikely(ret))
+		nosv_abort("Cannot create pthread");
+
+	ret = pthread_attr_destroy(&attr);
+	if (unlikely(ret))
+		nosv_warn("Could not destroy pthread attributes");
+}
+
 static inline void delegate_thread_create(thread_manager_t *threadmanager)
 {
 	// TODO Standalone should have affinity here?
 	// We use the address of the threadmanager structure as it
 	// provides a unique tag known to this thread and the delegate.
 	instr_thread_create(-1, (uint64_t) threadmanager);
-	int ret = pthread_create(&threadmanager->delegate_thread, NULL, delegate_routine, threadmanager);
-	if (ret)
-		nosv_abort("Cannot create pthread");
+
+	common_pthread_create(&threadmanager->delegate_thread, delegate_routine, threadmanager, NULL);
 }
 
 static inline void worker_wake_internal(nosv_worker_t *worker, cpu_t *cpu)
@@ -460,7 +490,6 @@ void worker_wake_idle(int pid, cpu_t *cpu, nosv_task_t task)
 
 nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, nosv_task_t task)
 {
-	int ret;
 	atomic_fetch_add_explicit(&threadmanager->created, 1, memory_order_release);
 	assert(cpu);
 
@@ -473,23 +502,12 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 	worker->in_task_body = 0;
 	nosv_condvar_init(&worker->condvar);
 
-	pthread_attr_t attr;
-	ret = pthread_attr_init(&attr);
-	if (ret)
-		nosv_abort("Cannot create pthread attributes");
-
-	pthread_attr_setaffinity_np(&attr, sizeof(cpu->cpuset), &cpu->cpuset);
-
 	// We use the address of the worker structure as the tag of the
 	// thread create event, as it provides a unique value known to
 	// both threads.
 	instr_thread_create(cpu->logic_id, (uint64_t) worker);
 
-	ret = pthread_create(&worker->kthread, &attr, worker_start_routine, worker);
-	if (ret)
-		nosv_abort("Cannot create pthread");
-
-	pthread_attr_destroy(&attr);
+	common_pthread_create(&worker->kthread, worker_start_routine, worker, &cpu->cpuset);
 
 	return worker;
 }

@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -86,6 +87,8 @@ static inline void config_init(rt_config_t *config)
 	config->monitoring_verbose = 0;
 
 	config->instrumentation_version = strdup(INSTR_DEFAULT_VERSION);
+
+	config->thread_stack_size = THREAD_STACK_SIZE;
 }
 
 #define sanity_check(cond, explanation)                             \
@@ -133,6 +136,8 @@ static inline int config_check(rt_config_t *config)
 	sanity_check_str(config->hwcounters_backend, "Currently available hardware counter backends: papi, none", "none", "papi");
 
 	sanity_check_str(config->instrumentation_version, "Currently available instrumentations: ovni, none", "ovni", "none");
+
+	sanity_check(config->thread_stack_size >= PTHREAD_STACK_MIN, "Thread stack size too small");
 
 	return ret;
 }

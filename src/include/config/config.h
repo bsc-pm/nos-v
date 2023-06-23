@@ -38,6 +38,9 @@ typedef struct generic_array {
 } generic_array_t;
 
 typedef struct rt_config {
+	// Misc
+	size_t thread_stack_size;
+
 	// Shared Memory
 	const char *shm_name;
 	const char *shm_isolation_level;
