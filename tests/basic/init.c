@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
 */
 
 #include "test.h"
@@ -13,9 +13,9 @@ int main() {
 
 	test_init(&test, 2);
 
-	nosv_init();
-	test_ok(&test, "Can initialize nOS-V");
+	int err = nosv_init();
+	test_check(&test, !err, "Can initialize nOS-V");
 
-	nosv_shutdown();
-	test_ok(&test, "Can shutdown nOS-V");
+	err = nosv_shutdown();
+	test_check(&test, !err, "Can shutdown nOS-V");
 }
