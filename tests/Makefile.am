@@ -1,6 +1,6 @@
 #	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 #
-#	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+#	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
 
 .NOTPARALLEL:
 
@@ -12,6 +12,7 @@ unit_LIBS = -lrt $(PTHREAD_LIBS)
 unit_SOURCES = unit/main.c
 
 a_tests = basic-init.test \
+	basic-init-multicall.test \
 	basic-init-procs.test \
 	basic-mix.test \
 	basic-crash.test \
@@ -35,6 +36,10 @@ TESTS = $(a_tests) $(unit_tests)
 basic_init_test_SOURCES = basic/init.c
 basic_init_test_CFLAGS = $(AM_CFLAGS)
 basic_init_test_LDFLAGS = $(AM_LDFLAGS)
+
+basic_init_multicall_test_SOURCES = basic/init-multicall.c
+basic_init_multicall_test_CFLAGS = $(AM_CFLAGS)
+basic_init_multicall_test_LDFLAGS = $(AM_LDFLAGS)
 
 basic_init_procs_test_SOURCES = basic/init-procs.c
 basic_init_procs_test_CFLAGS = $(AM_CFLAGS)
