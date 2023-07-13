@@ -5,6 +5,7 @@
 */
 
 #include "generic/clock.h"
+#include "generic/cpuset.h"
 #include "hardware/cpus.h"
 #include "hardware/pids.h"
 #include "hwcounters/hwcounters.h"
@@ -864,11 +865,21 @@ int nosv_detach(
 	cpu_t *cpu = worker->cpu;
 	assert(cpu);
 
+	// This thread is no longer controled by nosv, and from now on it might
+	// overlap with other nosv threads. Therefore, we mark is as a "cooling"
+	// thread.
+	instr_thread_cool();
+
 	// Restore the worker's affinity to its original value
 	// Optionally deactivated with the NOSV_DETACH_NO_RESTORE_AFFINITY flag
 	if (!(flags & NOSV_DETACH_NO_RESTORE_AFFINITY)) {
-		// This thread now goes to an unknown CPU
-		instr_affinity_set(-1);
+		if (CPU_COUNT(&worker->original_affinity) == 1) {
+			int cpu = CPU_FIRST(&worker->original_affinity);
+			assert(cpu != -1);
+			instr_affinity_set(cpu);
+		} else {
+			instr_affinity_set(-1);
+		}
 		sched_setaffinity(0, sizeof(worker->original_affinity), &worker->original_affinity);
 	}
 

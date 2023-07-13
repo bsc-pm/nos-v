@@ -85,6 +85,7 @@ noinst_HEADERS = \
 	src/include/generic/bitset.h \
 	src/include/generic/chrono.h \
 	src/include/generic/clock.h \
+	src/include/generic/cpuset.h \
 	src/include/generic/condvar.h \
 	src/include/generic/futex.h \
 	src/include/generic/heap.h \
