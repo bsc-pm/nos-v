@@ -24,7 +24,8 @@ a_tests = basic-init.test \
 	basic-priority.test \
 	basic-deadline.test \
 	basic-parallel.test \
-	basic-parallel-cancel.test
+	basic-parallel-cancel.test \
+	basic-parallel-init.test
 
 unit_tests = unit-dtlock.test \
 	unit-ring-buffer.test \
@@ -88,6 +89,10 @@ basic_parallel_test_LDFLAGS = $(AM_LDFLAGS)
 basic_parallel_cancel_test_SOURCES = basic/parallel-cancel.c
 basic_parallel_cancel_test_CFLAGS = $(AM_CFLAGS)
 basic_parallel_cancel_test_LDFLAGS = $(AM_LDFLAGS)
+
+basic_parallel_init_test_SOURCES = basic/parallel-init.c
+basic_parallel_init_test_CFLAGS = $(AM_CFLAGS)
+basic_parallel_init_test_LDFLAGS = $(AM_LDFLAGS)
 
 unit_dtlock_test_SOURCES = unit/test-dtlock.c $(unit_SOURCES)
 unit_dtlock_test_CFLAGS = $(unit_CFLAGS)
