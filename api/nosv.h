@@ -12,6 +12,8 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+#include "nosv/error.h"
+
 #pragma GCC visibility push(default)
 
 #ifdef __cplusplus
