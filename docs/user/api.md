@@ -51,7 +51,7 @@ Is created by `nosv_affinity_get`, and does not need to be destroyed.
 ## Methods
 
 ### Initialization and shutdown
-```
+```c
 int nosv_init(void);
 
 int nosv_shutdown(void);
@@ -60,7 +60,7 @@ int nosv_shutdown(void);
 Before executing any other nOS-V method, the user must call `nosv_init` to initialize the runtime. Similarly, before ending the program, the user must call `nosv_shutdown` to clean up the runtime. No other calls to nOS-V can be performed after shutdown.
 
 ### Task types
-```
+```c
 int nosv_type_init(
 	nosv_task_type_t *type /* out */,
 	nosv_task_run_callback_t run_callback,
@@ -79,7 +79,7 @@ int nosv_type_destroy(
 Task types must be created using the `nosv_type_init` function, and destroyed using `nosv_type_destroy`.
 
 ### Managing tasks
-```
+```c
 int nosv_create(
 	nosv_task_t *task /* out */,
 	nosv_task_type_t type,
@@ -106,12 +106,12 @@ int nosv_detach(
 ```
 
 ### Getting the current nOS-V task
-```
+```c
 nosv_task_t nosv_self(void);
 ```
 
 ### Blocking and yielding tasks
-```
+```c
 int nosv_pause(
 	nosv_flags_t flags);
 
@@ -127,7 +127,7 @@ int nosv_schedpoint(
 ```
 
 ### Event API
-```
+```c
 int nosv_increase_event_counter(
 	uint64_t increment);
 
@@ -136,8 +136,7 @@ int nosv_decrease_event_counter(
 ```
 
 ### Helper functions
-
-```
+```c
 int nosv_get_num_cpus(void);
 
 int nosv_get_current_logical_cpu(void);
@@ -146,7 +145,7 @@ int nosv_get_current_system_cpu(void);
 ```
 
 ### Task getters and setters
-```
+```c
 void *nosv_get_task_metadata(nosv_task_t task);
 nosv_task_type_t nosv_get_task_type(nosv_task_t task);
 int nosv_get_task_priority(nosv_task_t task);
@@ -154,7 +153,7 @@ void nosv_set_task_priority(nosv_task_t task, int priority);
 ```
 
 ### Task type getters and setters
-```
+```c
 nosv_task_run_callback_t nosv_get_task_type_run_callback(nosv_task_type_t type);
 nosv_task_end_callback_t nosv_get_task_type_end_callback(nosv_task_type_t type);
 nosv_task_completed_callback_t nosv_get_task_type_completed_callback(nosv_task_type_t type);
