@@ -416,11 +416,15 @@ int worker_yield_if_needed(nosv_task_t current_task)
 	if (!new_task)
 		return 0;
 
+	instr_task_pause((uint32_t)current_task->taskid);
+
 	// We retrieved a ready task, so submit the current one
 	scheduler_submit(current_task);
 
 	// Wake up the corresponding thread to execute the task
 	worker_execute_or_delegate(new_task, cpu, /* busy thread */ 1, execution_count);
+
+	instr_task_resume((uint32_t)current_task->taskid);
 
 	return 1;
 }

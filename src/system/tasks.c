@@ -561,7 +561,6 @@ int nosv_yield(
 	hwcounters_update_task_counters(task);
 	monitoring_task_changed_status(task, ready_status);
 
-	instr_task_pause((uint32_t)task->taskid);
 	instr_yield_enter();
 
 	// Mark the task as yield
@@ -578,7 +577,6 @@ int nosv_yield(
 	monitoring_task_changed_status(task, executing_status);
 
 	instr_yield_exit();
-	instr_task_resume((uint32_t)task->taskid);
 
 	return NOSV_SUCCESS;
 }
@@ -606,7 +604,6 @@ int nosv_schedpoint(
 	hwcounters_update_task_counters(task);
 	monitoring_task_changed_status(task, ready_status);
 
-	instr_task_pause((uint32_t)task->taskid);
 	instr_schedpoint_enter();
 
 	cpuid = cpu_get_current();
@@ -631,7 +628,6 @@ int nosv_schedpoint(
 	monitoring_task_changed_status(task, executing_status);
 
 	instr_schedpoint_exit();
-	instr_task_resume((uint32_t)task->taskid);
 
 	return NOSV_SUCCESS;
 }
