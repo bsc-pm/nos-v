@@ -148,7 +148,7 @@ static inline void initialize_instrumentation(void)
 {
 	if (strcmp(nosv_config.instrumentation_version, "ovni") == 0) {
 #ifdef ENABLE_INSTRUMENTATION
-		instr_ovni_enabled = 1;
+		instr_parse_config();
 #else
 		nosv_warn("ovni instrumentation requested, but nOS-V was built without ovni support");
 #endif

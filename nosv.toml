@@ -139,3 +139,17 @@
 [instrumentation]
 	# Select the instrumentation to be used. Current options are "none" or "ovni".
 	version = "none"
+
+	[ovni]
+		# Instrumentation levels [0-4] regulate the amount of events that are emitted into an ovni trace.
+		# Higher levels emit more events, giving more information but incurring larger runtime overheads
+		# and occupying more space in the final trace.
+		level = 2
+		# It is also possible to select a more fine-grained list of event groups, for advanced users who
+		# want to disable some events selectively.
+		# This list is parsed in order starting from an empty list, the keyword "all" denotes all event types
+		# and the token "!" disables event types.
+		# Thus, a list of ["all", "!task" ] enables everything and then disables only task-related events.
+		# Note that with this option uncommented the instrumentation level will be ignored
+		## events = ["basic", "worker", "scheduler", "scheduler_submit", "alloc", "api_submit", "api_pause",
+		##           "api_yield", "api_waitfor", "api_schedpoint", "task", "kernel" ]

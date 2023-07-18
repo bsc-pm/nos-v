@@ -36,7 +36,6 @@ pkgconfig_DATA = nos-v.pc
 libnosv_la_SOURCES = \
     src/bootstrap.c \
     src/error.c \
-    src/instr.c \
 	src/config/config.c \
 	src/config/toml.c \
 	src/hardware/cpus.c \
@@ -57,6 +56,11 @@ libnosv_la_SOURCES = \
 	src/scheduler/scheduler.c \
 	src/support/affinity.c \
 	src/system/tasks.c
+
+if HAVE_OVNI
+libnosv_la_SOURCES += \
+	src/instr.c
+endif
 
 if HAVE_PAPI
 libnosv_la_SOURCES += \

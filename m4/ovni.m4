@@ -79,5 +79,6 @@ AC_DEFUN([AC_CHECK_OVNI],
 
 		AC_SUBST([ovni_LIBS])
 		AC_SUBST([ovni_CPPFLAGS])
+		AM_CONDITIONAL(HAVE_OVNI, test x"${ac_use_ovni}" = x"yes")
 	]
 )
