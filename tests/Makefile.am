@@ -1,6 +1,6 @@
 #	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 #
-#	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+#	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
 
 .NOTPARALLEL:
 
@@ -12,6 +12,7 @@ unit_LIBS = -lrt $(PTHREAD_LIBS)
 unit_SOURCES = unit/main.c
 
 a_tests = basic-init.test \
+	basic-init-multicall.test \
 	basic-init-procs.test \
 	basic-mix.test \
 	basic-crash.test \
@@ -23,7 +24,8 @@ a_tests = basic-init.test \
 	basic-priority.test \
 	basic-deadline.test \
 	basic-parallel.test \
-	basic-parallel-cancel.test
+	basic-parallel-cancel.test \
+	basic-parallel-init.test
 
 unit_tests = unit-dtlock.test \
 	unit-ring-buffer.test \
@@ -35,6 +37,10 @@ TESTS = $(a_tests) $(unit_tests)
 basic_init_test_SOURCES = basic/init.c
 basic_init_test_CFLAGS = $(AM_CFLAGS)
 basic_init_test_LDFLAGS = $(AM_LDFLAGS)
+
+basic_init_multicall_test_SOURCES = basic/init-multicall.c
+basic_init_multicall_test_CFLAGS = $(AM_CFLAGS)
+basic_init_multicall_test_LDFLAGS = $(AM_LDFLAGS)
 
 basic_init_procs_test_SOURCES = basic/init-procs.c
 basic_init_procs_test_CFLAGS = $(AM_CFLAGS)
@@ -83,6 +89,10 @@ basic_parallel_test_LDFLAGS = $(AM_LDFLAGS)
 basic_parallel_cancel_test_SOURCES = basic/parallel-cancel.c
 basic_parallel_cancel_test_CFLAGS = $(AM_CFLAGS)
 basic_parallel_cancel_test_LDFLAGS = $(AM_LDFLAGS)
+
+basic_parallel_init_test_SOURCES = basic/parallel-init.c
+basic_parallel_init_test_CFLAGS = $(AM_CFLAGS)
+basic_parallel_init_test_LDFLAGS = $(AM_LDFLAGS)
 
 unit_dtlock_test_SOURCES = unit/test-dtlock.c $(unit_SOURCES)
 unit_dtlock_test_CFLAGS = $(unit_CFLAGS)
