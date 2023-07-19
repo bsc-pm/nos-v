@@ -11,7 +11,8 @@ unit_CFLAGS = -D_GNU_SOURCE -I$(top_srcdir)/tests/include $(PTHREAD_CFLAGS) -I$(
 unit_LIBS = -lrt $(PTHREAD_LIBS)
 unit_SOURCES = unit/main.c
 
-a_tests = basic-init.test \
+a_tests = basic-error-code.test \
+	basic-init.test \
 	basic-init-multicall.test \
 	basic-init-procs.test \
 	basic-mix.test \
@@ -33,6 +34,10 @@ unit_tests = unit-dtlock.test \
 
 check_PROGRAMS = driver $(a_tests) $(unit_tests)
 TESTS = $(a_tests) $(unit_tests)
+
+basic_error_code_test_SOURCES = basic/error-code.c
+basic_error_code_test_CFLAGS = $(AM_CFLAGS)
+basic_error_code_test_LDFLAGS = $(AM_LDFLAGS)
 
 basic_init_test_SOURCES = basic/init.c
 basic_init_test_CFLAGS = $(AM_CFLAGS)

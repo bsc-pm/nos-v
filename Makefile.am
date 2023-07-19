@@ -1,6 +1,6 @@
 #	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 #
-#	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+#	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
 
 ACLOCAL_AMFLAGS = -I m4
 
@@ -34,8 +34,9 @@ lib_LTLIBRARIES = libnosv.la
 pkgconfig_DATA = nos-v.pc
 
 libnosv_la_SOURCES = \
-    src/bootstrap.c		\
-    src/instr.c		\
+    src/bootstrap.c \
+    src/error.c \
+    src/instr.c \
 	src/config/config.c \
 	src/config/toml.c \
 	src/hardware/cpus.c \
@@ -140,6 +141,7 @@ endif
 subincludedir = $(includedir)/nosv
 subinclude_HEADERS = \
 	api/nosv/affinity.h \
+    api/nosv/error.h \
 	api/nosv/hwinfo.h
 
 # Install config file
