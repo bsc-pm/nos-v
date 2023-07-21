@@ -666,8 +666,8 @@ static inline nosv_task_t scheduler_get_internal(int cpu)
 				scheduler_update_accounting(pid, task, cpu, ts);         \
 				return task;                                             \
 			}                                                            \
-			it = list_next_circular(it, &scheduler->queues);             \
 		}                                                                \
+		it = list_next_circular(it, &scheduler->queues);	             \
 	} while (it != stop)
 
 	// Search for a ready task to run. If none is found in the current
