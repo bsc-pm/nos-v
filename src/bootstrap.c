@@ -31,9 +31,9 @@ static int nosv_init_impl(void)
 {
 	// Re-initializing the runtime is not supported
 	if (rt_refcount == 0 && rt_initialized)
-		return -NOSV_ERR_INVALID_OPERATION;
+		return NOSV_ERR_INVALID_OPERATION;
 	if (rt_refcount < 0)
-		return -NOSV_ERR_UNKNOWN;
+		return NOSV_ERR_UNKNOWN;
 
 	// The first thread initializes the runtime
 	if (++rt_refcount == 1) {
@@ -60,7 +60,7 @@ static int nosv_init_impl(void)
 static int nosv_shutdown_impl(void)
 {
 	if (rt_refcount <= 0)
-		return -NOSV_ERR_UNKNOWN;
+		return NOSV_ERR_UNKNOWN;
 
 	// The last thread finalizes the runtime
 	if (--rt_refcount == 0) {

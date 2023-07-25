@@ -132,10 +132,10 @@ int nosv_type_init(
 	nosv_flags_t flags)
 {
 	if (unlikely(!type))
-		return -NOSV_ERR_INVALID_PARAMETER;
+		return NOSV_ERR_INVALID_PARAMETER;
 
 	if (unlikely(!run_callback && !(flags & NOSV_TYPE_INIT_EXTERNAL)))
-		return -NOSV_ERR_INVALID_CALLBACK;
+		return NOSV_ERR_INVALID_CALLBACK;
 
 	nosv_task_type_t res = salloc(
 		sizeof(struct nosv_task_type) +
@@ -144,7 +144,7 @@ int nosv_type_init(
 	);
 
 	if (!res)
-		return -NOSV_ERR_OUT_OF_MEMORY;
+		return NOSV_ERR_OUT_OF_MEMORY;
 
 	res->run_callback = run_callback;
 	res->end_callback = end_callback;
@@ -228,7 +228,7 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	);
 
 	if (!res)
-		return -NOSV_ERR_OUT_OF_MEMORY;
+		return NOSV_ERR_OUT_OF_MEMORY;
 
 	res->type = type;
 	res->metadata = metadata_size;
@@ -268,13 +268,13 @@ int nosv_create(
 	nosv_flags_t flags)
 {
 	if (unlikely(!task))
-		return -NOSV_ERR_INVALID_PARAMETER;
+		return NOSV_ERR_INVALID_PARAMETER;
 
 	if (unlikely(!type))
-		return -NOSV_ERR_INVALID_PARAMETER;
+		return NOSV_ERR_INVALID_PARAMETER;
 
 	if (unlikely(metadata_size > NOSV_MAX_METADATA_SIZE))
-		return -NOSV_ERR_INVALID_METADATA_SIZE;
+		return NOSV_ERR_INVALID_METADATA_SIZE;
 
 	// Update the counters of the current task if it exists, as we don't want
 	// the creation to be accounted in this task's counters
@@ -327,7 +327,7 @@ int nosv_submit(
 	nosv_flags_t flags)
 {
 	if (unlikely(!task))
-		return -NOSV_ERR_INVALID_PARAMETER;
+		return NOSV_ERR_INVALID_PARAMETER;
 
 	const bool is_blocking = (flags & NOSV_SUBMIT_BLOCKING);
 	const bool is_immediate = (flags & NOSV_SUBMIT_IMMEDIATE) && nosv_config.sched_immediate_successor;
@@ -335,17 +335,17 @@ int nosv_submit(
 
 	// These submit modes are mutually exclusive
 	if (unlikely(is_immediate + is_blocking + is_inline > 1))
-		return -NOSV_ERR_INVALID_OPERATION;
+		return NOSV_ERR_INVALID_OPERATION;
 
 	if (is_blocking || is_inline) {
 		// These submit modes cannot be used from outside a task context
 		if (!worker_is_in_task())
-			return -NOSV_ERR_OUTSIDE_TASK;
+			return NOSV_ERR_OUTSIDE_TASK;
 	}
 
 	// This combination would make no sense
 	if (is_inline && task_is_parallel(task)) {
-		return -NOSV_ERR_INVALID_OPERATION;
+		return NOSV_ERR_INVALID_OPERATION;
 	}
 
 	// If we're in a task context, update task counters now since we don't want
@@ -425,14 +425,14 @@ int nosv_pause(
 {
 	// We have to be inside a worker
 	if (!worker_is_in_task())
-		return -NOSV_ERR_OUTSIDE_TASK;
+		return NOSV_ERR_OUTSIDE_TASK;
 
 	nosv_task_t task = worker_current_task();
 	assert(task);
 
 	// Parallel tasks cannot be blocked
 	if (task_is_parallel(task))
-		return -NOSV_ERR_INVALID_OPERATION;
+		return NOSV_ERR_INVALID_OPERATION;
 
 	// Thread might yield, read and accumulate hardware counters for the task that blocks
 	hwcounters_update_task_counters(task);
@@ -461,7 +461,7 @@ int nosv_cancel(
 	nosv_flags_t flags)
 {
 	if (!worker_is_in_task())
-		return -NOSV_ERR_OUTSIDE_TASK;
+		return NOSV_ERR_OUTSIDE_TASK;
 
 	nosv_task_t task = worker_current_task();
 	assert(task);
@@ -471,7 +471,7 @@ int nosv_cancel(
 
 	do {
 		if (degree < 0)
-			return -NOSV_ERR_INVALID_OPERATION;
+			return NOSV_ERR_INVALID_OPERATION;
 	} while (!atomic_compare_exchange_weak_explicit(&(task->degree), &degree, -degree, memory_order_relaxed, memory_order_relaxed));
 
 	return NOSV_SUCCESS;
@@ -484,14 +484,14 @@ int nosv_waitfor(
 {
 	// We have to be inside a worker
 	if (!worker_is_in_task())
-		return -NOSV_ERR_OUTSIDE_TASK;
+		return NOSV_ERR_OUTSIDE_TASK;
 
 	nosv_task_t task = worker_current_task();
 	assert(task);
 
 	// Parallel tasks cannot be blocked
 	if (task_is_parallel(task))
-		return -NOSV_ERR_INVALID_OPERATION;
+		return NOSV_ERR_INVALID_OPERATION;
 
 	// Thread is gonna yield, read and accumulate hardware counters for the task
 	hwcounters_update_task_counters(task);
@@ -534,14 +534,14 @@ int nosv_yield(
 		instr_kernel_flush(kinstr);
 
 	if (!worker_is_in_task())
-		return -NOSV_ERR_OUTSIDE_TASK;
+		return NOSV_ERR_OUTSIDE_TASK;
 
 	nosv_task_t task = worker_current_task();
 	assert(task);
 
 	// Parallel tasks cannot be blocked
 	if (task_is_parallel(task))
-		return -NOSV_ERR_INVALID_OPERATION;
+		return NOSV_ERR_INVALID_OPERATION;
 
 	// Thread is gonna yield, read and accumulate hardware counters for the task
 	hwcounters_update_task_counters(task);
@@ -579,14 +579,14 @@ int nosv_schedpoint(
 		instr_kernel_flush(kinstr);
 
 	if (!worker_is_in_task())
-		return -NOSV_ERR_OUTSIDE_TASK;
+		return NOSV_ERR_OUTSIDE_TASK;
 
 	nosv_task_t task = worker_current_task();
 	assert(task);
 
 	// Parallel tasks cannot be blocked
 	if (task_is_parallel(task))
-		return -NOSV_ERR_INVALID_OPERATION;
+		return NOSV_ERR_INVALID_OPERATION;
 
 	// Thread is gonna yield, read and accumulate hardware counters for the task
 	hwcounters_update_task_counters(task);
@@ -628,7 +628,7 @@ int nosv_destroy(
 	nosv_flags_t flags)
 {
 	if (unlikely(!task))
-		return -NOSV_ERR_INVALID_PARAMETER;
+		return NOSV_ERR_INVALID_PARAMETER;
 
 	sfree(task, sizeof(struct nosv_task) +
 		task->metadata +
@@ -723,11 +723,11 @@ int nosv_increase_event_counter(
 	uint64_t increment)
 {
 	if (!increment)
-		return -NOSV_ERR_INVALID_PARAMETER;
+		return NOSV_ERR_INVALID_PARAMETER;
 
 	nosv_task_t current = worker_current_task();
 	if (!current)
-		return -NOSV_ERR_OUTSIDE_TASK;
+		return NOSV_ERR_OUTSIDE_TASK;
 
 	atomic_fetch_add_explicit(&current->event_count, increment, memory_order_relaxed);
 
@@ -740,10 +740,10 @@ int nosv_decrease_event_counter(
 	uint64_t decrement)
 {
 	if (!task)
-		return -NOSV_ERR_INVALID_PARAMETER;
+		return NOSV_ERR_INVALID_PARAMETER;
 
 	if (!decrement)
-		return -NOSV_ERR_INVALID_PARAMETER;
+		return NOSV_ERR_INVALID_PARAMETER;
 
 	// If a task is in here, make sure this is not accounted as executing
 	nosv_task_t current = worker_current_task();
@@ -780,16 +780,16 @@ int nosv_attach(
 	nosv_flags_t flags)
 {
 	if (unlikely(!task))
-		return -NOSV_ERR_INVALID_PARAMETER;
+		return NOSV_ERR_INVALID_PARAMETER;
 
 	if (unlikely(!type))
-		return -NOSV_ERR_INVALID_PARAMETER;
+		return NOSV_ERR_INVALID_PARAMETER;
 
 	if (unlikely(metadata_size > NOSV_MAX_METADATA_SIZE))
-		return -NOSV_ERR_INVALID_METADATA_SIZE;
+		return NOSV_ERR_INVALID_METADATA_SIZE;
 
 	if (unlikely(type->run_callback || type->end_callback || type->completed_callback))
-		return -NOSV_ERR_INVALID_CALLBACK;
+		return NOSV_ERR_INVALID_CALLBACK;
 
 	instr_thread_attach();
 
@@ -846,7 +846,7 @@ int nosv_detach(
 	// First, make sure we are on a worker context
 	nosv_worker_t *worker = worker_current();
 	if (!worker || !worker->task)
-		return -NOSV_ERR_OUTSIDE_TASK;
+		return NOSV_ERR_OUTSIDE_TASK;
 
 	// Task just completed, read and accumulate hardware counters for the task
 	hwcounters_update_task_counters(worker->task);
@@ -923,7 +923,7 @@ int nosv_get_task_degree(nosv_task_t task)
 int nosv_get_execution_id(void)
 {
 	if (!worker_is_in_task())
-		return -NOSV_ERR_OUTSIDE_TASK;
+		return NOSV_ERR_OUTSIDE_TASK;
 
 	nosv_worker_t *worker = worker_current();
 	assert(worker);

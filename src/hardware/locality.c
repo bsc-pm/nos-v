@@ -202,7 +202,7 @@ int nosv_get_num_numa_nodes(void)
 int nosv_get_system_numa_id(int logical_numa_id)
 {
 	if (logical_numa_id >= numa_count)
-		return -NOSV_ERR_INVALID_PARAMETER;
+		return NOSV_ERR_INVALID_PARAMETER;
 
 	return numa_logical_to_system[logical_numa_id];
 }

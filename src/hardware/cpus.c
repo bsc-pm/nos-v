@@ -377,7 +377,7 @@ int nosv_get_num_cpus(void)
 int nosv_get_current_logical_cpu(void)
 {
 	if (!worker_is_in_task())
-		return -NOSV_ERR_OUTSIDE_TASK;
+		return NOSV_ERR_OUTSIDE_TASK;
 
 	return cpu_get_current();
 }
@@ -385,7 +385,7 @@ int nosv_get_current_logical_cpu(void)
 int nosv_get_current_system_cpu(void)
 {
 	if (!worker_is_in_task())
-		return -NOSV_ERR_OUTSIDE_TASK;
+		return NOSV_ERR_OUTSIDE_TASK;
 
 	cpu_t *cpu = cpu_get(cpu_get_current());
 	assert(cpu);
