@@ -21,7 +21,10 @@ static const char *errors[NOSV_ERR_MAX] = {
 
 const char *nosv_get_error_string(int error_code)
 {
-	if (error_code < 0 || error_code >= NOSV_ERR_MAX)
+	if (error_code < 0)
+		error_code *= -1;
+
+	if (error_code >= NOSV_ERR_MAX)
 		return "Error code not recognized";
 
 	assert(errors[error_code]);

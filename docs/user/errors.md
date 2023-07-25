@@ -1,7 +1,7 @@
 
 # Error Handling
 
-In nOS-V, most public functions return an integer code that indicates the successful completion of the operation, or a possible error during the function execution. When the function succeeded, `NOSV_SUCCESS` is returned. This value is guaranteed to be zero, while all errors are non-zero. The `nosv/errors.h` header defines the complete API regarding the error codes and error handling. This header is automatically included by the main `nosv.h` header.
+In nOS-V, most public functions return an integer code that indicates the successful completion of the operation, or a possible error during the function execution. When the function succeeded, `NOSV_SUCCESS` is returned. This value is guaranteed to be zero, while all errors are negative and non-zero. The `nosv/errors.h` header defines the complete API regarding the error codes and error handling. This header is automatically included by the main `nosv.h` header.
 
 The nOS-V runtime provides the following API function to obtain the string description of a error code programmatically:
 
@@ -19,6 +19,21 @@ if (err != NOSV_SUCCESS) {
     fprintf(stderr, "Error in nosv_init: %s\n", nosv_get_error_string(err));
     /* handle error */
     ...
+}
+```
+
+Some functions could return an error or a valid integer value (which may be zero).
+In this case, it is recommended to check using the condition that errors are negative and these functions
+only return valid positive values:
+
+```c
+int ret = nosv_get_current_logical_cpu();
+if (ret < 0) {
+    fprintf(stderr, "Error in nosv_init: %s\n", nosv_get_error_string(ret));
+    /* handle error */
+    ...
+} else {
+    // ret contains a valid logical cpu id
 }
 ```
 
