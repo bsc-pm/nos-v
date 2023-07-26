@@ -23,6 +23,7 @@ if (err != NOSV_SUCCESS) {
 ```
 
 Some functions could return an error or a valid integer value (which may be zero).
+In such functions, a negative returned value always implies that the function failed for some reason. In contrast, when returning zero or positive, that is the valid integer which the function should return.
 In this case, it is recommended to check using the condition that errors are negative and these functions
 only return valid positive values:
 
