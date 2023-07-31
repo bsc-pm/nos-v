@@ -176,7 +176,7 @@ int nosv_type_init(
 
 	*type = res;
 
-	return 0;
+	return NOSV_SUCCESS;
 }
 
 /* Getters and setters */
@@ -212,7 +212,7 @@ int nosv_type_destroy(
 {
 	// Empty, used for API completeness. Types are destroyed in
 	// task_type_manager_shutdown
-	return 0;
+	return NOSV_SUCCESS;
 }
 
 static inline int nosv_create_internal(nosv_task_t *task /* out */,
@@ -256,7 +256,7 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 
 	instr_task_create((uint32_t)res->taskid, res->type->typeid);
 
-	return 0;
+	return NOSV_SUCCESS;
 }
 
 /* May return NOSV_ERR_OUT_OF_MEMORY. 0 on success */
@@ -415,7 +415,7 @@ int nosv_submit(
 
 	instr_submit_exit();
 
-	return 0;
+	return NOSV_SUCCESS;
 }
 
 /* Blocking, yield operation */
@@ -454,7 +454,7 @@ int nosv_pause(
 	instr_pause_exit();
 	instr_task_resume((uint32_t)task->taskid);
 
-	return 0;
+	return NOSV_SUCCESS;
 }
 
 int nosv_cancel(
@@ -474,7 +474,7 @@ int nosv_cancel(
 			return NOSV_ERR_INVALID_OPERATION;
 	} while (!atomic_compare_exchange_weak_explicit(&(task->degree), &degree, -degree, memory_order_relaxed, memory_order_relaxed));
 
-	return 0;
+	return NOSV_SUCCESS;
 }
 
 /* Deadline tasks */
@@ -522,7 +522,7 @@ int nosv_waitfor(
 	instr_waitfor_exit();
 	instr_task_resume((uint32_t)task->taskid);
 
-	return 0;
+	return NOSV_SUCCESS;
 }
 
 /* Yield operation */
@@ -566,7 +566,7 @@ int nosv_yield(
 	instr_yield_exit();
 	instr_task_resume((uint32_t)task->taskid);
 
-	return 0;
+	return NOSV_SUCCESS;
 }
 
 int nosv_schedpoint(
@@ -619,7 +619,7 @@ int nosv_schedpoint(
 	instr_schedpoint_exit();
 	instr_task_resume((uint32_t)task->taskid);
 
-	return 0;
+	return NOSV_SUCCESS;
 }
 
 /* Callable from everywhere */
@@ -637,7 +637,7 @@ int nosv_destroy(
 		cpu_get_current()
 	);
 
-	return 0;
+	return NOSV_SUCCESS;
 }
 
 static inline void task_complete(nosv_task_t task)
@@ -731,7 +731,7 @@ int nosv_increase_event_counter(
 
 	atomic_fetch_add_explicit(&current->event_count, increment, memory_order_relaxed);
 
-	return 0;
+	return NOSV_SUCCESS;
 }
 
 /* Restriction: Can only be called from a nOS-V Worker */
@@ -763,7 +763,7 @@ int nosv_decrease_event_counter(
 		monitoring_task_changed_status(current, executing_status);
 	}
 
-	return 0;
+	return NOSV_SUCCESS;
 }
 
 /*
@@ -833,7 +833,7 @@ int nosv_attach(
 	// execution, as it won't pass via task_execute()
 	instr_task_execute((uint32_t)t->taskid);
 
-	return 0;
+	return NOSV_SUCCESS;
 }
 
 /*
@@ -893,7 +893,7 @@ int nosv_detach(
 
 	instr_thread_detach();
 
-	return 0;
+	return NOSV_SUCCESS;
 }
 
 nosv_affinity_t nosv_get_task_affinity(nosv_task_t task)

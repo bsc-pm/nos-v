@@ -15,16 +15,16 @@ typedef enum nosv_err {
 	/* Success code is guaranteed to be zero */
 	NOSV_SUCCESS = 0,
 	/* All errors are non-zero */
-	NOSV_ERR_INVALID_CALLBACK,
-	NOSV_ERR_INVALID_METADATA_SIZE,
-	NOSV_ERR_INVALID_OPERATION,
-	NOSV_ERR_INVALID_PARAMETER,
-	NOSV_ERR_NOT_INITIALIZED,
-	NOSV_ERR_OUT_OF_MEMORY,
-	NOSV_ERR_OUTSIDE_TASK,
-	NOSV_ERR_UNKNOWN,
+	NOSV_ERR_INVALID_CALLBACK = -1,
+	NOSV_ERR_INVALID_METADATA_SIZE = -2,
+	NOSV_ERR_INVALID_OPERATION = -3,
+	NOSV_ERR_INVALID_PARAMETER = -4,
+	NOSV_ERR_NOT_INITIALIZED = -5,
+	NOSV_ERR_OUT_OF_MEMORY = -6,
+	NOSV_ERR_OUTSIDE_TASK = -7,
+	NOSV_ERR_UNKNOWN = -8,
 	/* Only used by the runtime, keep at the end */
-	NOSV_ERR_MAX,
+	NOSV_ERR_MAX = -9,
 } nosv_err_t;
 
 /* Returns the error string corresponding to the error code. If not recognized,
