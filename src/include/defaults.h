@@ -64,6 +64,7 @@
 // Default affinity values
 #define AFFINITY_DEFAULT "all"
 #define AFFINITY_DEFAULT_POLICY "strict"
+#define AFFINITY_COMPAT_SUPPORT 1
 
 // HARDWARE COUNTERS
 

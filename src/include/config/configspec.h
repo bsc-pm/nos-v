@@ -73,6 +73,7 @@ static config_spec_t config_spec_list[] = {
 	DECLARE_CONFIG(TYPE_STR,  "cpumanager.binding", cpumanager_binding),
 	DECLARE_CONFIG(TYPE_STR,  "affinity.default", affinity_default),
 	DECLARE_CONFIG(TYPE_STR,  "affinity.default_policy", affinity_default_policy),
+	DECLARE_CONFIG(TYPE_BOOL, "affinity.compat_support", affinity_compat_support),
 	DECLARE_CONFIG_ARRAY(2, TYPE_INT64, "affinity.numa_nodes", affinity_numa_nodes),
 	DECLARE_CONFIG(TYPE_BOOL, "debug.dump_config", debug_dump_config),
 	DECLARE_CONFIG(TYPE_STR, "governor.policy", governor_policy),

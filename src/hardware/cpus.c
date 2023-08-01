@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
@@ -19,6 +19,7 @@
 #include "memory/sharedmemory.h"
 #include "memory/slab.h"
 #include "monitoring/monitoring.h"
+#include "support/affinity.h"
 
 #define SYS_CPU_PATH "/sys/devices/system/cpu"
 
@@ -151,10 +152,10 @@ void cpu_get_all_mask(const char **mask)
 	cpu_parse_set(&set, online_mask);
 
 	// Now the A64FX dance
-	sched_getaffinity(0, sizeof(cpu_set_t), &bkp);
-	sched_setaffinity(0, sizeof(cpu_set_t), &set);
-	sched_getaffinity(0, sizeof(cpu_set_t), &set);
-	sched_setaffinity(0, sizeof(cpu_set_t), &bkp);
+	bypass_sched_getaffinity(0, sizeof(cpu_set_t), &bkp);
+	bypass_sched_setaffinity(0, sizeof(cpu_set_t), &set);
+	bypass_sched_getaffinity(0, sizeof(cpu_set_t), &set);
+	bypass_sched_setaffinity(0, sizeof(cpu_set_t), &bkp);
 
 	// At this point, "set" should contain all *really* online CPUs
 	// Now we have to translate it to an actual mask
@@ -197,7 +198,7 @@ static inline void cpus_get_binding_mask(const char *binding, cpu_set_t *cpuset)
 	CPU_ZERO(cpuset);
 
 	if (strcmp(binding, "inherit") == 0) {
-		sched_getaffinity(0, sizeof(cpu_set_t), cpuset);
+		bypass_sched_getaffinity(0, sizeof(cpu_set_t), cpuset);
 		assert(CPU_COUNT(cpuset) > 0);
 	} else {
 		if (binding[0] != '0' || (binding[1] != 'x' && binding[1] != 'X')) {
@@ -396,5 +397,5 @@ int nosv_get_current_system_cpu(void)
 void cpu_affinity_reset(void)
 {
 	instr_affinity_set(-1);
-	sched_setaffinity(0, sizeof(cpumanager->all_cpu_set), &cpumanager->all_cpu_set);
+	bypass_sched_setaffinity(0, sizeof(cpumanager->all_cpu_set), &cpumanager->all_cpu_set);
 }

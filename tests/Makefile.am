@@ -18,6 +18,7 @@ a_tests = basic-error-code.test \
 	basic-mix.test \
 	basic-crash.test \
 	basic-inline.test \
+	basic-affinity-support.test \
 	basic-attach.test \
 	basic-attach-external.test \
 	basic-schedpoint.test \
@@ -64,6 +65,10 @@ basic_inline_test_SOURCES = basic/inline.c
 basic_inline_test_CFLAGS = $(AM_CFLAGS)
 basic_inline_test_LDFLAGS = $(AM_LDFLAGS)
 
+basic_affinity_support_test_SOURCES = basic/affinity-support.c
+basic_affinity_support_test_CFLAGS = $(AM_CFLAGS) $(pthreadnp_CPPFLAGS) -std=c11
+basic_affinity_support_test_LDFLAGS = $(AM_LDFLAGS)
+
 basic_attach_test_SOURCES = basic/attach.c
 basic_attach_test_CFLAGS = $(AM_CFLAGS)
 basic_attach_test_LDFLAGS = $(AM_LDFLAGS)
@@ -90,7 +95,7 @@ basic_deadline_test_LDFLAGS = $(AM_LDFLAGS)
 
 basic_deadline_wake_test_SOURCES = basic/deadline-wake.c
 basic_deadline_wake_test_CFLAGS = $(AM_CFLAGS)
-basic_deadline_wake_test_LDFLAGS = -lrt $(AM_LDFLAGS)
+basic_deadline_wake_test_LDFLAGS = $(AM_LDFLAGS) -lrt
 
 basic_parallel_test_SOURCES = basic/parallel.c
 basic_parallel_test_CFLAGS = $(AM_CFLAGS)

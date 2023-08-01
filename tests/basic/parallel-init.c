@@ -8,7 +8,9 @@
 
 #include <nosv.h>
 #include <pthread.h>
+#include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 
 #define NTHREADS 10
 
@@ -24,6 +26,7 @@ void *thread_body(void *thread_args)
 }
 
 int main() {
+	int rc;
 	test_t test;
 
 	test_init(&test, 1);
@@ -31,13 +34,20 @@ int main() {
 	pthread_barrier_init(&barrier, NULL, NTHREADS);
 
 	pthread_t threads[NTHREADS];
-	for (int t = 0; t < NTHREADS; ++t)
-		pthread_create(&threads[t], NULL, thread_body, NULL);
+	for (int t = 0; t < NTHREADS; ++t) {
+		if ((rc = pthread_create(&threads[t], NULL, thread_body, NULL))) {
+			fprintf(stderr, "pthread_create error %s\n", strerror(rc));
+			exit(EXIT_FAILURE);
+		}
+	}
 
 	void *retval;
 	int errors = 0;
 	for (int t = 0; t < NTHREADS; ++t) {
-		pthread_join(threads[t], &retval);
+		if ((rc = pthread_join(threads[t], &retval))) {
+			fprintf(stderr, "pthread_join error %s\n", strerror(rc));
+			exit(EXIT_FAILURE);
+		}
 		if (retval)
 			++errors;
 	}
