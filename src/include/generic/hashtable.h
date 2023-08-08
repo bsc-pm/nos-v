@@ -15,6 +15,7 @@
 #include <sys/queue.h>
 
 #include "compiler.h"
+#include "generic/hashfunction.h"
 
 typedef uintptr_t hash_key_t;
 
@@ -41,9 +42,9 @@ static inline size_t hash(hash_table_t *ht, hash_key_t key)
 {
 	assert(ht != NULL);
 	assert(ht->nbkt > 0);
-	// TODO improve hash function. it's easy for pointers to point to
-	// aligned positions, leaving empty holes
-	return key % ht->nbkt;
+	assert((sizeof(hash_key_t) % sizeof(uint32_t)) == 0);
+	size_t hash = (size_t) hashword((uint32_t *)&key, sizeof(hash_key_t)/sizeof(uint32_t), 0);
+	return hash % ht->nbkt;
 }
 
 static inline int ht_init(hash_table_t *ht, size_t nbuckets, size_t nentries)

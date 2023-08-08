@@ -91,6 +91,7 @@ noinst_HEADERS = \
 	src/include/generic/condvar.h \
 	src/include/generic/futex.h \
 	src/include/generic/heap.h \
+	src/include/generic/hashfunction.h \
 	src/include/generic/hashtable.h \
 	src/include/generic/list.h \
 	src/include/generic/mutex.h \
