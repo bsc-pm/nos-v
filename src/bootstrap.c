@@ -65,7 +65,7 @@ static int nosv_shutdown_impl(void)
 	// The last thread finalizes the runtime
 	if (--rt_refcount == 0) {
 		pidmanager_shutdown();
-		scheduler_shutdown(logic_pid);
+		scheduler_shutdown();
 
 		// Display reports of statistics before deleting task types
 		monitoring_display_stats();

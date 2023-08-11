@@ -180,6 +180,10 @@ void threadmanager_shutdown(thread_manager_t *threadmanager)
 		}
 		nosv_spin_unlock(&threadmanager->idle_spinlock);
 
+		// Notify the scheduler to release all threads corresponding to this process since
+		// we are shutting down
+		scheduler_wake(logic_pid);
+
 		nosv_spin_lock(&threadmanager->shutdown_spinlock);
 		size_t destroyed = clist_count(&threadmanager->shutdown_threads);
 		int threads = atomic_load_explicit(&threadmanager->created, memory_order_acquire);
