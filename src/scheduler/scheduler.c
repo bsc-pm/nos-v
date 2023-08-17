@@ -70,13 +70,16 @@ void scheduler_init(int initialize)
 	scheduler->quantum_ns = nosv_config.sched_quantum_ns;
 }
 
-void scheduler_shutdown(int pid)
+void scheduler_wake(int pid)
 {
 	process_scheduler_t *sched = scheduler->queues_direct[pid];
 
 	if (sched)
 		atomic_fetch_add_explicit(&sched->shutdown, 1, memory_order_relaxed);
+}
 
+void scheduler_shutdown(void)
+{
 	free(task_batch_buffer);
 }
 
