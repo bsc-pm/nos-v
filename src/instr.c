@@ -18,36 +18,36 @@ static const uint64_t control_levels[] = {
 };
 
 static const uint64_t control_flags_mask[] = {
-	INSTR_FLAG_BASIC,
-	INSTR_FLAG_WORKER,
-	INSTR_FLAG_SCHEDULER,
-	INSTR_FLAG_SCHEDULER_SUBMIT,
-	INSTR_FLAG_ALLOC,
-	INSTR_FLAG_API_SUBMIT,
-	INSTR_FLAG_API_PAUSE,
-	INSTR_FLAG_API_YIELD,
-	INSTR_FLAG_API_WAITFOR,
-	INSTR_FLAG_API_SCHEDPOINT,
-	INSTR_FLAG_TASK,
-	INSTR_FLAG_KERNEL,
-	~(0ULL)
+	[INSTR_BIT_BASIC] 				= INSTR_FLAG_BASIC,
+	[INSTR_BIT_WORKER] 				= INSTR_FLAG_WORKER,
+	[INSTR_BIT_SCHEDULER] 			= INSTR_FLAG_SCHEDULER,
+	[INSTR_BIT_SCHEDULER_SUBMIT] 	= INSTR_FLAG_SCHEDULER_SUBMIT,
+	[INSTR_BIT_MEMORY] 				= INSTR_FLAG_MEMORY,
+	[INSTR_BIT_API_SUBMIT] 			= INSTR_FLAG_API_SUBMIT,
+	[INSTR_BIT_API_PAUSE] 			= INSTR_FLAG_API_PAUSE,
+	[INSTR_BIT_API_YIELD] 			= INSTR_FLAG_API_YIELD,
+	[INSTR_BIT_API_WAITFOR] 		= INSTR_FLAG_API_WAITFOR,
+	[INSTR_BIT_API_SCHEDPOINT] 		= INSTR_FLAG_API_SCHEDPOINT,
+	[INSTR_BIT_TASK] 				= INSTR_FLAG_TASK,
+	[INSTR_BIT_KERNEL] 				= INSTR_FLAG_KERNEL,
+	[INSTR_BIT_MAX] 				= ~(0ULL)
 };
 
 // Keep the same order as the flags here
 static const char *control_flags[] = {
-	"basic",
-	"worker",
-	"scheduler",
-	"scheduler_submit",
-	"alloc",
-	"api_submit",
-	"api_pause",
-	"api_yield",
-	"api_waitfor",
-	"api_schedpoint",
-	"task",
-	"kernel",
-	"all"
+	[INSTR_BIT_BASIC] 				= "basic",
+	[INSTR_BIT_WORKER] 				= "worker",
+	[INSTR_BIT_SCHEDULER] 			= "scheduler",
+	[INSTR_BIT_SCHEDULER_SUBMIT] 	= "scheduler_submit",
+	[INSTR_BIT_MEMORY] 				= "memory",
+	[INSTR_BIT_API_SUBMIT] 			= "api_submit",
+	[INSTR_BIT_API_PAUSE] 			= "api_pause",
+	[INSTR_BIT_API_YIELD] 			= "api_yield",
+	[INSTR_BIT_API_WAITFOR] 		= "api_waitfor",
+	[INSTR_BIT_API_SCHEDPOINT] 		= "api_schedpoint",
+	[INSTR_BIT_TASK] 				= "task",
+	[INSTR_BIT_KERNEL] 				= "kernel",
+	[INSTR_BIT_MAX] 				= "all"
 };
 
 static inline void instr_update_control(const char *str) {
@@ -61,6 +61,7 @@ static inline void instr_update_control(const char *str) {
 	}
 
 	for (int i = 0; i < total_strings; ++i) {
+		assert(control_flags[i]);
 		if (strcmp(str, control_flags[i]) == 0) {
 			mask = control_flags_mask[i];
 			break;
@@ -88,8 +89,8 @@ void instr_parse_config(void)
 	} else {
 		uint64_t level = nosv_config.ovni_level;
 		if (level >= sizeof(control_levels) / sizeof(*control_levels)) {
-			nosv_warn("ovni instrumentation level must be between 0 and 4. Defaulting to level 0");
-			level = 0;
+			nosv_warn("ovni instrumentation level must be between 0 and 4. Defaulting to level 2");
+			level = 2;
 		}
 
 		instr_ovni_control = control_levels[level];
