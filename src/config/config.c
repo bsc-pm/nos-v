@@ -91,9 +91,9 @@ static inline void config_init(rt_config_t *config)
 
 	config->thread_stack_size = THREAD_STACK_SIZE;
 
-	config->instrumentation_ovni_level = 2;
-	config->instrumentation_ovni_events.num_strings = 0;
-	config->instrumentation_ovni_events.strings = NULL;
+	config->ovni_level = 2;
+	config->ovni_events.num_strings = 0;
+	config->ovni_events.strings = NULL;
 }
 
 #define sanity_check(cond, explanation)                             \

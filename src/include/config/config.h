@@ -88,8 +88,8 @@ typedef struct rt_config {
 	const char *instrumentation_version;
 
 	// ovni
-	uint64_t instrumentation_ovni_level;
-	string_list_t instrumentation_ovni_events;
+	uint64_t ovni_level;
+	string_list_t ovni_events;
 } rt_config_t;
 
 __internal extern rt_config_t nosv_config;

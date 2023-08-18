@@ -79,14 +79,14 @@ static inline void instr_update_control(const char *str) {
 
 void instr_parse_config(void)
 {
-	if (nosv_config.instrumentation_ovni_events.num_strings > 0) {
+	if (nosv_config.ovni_events.num_strings > 0) {
 		// Fine-grained control
-		for (int i = 0; i < nosv_config.instrumentation_ovni_events.num_strings; ++i) {
-			const char *str = nosv_config.instrumentation_ovni_events.strings[i];
+		for (int i = 0; i < nosv_config.ovni_events.num_strings; ++i) {
+			const char *str = nosv_config.ovni_events.strings[i];
 			instr_update_control(str);
 		}
 	} else {
-		uint64_t level = nosv_config.instrumentation_ovni_level;
+		uint64_t level = nosv_config.ovni_level;
 		if (level >= sizeof(control_levels) / sizeof(*control_levels)) {
 			nosv_warn("ovni instrumentation level must be between 0 and 4. Defaulting to level 0");
 			level = 0;
