@@ -9,6 +9,7 @@ that explains the inner workings of nOS-V.
 1. [Configuration Options](user/config.md)
 1. [Hardware Counters](user/hwc.md)
 1. [Error Handling](user/errors.md)
+1. [Tracing](user/tracing.md)
 
 ## Developer documentation
 
