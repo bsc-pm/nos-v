@@ -120,22 +120,22 @@ __internal void instr_parse_config(void);
 		ovni_ev_emit(&ev);                                \
 	}
 #else // ENABLE_INSTRUMENTATION
-#define INSTR_0ARG(name, mcv)     \
+#define INSTR_0ARG(type, name, mcv)     \
 	static inline void name(void) \
 	{                             \
 	}
 
-#define INSTR_1ARG(name, mcv, ta, a) \
+#define INSTR_1ARG(type, name, mcv, ta, a) \
 	static inline void name(ta a)    \
 	{                                \
 	}
 
-#define INSTR_2ARG(name, mcv, ta, a, tb, b) \
+#define INSTR_2ARG(type, name, mcv, ta, a, tb, b) \
 	static inline void name(ta a, tb b)     \
 	{                                       \
 	}
 
-#define INSTR_3ARG(name, mcv, ta, a, tb, b, tc, c) \
+#define INSTR_3ARG(type, name, mcv, ta, a, tb, b, tc, c) \
 	static inline void name(ta a, tb b, tc c)      \
 	{                                              \
 	}
