@@ -28,7 +28,8 @@ The following software is required to build and install nOS-V:
 
 The following software is required to enable optional features:
 
-(None)
+1. [ovni](https://github.com/bsc-pm/ovni) to generate execution traces for performance analysis with [Paraver](https://tools.bsc.es/paraver)
+1. [PAPI](http://icl.utk.edu/papi/software/) for gathering performance counters (version >= 5.6.0)
 
 ### Build procedure
 
@@ -49,6 +50,14 @@ $ make install
 ```
 
 where `INSTALLATION_PREFIX` is the directory into which to install nOS-V.
+
+The configure script accepts several options:
+
+1. `--enable-debug`: Add compiler debug flags and enable additional internal debugging mechanisms
+1. `--enable-asan`: Add compiler flags to enable address sanitizing
+1. `--with-ovni`: Enable ovni instrumentation and specify the ovni library installation prefix
+1. `--with-papi`: Enable PAPI counters and specify the PAPI library installation prefix
+1. `--with-libnuma`: Specify the numactl library installation prefix
 
 ## Usage and documentation
 
