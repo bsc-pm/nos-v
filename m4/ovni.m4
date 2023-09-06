@@ -72,6 +72,11 @@ AC_DEFUN([AC_CHECK_OVNI],
 			LIBS="${ac_save_LIBS}"
 		fi
 
+		if test x"${ac_use_ovni}" = x"yes" ; then
+			# Enable the ovni instrumentation through a macro definition
+			ovni_CPPFLAGS="-DENABLE_INSTRUMENTATION ${ovni_CPPFLAGS}"
+		fi
+
 		AC_SUBST([ovni_LIBS])
 		AC_SUBST([ovni_CPPFLAGS])
 	]
