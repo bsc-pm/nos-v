@@ -791,6 +791,10 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags, int *execution_count)
 		task = scheduler_get_internal(cpu);
 	} while (!task && blocking && !worker_should_shutdown());
 
+	// Record execution count when serving myself
+	if (task)
+		*execution_count = task->execution_count;
+
 	// Keep one thread inside the lock
 	if (dtlock_empty(&scheduler->dtlock))
 		governor_wake_one(&scheduler->governor, &scheduler->dtlock);
