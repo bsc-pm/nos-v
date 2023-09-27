@@ -5,8 +5,10 @@
 */
 
 #include <dlfcn.h>
+#include <link.h>
 #include <pthread.h>
 #include <sched.h>
+#include <string.h>
 
 #include <stdio.h>
 
@@ -49,14 +51,81 @@ static nosv_spinlock_t lock = NOSV_SPINLOCK_INITIALIZER;
 	} while (0)
 
 
-__constructor static void nosv_affinity_support_init(void)
+// Adapted from libasan under llvm compiler-rt/lib/asan/asan_linux.cpp
+static int find_first_dso_name(struct dl_phdr_info *info, size_t size, void *data)
+{
+	const char **name = (const char **) data;
+
+	// Ignore first entry (the main program)
+	if (!*name) {
+		*name = "";
+		return 0;
+	}
+
+	// Ignore vDSO. glibc versions earlier than 2.15 (and some patched by
+	// distributions) return an empty name for the vDSO entry, so detect
+	// this as well
+	if (!info->dlpi_name[0] || !strncmp(info->dlpi_name, "linux-", 6))
+		return 0;
+
+	// it is ok for libasan to be first on the list
+	if (strstr(info->dlpi_name, "libasan.so"))
+		return 0;
+
+	// some systems force libsnoop to be loaded by default into all apps
+	if (strstr(info->dlpi_name, "libsnoopy.so"))
+		return 0;
+
+	*name = info->dlpi_name;
+	return 1;
+}
+
+static void check_lokup_scope_order(void)
+{
+	Dl_info info;
+	const char *first_dso_name = NULL;
+
+	// This function ensures that libnosv.so appears first in the shared
+	// library loockup scope. This is needed for the interposed nosv symbols
+	// to work correctly.
+
+	// Find the first valid dso name in the loockup scope
+	dl_iterate_phdr(find_first_dso_name, &first_dso_name);
+
+	// If nosv is part of a static binary, we have nothing else to do here.
+	// Static executables should still return two entries for dl_iterate_phdr
+	// one for the main executable and another for linux-vdso.so. Therefore
+	// first_dso_name should be set to "". However, just in case, we check
+	// the null pointer case.
+	if (!first_dso_name || !first_dso_name[0])
+		return;
+
+	// Next, we need to know the name of the shared library where nosv is
+	// found. Usually this will be "libnosv.so", however, it might have
+	// another name if nosv was statically linked to another shared library.
+	// In this case, we need to find the shared object name.
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic" // ignore the warning "ISO C forbids conversion of object pointer to function pointer type"
+#pragma GCC diagnostic push
+	if (!dladdr((void *)find_first_dso_name, &info))
+		nosv_abort("error in dladdr while trying to find the shared library name where nOS-V is found");
+#pragma GCC diagnostic pop
+
+	if (!strstr(first_dso_name, info.dli_fname))
+		nosv_abort("nOS-V runtime does not come first in initial library list; you should either link runtime to your application or manually preload it with LD_PRELOAD. The first dso found is: %s", first_dso_name);
+}
+
+void affinity_support_init(void)
 {
 	int __maybe_unused ret;
 
 	// We need to initialze the affinity support facility as early as
 	// possible, because the interposed system calls might be called from
 	// library constructors and we need the fallback calls loaded before any
-	// of these is called
+	// of these is called. To do so, symbols can either be loaded at runtime
+	// when they are called or here, once we have a chance to initialize
+	// this subsystem.
 
 	// Load the next symbol (in library load order) of the following symbols
 #pragma GCC diagnostic push
@@ -68,6 +137,11 @@ __constructor static void nosv_affinity_support_init(void)
 	AUTO_LOAD_SYMBOL(pthread_setaffinity_np);
 	AUTO_LOAD_SYMBOL(pthread_getaffinity_np);
 #pragma GCC diagnostic pop
+
+	if (!nosv_config.affinity_compat_support)
+		return;
+
+	check_lokup_scope_order();
 
 	// Allocate the per-process tid and pid hash tables
 	ret = ht_init(&ht_tid, 256, 256);

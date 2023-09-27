@@ -14,6 +14,7 @@
 #include "hardware/threads.h"
 
 
+__internal void affinity_support_init(void);
 __internal void affinity_support_register_worker(nosv_worker_t *worker);
 __internal void affinity_support_unregister_worker(nosv_worker_t *worker, char restore);
 

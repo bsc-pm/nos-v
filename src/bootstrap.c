@@ -20,6 +20,7 @@
 #include "monitoring/monitoring.h"
 #include "nosv.h"
 #include "scheduler/scheduler.h"
+#include "support/affinity.h"
 #include "system/tasks.h"
 
 __internal int32_t rt_refcount = 0;
@@ -38,6 +39,7 @@ static int nosv_init_impl(void)
 	// The first thread initializes the runtime
 	if (++rt_refcount == 1) {
 		config_parse();
+		affinity_support_init();
 		locality_init();
 		smem_initialize();
 		hwcounters_initialize();
