@@ -12,7 +12,6 @@
 #include "defaults.h"
 #include "compiler.h"
 #include "nosv-internal.h"
-#include "generic/heap.h"
 #include "generic/list.h"
 #include "generic/spinlock.h"
 #include "generic/tree.h"
@@ -31,7 +30,7 @@ typedef struct scheduler_queue {
 	int priority_enabled;
 	union {
 		RB_HEAD(priority_tree, nosv_task) tasks_priority;
-	list_head_t tasks;
+		list_head_t tasks;
 	};
 } scheduler_queue_t;
 
@@ -45,7 +44,7 @@ typedef struct process_scheduler {
 	atomic_int shutdown;
 	size_t tasks;
 	size_t preferred_affinity_tasks;
-	heap_head_t deadline_tasks;
+	RB_HEAD(deadline_tree, nosv_task) deadline_tasks;
 	deadline_t now;
 	scheduler_queue_yield_t yield_tasks;
 	scheduler_queue_t *per_cpu_queue_strict;

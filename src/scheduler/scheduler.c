@@ -30,8 +30,16 @@ static inline int task_priority_compare(nosv_task_t a, nosv_task_t b)
 	return (a->priority > b->priority) - (b->priority > a->priority);
 }
 
+static inline int task_deadline_compare(nosv_task_t a, nosv_task_t b)
+{
+	return (a->deadline > b->deadline) - (b->deadline > a->deadline);
+}
+
 RB_PROTOTYPE_STATIC(priority_tree, nosv_task, tree_hook, task_priority_compare)
 RB_GENERATE_STATIC(priority_tree, nosv_task, tree_hook, task_priority_compare)
+
+RB_PROTOTYPE_STATIC(deadline_tree, nosv_task, tree_hook, task_deadline_compare)
+RB_GENERATE_STATIC(deadline_tree, nosv_task, tree_hook, task_deadline_compare)
 
 void scheduler_init(int initialize)
 {
@@ -229,7 +237,7 @@ static inline process_scheduler_t *scheduler_init_pid(int pid)
 	scheduler->queues_direct[pid] = sched;
 	list_add_tail(&scheduler->queues, &sched->list_hook);
 
-	heap_init(&sched->deadline_tasks);
+	RB_INIT(&sched->deadline_tasks);
 	list_init(&sched->yield_tasks.tasks);
 	sched->now = clock_ns();
 
@@ -237,17 +245,6 @@ static inline process_scheduler_t *scheduler_init_pid(int pid)
 	atomic_init(&sched->shutdown, 0);
 
 	return sched;
-}
-
-static inline int deadline_cmp(heap_node_t *a, heap_node_t *b)
-{
-	nosv_task_t task_a = heap_elem(a, struct nosv_task, heap_hook);
-	nosv_task_t task_b = heap_elem(b, struct nosv_task, heap_hook);
-
-	// Returns 1 if task a goes before b
-	// Returns -1 if task b goes before a
-	// Returns 0 if both tasks have the same deadline
-	return (task_a->deadline < task_b->deadline) - (task_b->deadline < task_a->deadline);
 }
 
 // Check if any schedulers need shutting down
@@ -290,7 +287,8 @@ static inline void scheduler_process_ready_tasks(void)
 				task->yield = scheduler->served_tasks + scheduler->tasks;
 				list_add_tail(&pidqueue->yield_tasks.tasks, &task->list_hook);
 			} else if (task->deadline) {
-				heap_insert(&pidqueue->deadline_tasks, &task->heap_hook, &deadline_cmp);
+				nosv_task_t t = RB_INSERT(deadline_tree, &pidqueue->deadline_tasks, task);
+				assert(!t);
 			} else {
 				// Add to general queue. If this is an affinity task, it will then be removed and
 				// added into one of the affine queues, but this way we don't give implicit priority
@@ -441,14 +439,11 @@ static inline int scheduler_get_yield_expired(process_scheduler_t *sched, nosv_t
 
 static inline int scheduler_get_deadline_expired(process_scheduler_t *sched, nosv_task_t *task /*out*/)
 {
-	// In reality we get the minimum, as we inverted the comparison function.
-	heap_node_t *head = heap_max(&sched->deadline_tasks);
+	nosv_task_t res = RB_MIN(deadline_tree, &sched->deadline_tasks);
 
 	// No deadline tasks
-	if (!head)
+	if (!res)
 		return 0;
-
-	nosv_task_t res = heap_elem(head, struct nosv_task, heap_hook);
 
 	if (res->deadline < sched->now) {
 		goto deadline_expired;
@@ -464,8 +459,7 @@ static inline int scheduler_get_deadline_expired(process_scheduler_t *sched, nos
 	return 0;
 
 deadline_expired:
-	heap_pop_max(&sched->deadline_tasks, &deadline_cmp);
-	heap_clean(&res->heap_hook);
+	RB_REMOVE(deadline_tree, &sched->deadline_tasks, res);
 	res->deadline = 0;
 	*task = res;
 	return 1;
