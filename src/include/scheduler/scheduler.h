@@ -71,6 +71,7 @@ typedef struct scheduler {
 	nosv_spinlock_t in_lock;
 	delegation_lock_t dtlock;
 	governor_t governor;
+	atomic_int deadline_purge;
 } scheduler_t;
 
 __internal void scheduler_init(int initialize);
@@ -81,5 +82,6 @@ __internal int scheduler_should_yield(int pid, int cpu, uint64_t *timestamp);
 __internal void scheduler_reset_accounting(int pid, int cpu);
 __internal void scheduler_submit(nosv_task_t task);
 __internal nosv_task_t scheduler_get(int cpu, nosv_flags_t flags, int *execution_count);
+__internal void scheduler_request_deadline_purge(void);
 
 #endif // SCHEDULER_H

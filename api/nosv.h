@@ -113,15 +113,17 @@ int nosv_create(
 	nosv_flags_t flags);
 
 /* Flags */
-#define NOSV_SUBMIT_NONE 		__ZEROBITS
+#define NOSV_SUBMIT_NONE          __ZEROBITS
 /* Hint nOS-V that this task has just been unlocked, and give it scheduling priority */
-#define NOSV_SUBMIT_UNLOCKED 	__BIT(0)
+#define NOSV_SUBMIT_UNLOCKED      __BIT(0)
 /* Block the current task until the submitted task has completed */
-#define NOSV_SUBMIT_BLOCKING	__BIT(1)
+#define NOSV_SUBMIT_BLOCKING      __BIT(1)
 /* Hint nOS-V to execute this task in the same thread as the one currently executing, immediately after */
-#define NOSV_SUBMIT_IMMEDIATE	__BIT(2)
+#define NOSV_SUBMIT_IMMEDIATE     __BIT(2)
 /* Execute this task inline, substituting the currently running task for this worker */
-#define NOSV_SUBMIT_INLINE		__BIT(3)
+#define NOSV_SUBMIT_INLINE        __BIT(3)
+/* Wake up a waitfor task even if its timeout has not expired yet */
+#define NOSV_SUBMIT_DEADLINE_WAKE __BIT(4)
 
 /* Callable from everywhere */
 int nosv_submit(

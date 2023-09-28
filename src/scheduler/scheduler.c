@@ -64,6 +64,7 @@ void scheduler_init(int initialize)
 	list_init(&scheduler->queues);
 	scheduler->tasks = 0;
 	scheduler->served_tasks = 0;
+	atomic_init(&scheduler->deadline_purge, 0);
 
 	for (int i = 0; i < MAX_PIDS; ++i)
 		scheduler->queues_direct[i] = NULL;
@@ -287,8 +288,18 @@ static inline void scheduler_process_ready_tasks(void)
 				task->yield = scheduler->served_tasks + scheduler->tasks;
 				list_add_tail(&pidqueue->yield_tasks.tasks, &task->list_hook);
 			} else if (task->deadline) {
-				nosv_task_t t = RB_INSERT(deadline_tree, &pidqueue->deadline_tasks, task);
-				assert(!t);
+				deadline_state_t expected = NOSV_DEADLINE_PENDING;
+				deadline_state_t desired = NOSV_DEADLINE_WAITING;
+				if (atomic_compare_exchange_strong_explicit(&task->deadline_state, &expected, desired, memory_order_relaxed, memory_order_relaxed)) {
+					// Two tasks with the same deadline cannot exist inside the rb-tree.
+					// If this happens, increase the deadline and retry
+					while (RB_INSERT(deadline_tree, &pidqueue->deadline_tasks, task))
+						task->deadline++;
+				} else {
+					assert(expected == NOSV_DEADLINE_READY);
+					// the task has been lapsed, enqueue it directly
+					scheduler_add_queue(&pidqueue->queue, task);
+				}
 			} else {
 				// Add to general queue. If this is an affinity task, it will then be removed and
 				// added into one of the affine queues, but this way we don't give implicit priority
@@ -370,6 +381,74 @@ void scheduler_submit(nosv_task_t task)
 	}
 
 	instr_sched_submit_exit();
+}
+
+static inline void scheduler_deadline_purge_internal(int count)
+{
+	list_head_t *it, *stop;
+	nosv_task_t task, tmp;
+	int to_purge = count;
+
+	if (!scheduler->tasks)
+		return;
+
+	// Get this process scheduler
+	process_scheduler_t *sched = scheduler->queues_direct[logic_pid];
+	// sched may be NULL at this point. See scheduler_get_internal for more details
+	it = (sched) ? &sched->list_hook : list_front(&scheduler->queues);
+	stop = it;
+
+	// Itreate over all processes deadline red-black trees and remove from
+	// them up to "count" tasks. Add these tasks to the ready queues.
+	do {
+		sched = list_elem(it, process_scheduler_t, list_hook);
+		if (!RB_EMPTY(&sched->deadline_tasks)) {
+			// Tasks in the rb-tree should have the state
+			// NOSV_DEADLINE_WAITING state. If a task has the
+			// NOSV_DEADLINE_READY state, it means that it has been woken
+			// up. Move it to the ready queues.
+			RB_FOREACH_SAFE(task, deadline_tree, &sched->deadline_tasks, tmp) {
+				deadline_state_t state = atomic_load_explicit(&task->deadline_state, memory_order_relaxed);
+				if (state == NOSV_DEADLINE_READY) {
+					RB_REMOVE(deadline_tree, &sched->deadline_tasks, task);
+					task->deadline = 0;
+					scheduler_add_queue(&sched->queue, task);
+					to_purge--;
+					if (!to_purge)
+						break;
+				}
+			}
+		}
+		it = list_next_circular(it, &scheduler->queues);
+	} while ((it != stop) && to_purge);
+}
+
+static inline void scheduler_deadline_purge(void)
+{
+	// Remove lapsed deadline tasks from the rbtree
+
+	int to_purge = atomic_load_explicit(&scheduler->deadline_purge, memory_order_relaxed);
+	if (to_purge) {
+		// The acquire operation matches the release operation on
+		// "scheduler_request_deadline_purge". Note that the
+		// deadline_purge load above is relaxed to decrease the cost of
+		// synchronization inside the dtlock main loop.
+		atomic_thread_fence(memory_order_acquire);
+		scheduler_deadline_purge_internal(to_purge);
+		// Less than "to_purge" tasks might have been purged,
+		// that is ok given that the remaining tasks might have
+		// been naturally removed from the deadline tree when
+		// its timeout expired.
+		atomic_fetch_sub_explicit(&scheduler->deadline_purge, to_purge, memory_order_relaxed);
+	}
+}
+
+void scheduler_request_deadline_purge(void)
+{
+	// The release operation matches the acquire operation on
+	// "scheduler_deadline_purge". This makes sure that previously marked
+	// tasks as "READY" will be seen after requesting a purge operation.
+	atomic_fetch_add_explicit(&scheduler->deadline_purge, 1, memory_order_release);
 }
 
 static inline int task_affine(nosv_task_t task, cpu_t *cpu)
@@ -460,6 +539,7 @@ static inline int scheduler_get_deadline_expired(process_scheduler_t *sched, nos
 
 deadline_expired:
 	RB_REMOVE(deadline_tree, &sched->deadline_tasks, res);
+	atomic_store_explicit(&res->deadline_state, NOSV_DEADLINE_READY, memory_order_relaxed);
 	res->deadline = 0;
 	*task = res;
 	return 1;
@@ -757,6 +837,8 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags, int *execution_count)
 
 	do {
 		scheduler_process_ready_tasks();
+
+		scheduler_deadline_purge();
 
 		size_t served = 0;
 

@@ -19,6 +19,12 @@
 
 struct nosv_worker;
 typedef uint64_t deadline_t;
+typedef enum {
+	NOSV_DEADLINE_NONE,
+	NOSV_DEADLINE_PENDING,
+	NOSV_DEADLINE_WAITING,
+	NOSV_DEADLINE_READY,
+} deadline_state_t;
 typedef size_t yield_t;
 typedef struct task_hwcounters task_hwcounters_t;
 typedef struct tasktype_stats tasktype_stats_t;
@@ -50,6 +56,7 @@ struct nosv_task {
 
 	// Maybe this could be on-demand allocated
 	deadline_t deadline;
+	_Atomic deadline_state_t deadline_state;
 
 	union {
 		yield_t yield;
