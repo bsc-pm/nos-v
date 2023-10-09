@@ -656,7 +656,7 @@ static inline nosv_task_t scheduler_get_internal(int cpu)
 	list_head_t *stop = it;
 	// Parameter to notify if the task has been removed from the queues or is staying
 	// as a parallel task
-	int task_removed;
+	int task_removed = 0;
 
 #define SCHEDULER_FOREACH_DO(_function)                                  \
 	do {                                                                 \
