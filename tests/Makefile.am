@@ -24,6 +24,7 @@ a_tests = basic-error-code.test \
 	basic-yield.test \
 	basic-priority.test \
 	basic-deadline.test \
+	basic-deadline-wake.test \
 	basic-parallel.test \
 	basic-parallel-cancel.test \
 	basic-parallel-init.test
@@ -86,6 +87,10 @@ basic_priority_test_LDFLAGS = $(AM_LDFLAGS)
 basic_deadline_test_SOURCES = basic/deadline.c
 basic_deadline_test_CFLAGS = $(AM_CFLAGS)
 basic_deadline_test_LDFLAGS = $(AM_LDFLAGS)
+
+basic_deadline_wake_test_SOURCES = basic/deadline-wake.c
+basic_deadline_wake_test_CFLAGS = $(AM_CFLAGS)
+basic_deadline_wake_test_LDFLAGS = -lrt $(AM_LDFLAGS)
 
 basic_parallel_test_SOURCES = basic/parallel.c
 basic_parallel_test_CFLAGS = $(AM_CFLAGS)

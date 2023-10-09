@@ -12,7 +12,6 @@
 #include "defaults.h"
 #include "compiler.h"
 #include "nosv-internal.h"
-#include "generic/heap.h"
 #include "generic/list.h"
 #include "generic/spinlock.h"
 #include "generic/tree.h"
@@ -31,7 +30,7 @@ typedef struct scheduler_queue {
 	int priority_enabled;
 	union {
 		RB_HEAD(priority_tree, nosv_task) tasks_priority;
-	list_head_t tasks;
+		list_head_t tasks;
 	};
 } scheduler_queue_t;
 
@@ -45,7 +44,7 @@ typedef struct process_scheduler {
 	atomic_int shutdown;
 	size_t tasks;
 	size_t preferred_affinity_tasks;
-	heap_head_t deadline_tasks;
+	RB_HEAD(deadline_tree, nosv_task) deadline_tasks;
 	deadline_t now;
 	scheduler_queue_yield_t yield_tasks;
 	scheduler_queue_t *per_cpu_queue_strict;
@@ -72,6 +71,7 @@ typedef struct scheduler {
 	nosv_spinlock_t in_lock;
 	delegation_lock_t dtlock;
 	governor_t governor;
+	atomic_int deadline_purge;
 } scheduler_t;
 
 __internal void scheduler_init(int initialize);
@@ -82,5 +82,6 @@ __internal int scheduler_should_yield(int pid, int cpu, uint64_t *timestamp);
 __internal void scheduler_reset_accounting(int pid, int cpu);
 __internal void scheduler_submit(nosv_task_t task);
 __internal nosv_task_t scheduler_get(int cpu, nosv_flags_t flags, int *execution_count);
+__internal void scheduler_request_deadline_purge(void);
 
 #endif // SCHEDULER_H

@@ -239,6 +239,7 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	res->priority = 0;
 
 	res->deadline = 0;
+	atomic_init(&res->deadline_state, NOSV_DEADLINE_NONE);
 	res->yield = 0;
 	res->wakeup = NULL;
 	res->taskid = atomic_fetch_add_explicit(&taskid_counter, 1, memory_order_relaxed);
@@ -332,9 +333,10 @@ int nosv_submit(
 	const bool is_blocking = (flags & NOSV_SUBMIT_BLOCKING);
 	const bool is_immediate = (flags & NOSV_SUBMIT_IMMEDIATE) && nosv_config.sched_immediate_successor;
 	const bool is_inline = (flags & NOSV_SUBMIT_INLINE);
+	const bool is_dl_wake = (flags & NOSV_SUBMIT_DEADLINE_WAKE);
 
 	// These submit modes are mutually exclusive
-	if (unlikely(is_immediate + is_blocking + is_inline > 1))
+	if (unlikely(is_immediate + is_blocking + is_inline + is_dl_wake > 1))
 		return NOSV_ERR_INVALID_OPERATION;
 
 	if (is_blocking || is_inline) {
@@ -398,6 +400,10 @@ int nosv_submit(
 
 		// Restore old task
 		worker->task = old_task;
+	} else if (is_dl_wake) {
+		deadline_state_t state = atomic_exchange_explicit(&task->deadline_state, NOSV_DEADLINE_READY, memory_order_relaxed);
+		if (state == NOSV_DEADLINE_WAITING)
+			scheduler_request_deadline_purge();
 	} else {
 		count = atomic_fetch_sub_explicit(&task->blocking_count, 1, memory_order_relaxed) - 1;
 
@@ -503,11 +509,18 @@ int nosv_waitfor(
 	const uint64_t start_ns = clock_ns();
 	task->deadline = start_ns + target_ns;
 
-	// Submit the task to re-schedule when the deadline is done
-	scheduler_submit(task);
-
-	// Block until the deadline expires
-	worker_yield();
+	// Only sleep if the task has not been attempted to be woken up yet
+	deadline_state_t expected = NOSV_DEADLINE_NONE;
+	deadline_state_t desired = NOSV_DEADLINE_PENDING;
+	if (atomic_compare_exchange_strong_explicit(&task->deadline_state, &expected, desired, memory_order_relaxed, memory_order_relaxed)) {
+		// Submit the task to re-schedule when the deadline is done
+		scheduler_submit(task);
+		// Block until the deadline expires
+		worker_yield();
+	} else {
+		assert(expected == NOSV_DEADLINE_READY);
+	}
+	atomic_store_explicit(&task->deadline_state, NOSV_DEADLINE_NONE, memory_order_relaxed);
 
 	// Unblocked
 	task->deadline = 0;
