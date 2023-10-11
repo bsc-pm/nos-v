@@ -33,7 +33,6 @@ static const uint64_t control_flags_mask[] = {
 	[INSTR_BIT_MAX] 				= ~(0ULL)
 };
 
-// Keep the same order as the flags here
 static const char *control_flags[] = {
 	[INSTR_BIT_BASIC] 				= "basic",
 	[INSTR_BIT_WORKER] 				= "worker",
