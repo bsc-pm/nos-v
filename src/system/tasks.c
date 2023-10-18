@@ -804,6 +804,9 @@ int nosv_attach(
 	if (unlikely(type->run_callback || type->end_callback || type->completed_callback))
 		return NOSV_ERR_INVALID_CALLBACK;
 
+	if (unlikely(worker_current()))
+		return NOSV_ERR_INVALID_OPERATION;
+
 	instr_thread_attach();
 
 	nosv_worker_t *worker = worker_create_external();
