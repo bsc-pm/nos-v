@@ -1,10 +1,11 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
 */
 
 #include "test.h"
+#include "common/utils.h"
 
 #include <nosv.h>
 #include <stdio.h>
@@ -15,15 +16,15 @@
 static inline void exec_child_crash(void)
 {
 	// Initialize nOS-V and "crash"
-	nosv_init();
+	CHECK(nosv_init());
 	exit(0);
 }
 
 static inline void exec_child_nocrash(void)
 {
 	// Initialize and exit correctly
-	nosv_init();
-	nosv_shutdown();
+	CHECK(nosv_init());
+	CHECK(nosv_shutdown());
 	exit(0);
 }
 
