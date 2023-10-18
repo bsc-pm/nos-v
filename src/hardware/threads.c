@@ -265,6 +265,9 @@ static inline void *worker_start_routine(void *arg)
 	// Initialize hardware counters for the thread
 	hwcounters_thread_initialize(current_worker);
 
+	// Register thread in affinity support subsystem
+	affinity_support_register_worker(current_worker, 1);
+
 	// Set turbo settings if enabled
 	if (nosv_config.turbo_enabled)
 		arch_enable_turbo();
@@ -338,6 +341,8 @@ static inline void *worker_start_routine(void *arg)
 	instr_sched_fill();
 
 	assert(!worker_get_immediate());
+
+	affinity_support_unregister_worker(current_worker, 0);
 
 	// Before shutting down, we have to transfer our active CPU if we still have one
 	// We don't have one if we were woken up from the idle thread pool direcly

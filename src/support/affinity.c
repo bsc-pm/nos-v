@@ -24,6 +24,8 @@
 
 hash_table_t ht_tid;
 hash_table_t ht_pthread;
+cpu_set_t original_affinity;
+size_t original_affinity_size = sizeof(cpu_set_t);
 
 static int (*_next_sched_setaffinity)(pid_t, size_t, const cpu_set_t *);
 static int (*_next_sched_getaffinity)(pid_t, size_t, cpu_set_t *);
@@ -143,6 +145,9 @@ void affinity_support_init(void)
 
 	check_lokup_scope_order();
 
+	if (bypass_sched_getaffinity(0, original_affinity_size, &original_affinity))
+		nosv_abort("cannot read system affinity");
+
 	// Allocate the per-process tid and pid hash tables
 	ret = ht_init(&ht_tid, 256, 256);
 	assert(!ret);
@@ -150,11 +155,11 @@ void affinity_support_init(void)
 	assert(!ret);
 }
 
-void affinity_support_register_worker(nosv_worker_t *worker)
+void affinity_support_register_worker(nosv_worker_t *worker, char default_affinity)
 {
 	assert(worker);
 
-	worker->original_affinity_size = sizeof(cpu_set_t);
+	worker->original_affinity_size = original_affinity_size;
 	worker->original_affinity = malloc(worker->original_affinity_size);
 	assert(worker->original_affinity);
 
@@ -169,7 +174,11 @@ void affinity_support_register_worker(nosv_worker_t *worker)
 	nosv_spin_lock(&lock);
 	ht_insert(&ht_tid, (hash_key_t) tid, worker);
 	ht_insert(&ht_pthread, (hash_key_t) pthread, worker);
-	bypass_sched_getaffinity(0, worker->original_affinity_size, worker->original_affinity);
+	if (default_affinity) {
+		memcpy(worker->original_affinity, &original_affinity, original_affinity_size);
+	} else {
+		bypass_sched_getaffinity(0, worker->original_affinity_size, worker->original_affinity);
+	}
 	nosv_spin_unlock(&lock);
 }
 

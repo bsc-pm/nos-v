@@ -833,7 +833,7 @@ int nosv_attach(
 	atomic_fetch_sub_explicit(&t->blocking_count, 1, memory_order_relaxed);
 
 	// Register worker in the affinity support facility
-	affinity_support_register_worker(worker);
+	affinity_support_register_worker(worker, 0);
 
 	// Entry point - A task becomes ready
 	monitoring_task_changed_status(t, ready_status);
