@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2022-2023 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
@@ -10,6 +10,7 @@
 
 #include "test.h"
 #include "unit.h"
+#include "common/utils.h"
 #include "scheduler/dtlock.h"
 
 // Mock salloc/sfree
@@ -37,7 +38,7 @@ struct thread_arg_dtlock {
 
 static void initialize_dtlock_fixture(struct dtlock_test_fixture *fixture)
 {
-	fixture->cpus = test_get_cpus();
+	fixture->cpus = get_cpus();
 	dtlock_init(&fixture->dtlock, fixture->cpus * 2);
 	fixture->threads = (pthread_t *) malloc(sizeof(pthread_t) * fixture->cpus);
 	assert(fixture->threads);

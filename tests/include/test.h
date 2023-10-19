@@ -6,7 +6,6 @@
 
 #include <assert.h>
 #include <pthread.h>
-#include <sched.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -120,47 +119,4 @@ static inline void test_end(test_t *test)
 {
 	assert(test->ntests == test->expected);
 	pthread_spin_destroy(&test->lock);
-}
-
-static inline int test_get_cpus(void)
-{
-	cpu_set_t set;
-	sched_getaffinity(0, sizeof(set), &set);
-	return CPU_COUNT(&set);
-}
-
-static inline int *test_get_cpu_array(void)
-{
-	cpu_set_t set;
-	sched_getaffinity(0, sizeof(set), &set);
-	int cnt = CPU_COUNT(&set);
-	int *array = malloc(cnt * sizeof(int));
-	assert(array);
-
-	int i = 0;
-	int seen = 0;
-
-	while (seen < cnt) {
-			if (CPU_ISSET(i, &set))
-					array[seen++] = i;
-			++i;
-	}
-
-	assert(seen == cnt);
-
-	return array;
-}
-
-static inline int test_get_first_cpu(void)
-{
-	cpu_set_t set;
-	sched_getaffinity(0, sizeof(set), &set);
-
-	for (int c = 0; c < CPU_SETSIZE; ++c) {
-		if (CPU_ISSET(c, &set)) {
-			return c;
-		}
-	}
-
-	return -1;
 }

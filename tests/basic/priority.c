@@ -5,6 +5,7 @@
 */
 
 #include "test.h"
+#include "common/utils.h"
 
 #include <nosv.h>
 #include <nosv/affinity.h>
@@ -40,29 +41,27 @@ void task_comp(nosv_task_t task)
 int main() {
 	test_init(&test, (NTASKS * NTASKS_PER_PRIO) + 1);
 
-	nosv_init();
+	CHECK(nosv_init());
 
 	// Attach ourselves in CPU 0
 	nosv_task_type_t adopted_type;
-	int res = nosv_type_init(&adopted_type, NULL, NULL, NULL, NULL, NULL, NULL,  NOSV_TYPE_INIT_EXTERNAL);
-	assert(!res);
-	nosv_affinity_t single_cpu = nosv_affinity_get(test_get_first_cpu(), NOSV_AFFINITY_LEVEL_CPU, NOSV_AFFINITY_TYPE_STRICT);
+	CHECK(nosv_type_init(&adopted_type, NULL, NULL, NULL, NULL, NULL, NULL,  NOSV_TYPE_INIT_EXTERNAL));
+	nosv_affinity_t single_cpu = nosv_affinity_get(get_first_cpu(), NOSV_AFFINITY_LEVEL_CPU, NOSV_AFFINITY_TYPE_STRICT);
 	nosv_task_t task_attach;
-	res = nosv_attach(&task_attach, adopted_type, 0, &single_cpu, NOSV_ATTACH_NONE);
-	assert(!res);
+	CHECK(nosv_attach(&task_attach, adopted_type, 0, &single_cpu, NOSV_ATTACH_NONE));
 
 	// Inside CPU 0 in nOS-V
 	nosv_task_type_t task_type;
-	nosv_type_init(&task_type, task_run, NULL, task_comp, "task", NULL, NULL, NOSV_TYPE_INIT_NONE);
+	CHECK(nosv_type_init(&task_type, task_run, NULL, task_comp, "task", NULL, NULL, NOSV_TYPE_INIT_NONE));
 
 	// The submitted tasks will execute after we yield, since they also are on CPU 0
 	for (int t = 0; t < NTASKS; ++t) {
 		for (int p = 0; p < NTASKS_PER_PRIO; ++p) {
 			int idx = t * NTASKS_PER_PRIO + p;
-			nosv_create(&tasks[idx], task_type, 0, NOSV_CREATE_NONE);
+			CHECK(nosv_create(&tasks[idx], task_type, 0, NOSV_CREATE_NONE));
 			nosv_set_task_priority(tasks[idx], t+1);
 			nosv_set_task_affinity(tasks[idx], &single_cpu);
-			nosv_submit(tasks[idx], NOSV_SUBMIT_NONE);
+			CHECK(nosv_submit(tasks[idx], NOSV_SUBMIT_NONE));
 		}
 	}
 
@@ -72,20 +71,19 @@ int main() {
 	// otherwise the order is going to be wrong
 	usleep(10000);
 
-	nosv_yield(NOSV_YIELD_NONE);
+	CHECK(nosv_yield(NOSV_YIELD_NONE));
 
 	test_check(&test, atomic_load(&nr_completed_tasks) == (NTASKS * NTASKS_PER_PRIO), "Could run all tasks with priorities");
 
 	for (int t = 0; t < NTASKS * NTASKS_PER_PRIO; ++t)
-		nosv_destroy(tasks[t], NOSV_DESTROY_NONE);
+		CHECK(nosv_destroy(tasks[t], NOSV_DESTROY_NONE));
 
-	res = nosv_detach(NOSV_DETACH_NONE);
-	assert(!res);
+	CHECK(nosv_detach(NOSV_DETACH_NONE));
 
-	nosv_type_destroy(adopted_type, NOSV_TYPE_DESTROY_NONE);
-	nosv_type_destroy(task_type, NOSV_TYPE_DESTROY_NONE);
+	CHECK(nosv_type_destroy(adopted_type, NOSV_TYPE_DESTROY_NONE));
+	CHECK(nosv_type_destroy(task_type, NOSV_TYPE_DESTROY_NONE));
 
-	nosv_shutdown();
+	CHECK(nosv_shutdown());
 
 	return 0;
 }

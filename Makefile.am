@@ -127,6 +127,7 @@ noinst_HEADERS = \
 	src/include/scheduler/spsc.h \
 	src/include/system/tasks.h \
 	tests/common/tap.h \
+	tests/common/utils.h \
 	tests/include/test.h \
 	tests/include/unit.h
 

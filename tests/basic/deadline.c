@@ -1,10 +1,11 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
 */
 
 #include "test.h"
+#include "common/utils.h"
 
 #include <nosv.h>
 #include <nosv/affinity.h>
@@ -33,7 +34,7 @@ void task_run(nosv_task_t task)
 	const int id = (iteration++ % NTASKS);
 
 	uint64_t actual_ns = 0;
-	nosv_waitfor(time_ns * (id + 1), &actual_ns);
+	CHECK(nosv_waitfor(time_ns * (id + 1), &actual_ns));
 
 	// Allow a 10% deviation over the real time.
 	uint64_t expected = time_ns * (id + 1);
@@ -61,34 +62,34 @@ void task_comp(nosv_task_t task)
 int main() {
 	test_init(&test, NTASKS * 2);
 
-	nosv_init();
+	CHECK(nosv_init());
 
 	nosv_task_type_t task_type;
-	nosv_type_init(&task_type, task_run, NULL, task_comp, "task", NULL, NULL, NOSV_TYPE_INIT_NONE);
+	CHECK(nosv_type_init(&task_type, task_run, NULL, task_comp, "task", NULL, NULL, NOSV_TYPE_INIT_NONE));
 
 	for (int t = 0; t < NTASKS; ++t)
-		nosv_create(&tasks[t], task_type, 0, NOSV_CREATE_NONE);
+		CHECK(nosv_create(&tasks[t], task_type, 0, NOSV_CREATE_NONE));
 
 	// Parallel tests should be using the same CPU
-	int cpu = test_get_first_cpu();
+	int cpu = get_first_cpu();
 	assert(cpu >= 0);
 
 	nosv_affinity_t affinity = nosv_affinity_get(cpu, NOSV_AFFINITY_LEVEL_CPU, NOSV_AFFINITY_TYPE_STRICT);
 
 	for (int t = 0; t < NTASKS; ++t) {
 		nosv_set_task_affinity(tasks[t], &affinity);
-		nosv_submit(tasks[t], NOSV_SUBMIT_NONE);
+		CHECK(nosv_submit(tasks[t], NOSV_SUBMIT_NONE));
 	}
 
 	while (atomic_load(&nr_completed_tasks) != NTASKS)
 		usleep(1000);
 
 	for (int t = 0; t < NTASKS; ++t)
-		nosv_destroy(tasks[t], NOSV_DESTROY_NONE);
+		CHECK(nosv_destroy(tasks[t], NOSV_DESTROY_NONE));
 
-	nosv_type_destroy(task_type, NOSV_TYPE_DESTROY_NONE);
+	CHECK(nosv_type_destroy(task_type, NOSV_TYPE_DESTROY_NONE));
 
-	nosv_shutdown();
+	CHECK(nosv_shutdown());
 
 	return 0;
 }
