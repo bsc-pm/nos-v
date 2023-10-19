@@ -149,9 +149,9 @@ int main()
 	CHECK(nosv_type_init(&type, &run, NULL /* end */, &completed, NULL, NULL, NULL, NOSV_TYPE_INIT_NONE));
 
 	// Number of available CPUs
-	int cpus = test_get_cpus();
+	int cpus = get_cpus();
 	// Array containing all the system CPU ids
-	int *cpu_indexes = test_get_cpu_array();
+	int *cpu_indexes = get_cpu_array();
 
 	for (int i = 0; i < 100; ++i) {
 		CHECK(nosv_create(&task, type, sizeof(int), NOSV_CREATE_NONE));

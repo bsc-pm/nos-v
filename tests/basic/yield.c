@@ -72,7 +72,7 @@ int main() {
 		CHECK(nosv_create(&tasks[t], task_type, 0, NOSV_CREATE_NONE));
 
 	// Parallel tests should be using the same CPU
-	int cpu = test_get_first_cpu();
+	int cpu = get_first_cpu();
 	assert(cpu >= 0);
 
 	nosv_affinity_t affinity = nosv_affinity_get(cpu, NOSV_AFFINITY_LEVEL_CPU, NOSV_AFFINITY_TYPE_STRICT);
