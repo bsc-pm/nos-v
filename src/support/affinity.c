@@ -8,9 +8,9 @@
 #include <link.h>
 #include <pthread.h>
 #include <sched.h>
-#include <string.h>
-
 #include <stdio.h>
+#include <string.h>
+#include <gnu/libc-version.h>
 
 #include "common.h"
 #include "instr.h"
@@ -53,70 +53,105 @@ static nosv_spinlock_t lock = NOSV_SPINLOCK_INITIALIZER;
 		_next_ ## sym = (typeof(&sym)) load_next_symbol( #sym );            \
 	} while (0)
 
-
-// Adapted from libasan under llvm compiler-rt/lib/asan/asan_linux.cpp
-static int find_first_dso_name(struct dl_phdr_info *info, size_t size, void *data)
+static int cmp_lib_ver(const char *version1, const char *version2)
 {
-	const char **name = (const char **) data;
+    unsigned major1 = 0, minor1 = 0, bugfix1 = 0;
+    unsigned major2 = 0, minor2 = 0, bugfix2 = 0;
+    sscanf(version1, "%u.%u.%u", &major1, &minor1, &bugfix1);
+    sscanf(version2, "%u.%u.%u", &major2, &minor2, &bugfix2);
+    if (major1 < major2) return -1;
+    if (major1 > major2) return 1;
+    if (minor1 < minor2) return -1;
+    if (minor1 > minor2) return 1;
+    if (bugfix1 < bugfix2) return -1;
+    if (bugfix1 > bugfix2) return 1;
+    return 0;
+}
+
+struct lockup_scope_data {
+	const char *libbefore;
+	const char *libafter;
+	int cnt;
+#define LSD_STATUS_NONE 0
+#define LSD_STATUS_FOUND 1
+#define LSD_STATUS_REVERSED 2
+	char status;
+};
+
+static int do_check_lockup_scope_order(struct dl_phdr_info *info, size_t size, void *data)
+{
+	struct lockup_scope_data *lsc = (struct lockup_scope_data *) data;
 
 	// Ignore first entry (the main program)
-	if (!*name) {
-		*name = "";
+	if (!lsc->cnt++)
 		return 0;
+
+	if (strstr(info->dlpi_name, lsc->libafter)) {
+		// We have found "libafter" before "libbefore", abort
+		lsc->status = LSD_STATUS_REVERSED;
+		return 1;
+	} else if (strstr(info->dlpi_name, lsc->libbefore)) {
+		// We have found "libbefore" before "libafter", we are done!
+		lsc->status = LSD_STATUS_FOUND;
+		return 1;
 	}
 
-	// Ignore vDSO. glibc versions earlier than 2.15 (and some patched by
-	// distributions) return an empty name for the vDSO entry, so detect
-	// this as well
-	if (!info->dlpi_name[0] || !strncmp(info->dlpi_name, "linux-", 6))
-		return 0;
-
-	// it is ok for libasan to be first on the list
-	if (strstr(info->dlpi_name, "libasan.so"))
-		return 0;
-
-	// some systems force libsnoop to be loaded by default into all apps
-	if (strstr(info->dlpi_name, "libsnoopy.so"))
-		return 0;
-
-	*name = info->dlpi_name;
-	return 1;
+	// Continue searching
+	return 0;
 }
 
 static void check_lokup_scope_order(void)
 {
 	Dl_info info;
-	const char *first_dso_name = NULL;
+	const char *glibc_version;
+	struct lockup_scope_data lsc = {NULL, NULL, 0, LSD_STATUS_NONE};
 
-	// This function ensures that libnosv.so appears first in the shared
-	// library loockup scope. This is needed for the interposed nosv symbols
-	// to work correctly.
+	// This function ensures that libnosv.so appears before the libc or
+	// libpthread in the shared library loockup scope. This is needed for
+	// the interposed nosv symbols to work correctly.
 
-	// Find the first valid dso name in the loockup scope
-	dl_iterate_phdr(find_first_dso_name, &first_dso_name);
-
-	// If nosv is part of a static binary, we have nothing else to do here.
-	// Static executables should still return two entries for dl_iterate_phdr
-	// one for the main executable and another for linux-vdso.so. Therefore
-	// first_dso_name should be set to "". However, just in case, we check
-	// the null pointer case.
-	if (!first_dso_name || !first_dso_name[0])
-		return;
-
-	// Next, we need to know the name of the shared library where nosv is
+	// First, we need to know the name of the shared library where nosv is
 	// found. Usually this will be "libnosv.so", however, it might have
-	// another name if nosv was statically linked to another shared library.
+	// another name if nosv was statically linked into another shared library.
 	// In this case, we need to find the shared object name.
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic" // ignore the warning "ISO C forbids conversion of object pointer to function pointer type"
 #pragma GCC diagnostic push
-	if (!dladdr((void *)find_first_dso_name, &info))
+	if (!dladdr((void *)do_check_lockup_scope_order, &info))
 		nosv_abort("error in dladdr while trying to find the shared library name where nOS-V is found");
 #pragma GCC diagnostic pop
+	lsc.libbefore = info.dli_fname;
 
-	if (!strstr(first_dso_name, info.dli_fname))
-		nosv_abort("nOS-V runtime does not come first in initial library list; you should either link runtime to your application or manually preload it with LD_PRELOAD. The first dso found is: %s", first_dso_name);
+	// Second, we need to find out this system glibc version. Before glibc
+	// 2.34, pthread functions lived in libpthread.so. From this release
+	// onwards, pthreads functions were moved into glibc. Depending on the
+	// glibc version, we need to check if libpthread appears after libnosv
+	// or if glibc appears after libnosv.
+	glibc_version = gnu_get_libc_version();
+	lsc.libafter = cmp_lib_ver(glibc_version, "2.34") >= 0 ? "/libc.so" : "/libpthread.so";
+
+	// Third, we check the library order by iterating over the lockup scope
+	dl_iterate_phdr(do_check_lockup_scope_order, &lsc);
+
+	// Finally, we check the order result
+	if (lsc.status == LSD_STATUS_REVERSED) {
+		// We found the library containing the system symbols before
+		// nosv, abort.
+		nosv_abort("nOS-V runtime does not come before %s in initial library list; you should either link the runtime to your application or manually preload it with LD_PRELOAD.", lsc.libafter);
+	} else if (lsc.status == LSD_STATUS_NONE) {
+		// Neither "libbefore" nor "libafter" were found. If that is an
+		// static binary, we should have no conflicts because the libc
+		// symbols are weak. Static executables should still return two
+		// entries for dl_iterate_phdr one for the main executable and
+		// another for linux-vdso.so.
+		if (lsc.cnt != 2)
+			nosv_abort("Error while searching for %s and %s in the lockup scope order", lsc.libafter, lsc.libbefore);
+	} else {
+		assert (lsc.status == LSD_STATUS_FOUND);
+	}
+}
+
 static void affinity_support_init_once(void)
 {
 	check_lokup_scope_order();
