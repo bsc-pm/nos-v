@@ -26,6 +26,7 @@ hash_table_t ht_tid;
 hash_table_t ht_pthread;
 cpu_set_t original_affinity;
 size_t original_affinity_size = sizeof(cpu_set_t);
+pthread_once_t once_control = PTHREAD_ONCE_INIT;
 
 static int (*_next_sched_setaffinity)(pid_t, size_t, const cpu_set_t *);
 static int (*_next_sched_getaffinity)(pid_t, size_t, cpu_set_t *);
@@ -48,7 +49,7 @@ static nosv_spinlock_t lock = NOSV_SPINLOCK_INITIALIZER;
 })
 
 #define AUTO_LOAD_SYMBOL(sym) do {                                          \
-	if (unlikely(!_next_ ## sym))                                           \
+		assert(!_next_ ## sym);                                             \
 		_next_ ## sym = (typeof(&sym)) load_next_symbol( #sym );            \
 	} while (0)
 
@@ -116,6 +117,19 @@ static void check_lokup_scope_order(void)
 
 	if (!strstr(first_dso_name, info.dli_fname))
 		nosv_abort("nOS-V runtime does not come first in initial library list; you should either link runtime to your application or manually preload it with LD_PRELOAD. The first dso found is: %s", first_dso_name);
+static void affinity_support_init_once(void)
+{
+	check_lokup_scope_order();
+	// Load the next symbol (in library load order) of the following symbols
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic" // ignore the warning "ISO C forbids conversion of object pointer to function pointer type"
+#pragma GCC diagnostic push
+	AUTO_LOAD_SYMBOL(pthread_create);
+	AUTO_LOAD_SYMBOL(sched_setaffinity);
+	AUTO_LOAD_SYMBOL(sched_getaffinity);
+	AUTO_LOAD_SYMBOL(pthread_setaffinity_np);
+	AUTO_LOAD_SYMBOL(pthread_getaffinity_np);
+#pragma GCC diagnostic pop
 }
 
 void affinity_support_init(void)
@@ -129,21 +143,10 @@ void affinity_support_init(void)
 	// when they are called or here, once we have a chance to initialize
 	// this subsystem.
 
-	// Load the next symbol (in library load order) of the following symbols
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic" // ignore the warning "ISO C forbids conversion of object pointer to function pointer type"
-#pragma GCC diagnostic push
-	AUTO_LOAD_SYMBOL(pthread_create);
-	AUTO_LOAD_SYMBOL(sched_setaffinity);
-	AUTO_LOAD_SYMBOL(sched_getaffinity);
-	AUTO_LOAD_SYMBOL(pthread_setaffinity_np);
-	AUTO_LOAD_SYMBOL(pthread_getaffinity_np);
-#pragma GCC diagnostic pop
+	pthread_once(&once_control, affinity_support_init_once);
 
 	if (!nosv_config.affinity_compat_support)
 		return;
-
-	check_lokup_scope_order();
 
 	if (bypass_sched_getaffinity(0, original_affinity_size, &original_affinity))
 		nosv_abort("cannot read system affinity");
@@ -487,19 +490,19 @@ int bypass_pthread_create(
 	void *(*start_routine)(void *),
 	void *restrict arg
 ) {
-	AUTO_LOAD_SYMBOL(pthread_create);
+	pthread_once(&once_control, affinity_support_init_once);
 	return _next_pthread_create(thread, attr, start_routine, arg);
 }
 
 int bypass_sched_setaffinity(pid_t pid, size_t cpusetsize, const cpu_set_t *mask)
 {
-	AUTO_LOAD_SYMBOL(sched_setaffinity);
+	pthread_once(&once_control, affinity_support_init_once);
 	return _next_sched_setaffinity(pid, cpusetsize, mask);
 }
 
 int bypass_sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask)
 {
-	AUTO_LOAD_SYMBOL(sched_getaffinity);
+	pthread_once(&once_control, affinity_support_init_once);
 	return _next_sched_getaffinity(pid, cpusetsize, mask);
 }
 
@@ -508,7 +511,7 @@ int bypass_pthread_setaffinity_np(
 	size_t cpusetsize,
 	const cpu_set_t *cpuset
 ) {
-	AUTO_LOAD_SYMBOL(pthread_setaffinity_np);
+	pthread_once(&once_control, affinity_support_init_once);
 	return _next_pthread_setaffinity_np(thread, cpusetsize, cpuset);
 }
 
@@ -517,6 +520,6 @@ int bypass_pthread_getaffinity_np(
 	size_t cpusetsize,
 	cpu_set_t *cpuset
 ) {
-	AUTO_LOAD_SYMBOL(pthread_getaffinity_np);
+	pthread_once(&once_control, affinity_support_init_once);
 	return _next_pthread_getaffinity_np(thread, cpusetsize, cpuset);
 }
