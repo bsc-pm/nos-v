@@ -97,6 +97,11 @@
 	# core that belongs to that NUMA Node. Use the system ids for the cores. Consider the following example
 	# in a system with 2 NUMA Nodes, each one with 4 cores:
 	# numa_nodes = [[0, 1, 2, 3], [4, 5, 6, 7]]
+	# Enable affinity compatibility support. An attached thread affinity is changed by nosv. Enabling this
+	# option makes standard {sched,pthread}_{get,set}affinity calls return the affinity the thread had before
+	# attach, as if it was not attached. This is useful for libraries that read the thread affinity to setup
+	# startup resources, such as OpenMP or MPI threads.
+	compat_support = true
 
 
 # Debug options

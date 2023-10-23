@@ -17,9 +17,9 @@ lib_age = 0
 lib_major = $(shell expr $(lib_current) - $(lib_age))
 lib_suffix = $(lib_major).$(lib_age).$(lib_revision)
 
-libnosv_la_CPPFLAGS=$(AM_CPPFLAGS) $(libnuma_CPPFLAGS) $(ovni_CPPFLAGS) -DINSTALLED_CONFIG_DIR=\"$(datadir)\" $(asan_CPPFLAGS)
+libnosv_la_CPPFLAGS=$(AM_CPPFLAGS) $(nosv_CPPFLAGS) $(libnuma_CPPFLAGS) $(pthreadnp_CPPFLAGS)  $(ovni_CPPFLAGS) -DINSTALLED_CONFIG_DIR=\"$(datadir)\" $(asan_CPPFLAGS)
 libnosv_la_CFLAGS=$(PTHREAD_CFLAGS) $(nosv_CFLAGS) $(asan_CFLAGS)
-libnosv_la_LDFLAGS=$(PTHREAD_CFLAGS) $(PTHREAD_LIBS) $(libnuma_LIBS) $(ovni_LIBS) $(shm_LIBS) $(asan_LDFLAGS) -lm
+libnosv_la_LDFLAGS=$(PTHREAD_CFLAGS) $(PTHREAD_LIBS) $(libnuma_LIBS) $(ovni_LIBS) $(shm_LIBS) $(asan_LDFLAGS) -lm -ldl
 
 # Hardware counters
 if HAVE_PAPI
@@ -55,6 +55,7 @@ libnosv_la_SOURCES = \
 	src/monitoring/monitoring.c \
 	src/scheduler/governor.c \
 	src/scheduler/scheduler.c \
+	src/support/affinity.c \
 	src/system/tasks.c
 
 if HAVE_PAPI
@@ -90,6 +91,8 @@ noinst_HEADERS = \
 	src/include/generic/condvar.h \
 	src/include/generic/futex.h \
 	src/include/generic/heap.h \
+	src/include/generic/hashfunction.h \
+	src/include/generic/hashtable.h \
 	src/include/generic/list.h \
 	src/include/generic/mutex.h \
 	src/include/generic/proc.h \
@@ -125,6 +128,7 @@ noinst_HEADERS = \
 	src/include/scheduler/mpsc.h \
 	src/include/scheduler/scheduler.h \
 	src/include/scheduler/spsc.h \
+	src/include/support/affinity.h \
 	src/include/system/tasks.h \
 	tests/common/tap.h \
 	tests/common/utils.h \

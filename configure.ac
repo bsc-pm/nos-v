@@ -75,6 +75,10 @@ AC_CHECK_HEADERS([stdlib.h unistd.h])
 AC_CHECK_LIB([rt], [shm_open], [shm_LIBS="${shm_LIBS} -lrt"], [AC_MSG_ERROR([shm functions not found])])
 AC_SUBST(shm_LIBS)
 
+# Check for non-portable pthread functions
+AC_CHECK_FUNCS([pthread_getattr_default_np],[pthreadnp_CPPFLAGS="${pthreadnp_CPPFLAGS} -DHAVE_pthread_getattr_default_np"],[])
+AC_SUBST(pthreadnp_CPPFLAGS)
+
 # Checks for typedefs, structures, and compiler characteristics.
 AC_CHECK_HEADER_STDBOOL
 AC_TYPE_SIZE_T
@@ -87,7 +91,7 @@ _AS_ECHO([])
 _AS_ECHO([])
 _AS_ECHO([Configuration summary:])
 _AS_ECHO([   Compiler version... ${CC_VERSION}])
-_AS_ECHO([   Compiler CPPFLAGS... ${nosv_CPPFLAGS} ${asan_CPPFLAGS} ${CPPFLAGS}])
+_AS_ECHO([   Compiler CPPFLAGS... ${nosv_CPPFLAGS} ${asan_CPPFLAGS} ${pthreadnp_CPPFLAGS} ${CPPFLAGS}])
 _AS_ECHO([   Compiler CFLAGS... ${nosv_CFLAGS} ${asan_CFLAGS} ${CFLAGS}])
 
 _AS_ECHO([])

@@ -21,6 +21,7 @@
 #include "memory/sharedmemory.h"
 #include "memory/slab.h"
 #include "scheduler/scheduler.h"
+#include "support/affinity.h"
 #include "system/tasks.h"
 
 __internal thread_local nosv_worker_t *current_worker = NULL;
@@ -82,7 +83,7 @@ static inline void common_pthread_create(
 			nosv_abort("Could not set thread affinity correctly during creation");
 	}
 
-	ret = pthread_create(thread, &attr, start_routine, arg);
+	ret = bypass_pthread_create(thread, &attr, start_routine, arg);
 	if (unlikely(ret))
 		nosv_abort("Cannot create pthread");
 
@@ -120,14 +121,14 @@ static inline void worker_wake_internal(nosv_worker_t *worker, cpu_t *cpu)
 		// is going to wake up now, bind it remotely now
 		if (worker->cpu != cpu) {
 			instr_affinity_remote(cpu->logic_id, worker->tid);
-			if (unlikely(sched_setaffinity(worker->tid, sizeof(cpu->cpuset), &cpu->cpuset)))
+			if (unlikely(bypass_sched_setaffinity(worker->tid, sizeof(cpu->cpuset), &cpu->cpuset)))
 				nosv_abort("Cannot change thread affinity");
 		}
 	} else {
 		// We're waking up a thread without a CPU, which may happen on nOS-V shutdown
 		// Reset its affinity to the original CPU mask
 		instr_affinity_remote(-1, worker->tid);
-		if (unlikely(sched_setaffinity(worker->tid, sizeof(cpumanager->all_cpu_set), &cpumanager->all_cpu_set)))
+		if (unlikely(bypass_sched_setaffinity(worker->tid, sizeof(cpumanager->all_cpu_set), &cpumanager->all_cpu_set)))
 			nosv_abort("Cannot change thread affinity");
 	}
 
@@ -264,6 +265,9 @@ static inline void *worker_start_routine(void *arg)
 	// Initialize hardware counters for the thread
 	hwcounters_thread_initialize(current_worker);
 
+	// Register thread in affinity support subsystem
+	affinity_support_register_worker(current_worker, 1);
+
 	// Set turbo settings if enabled
 	if (nosv_config.turbo_enabled)
 		arch_enable_turbo();
@@ -337,6 +341,8 @@ static inline void *worker_start_routine(void *arg)
 	instr_sched_fill();
 
 	assert(!worker_get_immediate());
+
+	affinity_support_unregister_worker(current_worker, 0);
 
 	// Before shutting down, we have to transfer our active CPU if we still have one
 	// We don't have one if we were woken up from the idle thread pool direcly
@@ -525,7 +531,8 @@ nosv_worker_t *worker_create_external(void)
 	worker->immediate_successor = NULL;
 	worker->creator_tid = -1;
 	worker->in_task_body = 1;
-	sched_getaffinity(0, sizeof(worker->original_affinity), &worker->original_affinity);
+	worker->original_affinity = NULL;
+	worker->original_affinity_size = 0;
 	worker->task_stack = NULL;
 
 	instr_kernel_init(&kinstr);
@@ -543,13 +550,13 @@ nosv_worker_t *worker_create_external(void)
 void worker_free_external(nosv_worker_t *worker)
 {
 	assert(worker);
+	assert(worker == current_worker);
 
 	// Initialize hardware counters for the thread
 	hwcounters_thread_shutdown(worker);
 
 	nosv_condvar_destroy(&worker->condvar);
 	sfree(worker, sizeof(nosv_worker_t), cpu_get_current());
-	assert(worker == current_worker);
 
 	current_worker = NULL;
 }

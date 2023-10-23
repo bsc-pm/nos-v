@@ -9,11 +9,14 @@
 
 #include <nosv.h>
 #include <sched.h>
+#include <stdlib.h>
 
 int main() {
 	test_t test;
 
 	test_init(&test, 3);
+
+	putenv("NOSV_CONFIG_OVERRIDE=affinity.compat_support=false");
 
 	CHECK(nosv_init());
 

@@ -14,6 +14,7 @@
 #include "monitoring/monitoring.h"
 #include "nosv-internal.h"
 #include "scheduler/scheduler.h"
+#include "support/affinity.h"
 #include "system/tasks.h"
 
 #include <stdbool.h>
@@ -831,6 +832,9 @@ int nosv_attach(
 
 	atomic_fetch_sub_explicit(&t->blocking_count, 1, memory_order_relaxed);
 
+	// Register worker in the affinity support facility
+	affinity_support_register_worker(worker, 0);
+
 	// Entry point - A task becomes ready
 	monitoring_task_changed_status(t, ready_status);
 
@@ -881,18 +885,7 @@ int nosv_detach(
 	// thread.
 	instr_thread_cool();
 
-	// Restore the worker's affinity to its original value
-	// Optionally deactivated with the NOSV_DETACH_NO_RESTORE_AFFINITY flag
-	if (!(flags & NOSV_DETACH_NO_RESTORE_AFFINITY)) {
-		if (CPU_COUNT(&worker->original_affinity) == 1) {
-			int cpu = CPU_FIRST(&worker->original_affinity);
-			assert(cpu != -1);
-			instr_affinity_set(cpu);
-		} else {
-			instr_affinity_set(-1);
-		}
-		sched_setaffinity(0, sizeof(worker->original_affinity), &worker->original_affinity);
-	}
+	affinity_support_unregister_worker(worker, !(flags & NOSV_DETACH_NO_RESTORE_AFFINITY));
 
 	// Now free the worker
 	// We have to free before waking up another worker on the current CPU

@@ -15,10 +15,9 @@
 #define NTASKS 400
 
 atomic_int nr_completed_tasks;
-
+test_t test;
 nosv_task_t tasks[NTASKS];
 
-test_t test;
 
 void task_run(nosv_task_t task)
 {
@@ -64,6 +63,7 @@ int main()
 
 
 	// TEST1: Wake a task even before it has been scheduled
+	atomic_init(&nr_completed_tasks, 0);
 	CHECK(nosv_create(&tasks[0], task_type, 0, NOSV_CREATE_NONE));
 	clock_gettime(CLOCK_MONOTONIC, &start);
 	CHECK(nosv_submit(tasks[0], NOSV_SUBMIT_DEADLINE_WAKE));
@@ -74,8 +74,8 @@ int main()
 	}
 	CHECK(nosv_destroy(tasks[0], NOSV_DESTROY_NONE));
 
-
 	// TEST2: Wake a task after it is waiting in the red-black tree
+	atomic_init(&nr_completed_tasks, 0);
 	CHECK(nosv_create(&tasks[0], task_type, 0, NOSV_CREATE_NONE));
 	CHECK(nosv_submit(tasks[0], NOSV_SUBMIT_NONE));
 	usleep(200000);
@@ -87,26 +87,23 @@ int main()
 	}
 	CHECK(nosv_destroy(tasks[0], NOSV_DESTROY_NONE));
 
-
 	// TEST3: Wake tasks at random points of its life cycle
-	nr_completed_tasks = 0;
-
-	for (int t = 0; t < NTASKS; ++t)
+	atomic_init(&nr_completed_tasks, 0);
+	for (int t = 0; t < NTASKS; t++)
 		CHECK(nosv_create(&tasks[t], task_type, 0, NOSV_CREATE_NONE));
 	clock_gettime(CLOCK_MONOTONIC, &start);
-	for (int t = 0; t < NTASKS; ++t)
+	for (int t = 0; t < NTASKS; t++)
 		CHECK(nosv_submit(tasks[t], NOSV_SUBMIT_NONE));
-	for (int t = 0; t < NTASKS; ++t)
+	for (int t = 0; t < NTASKS; t++)
 		CHECK(nosv_submit(tasks[t], NOSV_SUBMIT_DEADLINE_WAKE));
 	if (wait_for_tasks(NTASKS, 5, start.tv_sec)) {
 		test_check(&test, 0, "Waiting for waitfor tasks that were awoken after they were scheduled");
 		return 1;
 	}
-
+	for (int t = 0; t < NTASKS; t++)
+		CHECK(nosv_destroy(tasks[t], NOSV_DESTROY_NONE));
 
 	// Cleanup
-	for (int t = 0; t < NTASKS; ++t)
-		CHECK(nosv_destroy(tasks[t], NOSV_DESTROY_NONE));
 	CHECK(nosv_type_destroy(task_type, NOSV_TYPE_DESTROY_NONE));
 	CHECK(nosv_shutdown());
 

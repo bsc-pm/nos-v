@@ -59,6 +59,25 @@ The configure script accepts several options:
 1. `--with-papi`: Enable PAPI counters and specify the PAPI library installation prefix
 1. `--with-libnuma`: Specify the numactl library installation prefix
 
+### Execution requirements
+
+nOS-V must come first in the Lookup Scope of the executable. This is needed because nOS-V provides a number of interceptor functions. To do so, if you link nOS-V directly to your executable, link nOS-V before any other shared library. If linking nOS-V in a shared library, you will either need to link nOS-V again in your main executable or preload nOS-V using the `LD_PRELOAD` environment variable.
+
+Link-time example:
+
+```sh
+### wrong
+$ gcc main.c -lmylib -lnosv
+### correct
+$ gcc main.c -lnosv -lmylib
+```
+
+Run-time example:
+
+```sh
+$ LD_PRELOAD=<nosv_install_path>/lib/libnosv.so ./main
+```
+
 ## Usage and documentation
 
 The user documentation for nOS-V can be found [here](docs/index.md)

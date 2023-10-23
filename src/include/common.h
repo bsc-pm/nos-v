@@ -50,6 +50,9 @@ static inline size_t next_power_of_two(uint64_t n)
 
 #define round_up_div(x, y) (((x) + (y) - 1) / (y))
 
+#define min(a, b) ((a) < (b) ? (a) : (b))
+#define max(a, b) ((a) > (b) ? (a) : (b))
+
 // Like sprintf but allocate space automatically for the formatted string
 // Prevent using the asprintf GNU extension and use this instead
 static inline int nosv_asprintf(char **restrict output, const char *restrict format, ...) {

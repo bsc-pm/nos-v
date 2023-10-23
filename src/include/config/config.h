@@ -53,6 +53,7 @@ typedef struct rt_config {
 	// Affinity
 	const char *affinity_default;
 	const char *affinity_default_policy;
+	int affinity_compat_support;
 	generic_array_t affinity_numa_nodes;
 
 	// Scheduler

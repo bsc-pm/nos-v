@@ -65,6 +65,7 @@ static inline void config_init(rt_config_t *config)
 	config->cpumanager_binding = strdup(CPUMANAGER_BINDING);
 	config->affinity_default = strdup(AFFINITY_DEFAULT);
 	config->affinity_default_policy = strdup(AFFINITY_DEFAULT_POLICY);
+	config->affinity_compat_support = AFFINITY_COMPAT_SUPPORT;
 	config->affinity_numa_nodes.n = 0;
 
 	config->debug_dump_config = 0;

@@ -68,8 +68,10 @@ typedef struct nosv_worker {
 	pid_t creator_tid;
 	// Logic process ID of this thread
 	int logic_pid;
-	// Original CPU Set (used for external workers)
-	cpu_set_t original_affinity;
+	// Original CPU Set. Allocated with per-process memory
+	cpu_set_t *original_affinity;
+	// Original CPU Set size
+	size_t original_affinity_size;
 	// Worker is in task body
 	int in_task_body;
 	// The hardware counters of the thread
