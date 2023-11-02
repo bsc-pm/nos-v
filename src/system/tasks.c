@@ -355,6 +355,11 @@ int nosv_submit(
 		return NOSV_ERR_INVALID_OPERATION;
 	}
 
+	// Parallel tasks cannot block
+	if (is_dl_wake && task_is_parallel(task)) {
+		return NOSV_ERR_INVALID_OPERATION;
+	}
+
 	// If we're in a task context, update task counters now since we don't want
 	// the creation to be added to the counters of the task
 	nosv_task_t current_task = worker_current_task();
