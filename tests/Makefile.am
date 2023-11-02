@@ -11,7 +11,7 @@ unit_CFLAGS = -D_GNU_SOURCE -I$(top_srcdir)/tests/include $(PTHREAD_CFLAGS) -I$(
 unit_LIBS = -lrt $(PTHREAD_LIBS)
 unit_SOURCES = unit/main.c
 
-a_tests = basic-error-code.test \
+basic_tests = basic-error-code.test \
 	basic-init.test \
 	basic-init-multicall.test \
 	basic-init-procs.test \
@@ -30,12 +30,15 @@ a_tests = basic-error-code.test \
 	basic-parallel-cancel.test \
 	basic-parallel-init.test
 
+regression_tests = regression-attach-is.test \
+	regression-parallel-tasks-submission.test
+
 unit_tests = unit-dtlock.test \
 	unit-ring-buffer.test \
 	unit-heap.test
 
-check_PROGRAMS = driver $(a_tests) $(unit_tests)
-TESTS = $(a_tests) $(unit_tests)
+check_PROGRAMS = driver $(basic_tests) $(regression_tests) $(unit_tests)
+TESTS = $(basic_tests) $(regression_tests) $(unit_tests)
 
 basic_error_code_test_SOURCES = basic/error-code.c
 basic_error_code_test_CFLAGS = $(AM_CFLAGS)
@@ -108,6 +111,14 @@ basic_parallel_cancel_test_LDFLAGS = $(AM_LDFLAGS)
 basic_parallel_init_test_SOURCES = basic/parallel-init.c
 basic_parallel_init_test_CFLAGS = $(AM_CFLAGS)
 basic_parallel_init_test_LDFLAGS = $(AM_LDFLAGS)
+
+regression_attach_is_test_SOURCES = regression/attach-is.c
+regression_attach_is_test_CFLAGS = $(AM_CFLAGS)
+regression_attach_is_test_LDFLAGS = $(AM_LDFLAGS)
+
+regression_parallel_tasks_submission_test_SOURCES = regression/parallel-tasks-submission.c
+regression_parallel_tasks_submission_test_CFLAGS = $(AM_CFLAGS)
+regression_parallel_tasks_submission_test_LDFLAGS = $(AM_LDFLAGS)
 
 unit_dtlock_test_SOURCES = unit/test-dtlock.c $(unit_SOURCES)
 unit_dtlock_test_CFLAGS = $(unit_CFLAGS)
