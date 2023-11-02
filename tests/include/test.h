@@ -115,6 +115,37 @@ static inline void test_check(test_t *test, int check, const char *fmt, ...)
 	pthread_spin_unlock(&test->lock);
 }
 
+// Check with a timeout in ms
+// Note that condition _will_ be evaluated multiple times in doubling
+// amounts of ms waits
+#define test_check_timeout(test, condition, timeout, fmt, ...) __extension__({ \
+	int _local_timeout = ((int) timeout);                                      \
+	int _increment = 1;                                                        \
+	assert(_local_timeout > 0);                                                \
+	while (_local_timeout > 0 && !(condition)) {                               \
+		usleep(_increment * 1000);                                             \
+		_local_timeout -= _increment;                                          \
+		_increment *= 2;                                                       \
+		if (_increment > _local_timeout)                                       \
+			_increment = _local_timeout;                                       \
+	}                                                                          \
+	test_check((test), (condition), (fmt), ##__VA_ARGS__);                     \
+})
+
+#define test_check_waitfor(test, condition, timeout, fmt, ...) __extension__({ \
+	int64_t _local_timeout = ((int64_t) timeout);                              \
+	int64_t _increment = 1;                                                    \
+	assert(_local_timeout > 0);                                                \
+	while (_local_timeout > 0 && !(condition)) {                               \
+		nosv_waitfor(_increment * 1000LL * 1000LL, NULL);                      \
+		_local_timeout -= _increment;                                          \
+		_increment *= 2;                                                       \
+		if (_increment > _local_timeout)                                       \
+			_increment = _local_timeout;                                       \
+	}                                                                          \
+	test_check((test), (condition), (fmt), ##__VA_ARGS__);                     \
+})
+
 static inline void test_end(test_t *test)
 {
 	assert(test->ntests == test->expected);
