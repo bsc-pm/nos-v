@@ -53,17 +53,16 @@ int main() {
 	CHECK(nosv_create(&task, task_type, 0, NOSV_CREATE_NONE));
 	int degree = nosv_get_num_cpus();
 	nosv_set_task_degree(task, degree);
-	CHECK(nosv_submit(task, NOSV_SUBMIT_IMMEDIATE));
+	CHECK(nosv_submit(task, NOSV_SUBMIT_NONE));
 	CHECK(nosv_detach(NOSV_DETACH_NONE));
 
 	// Detaching before the timeout wait allows this to happen in parallel to nOS-V working on the other CPUs
-	test_check_timeout(&test, atomic_load(&comp) == 1, 10000, "Tasks are completed");
+	test_check_timeout(&test, atomic_load(&comp) == 1, 2000, "Tasks are completed");
 
 	// Calculate sum of execution ids based on the degree, take into account they begin on 0.
 	int expected_sum_of_execution_id = ((degree - 1) * degree) / 2;
-	test_check(&test, atomic_load(&run_value) == expected_sum_of_execution_id, "Execution ids were correct");
+	test_check_timeout(&test, atomic_load(&run_value) == expected_sum_of_execution_id, 2000, "Execution ids were correct");
 
-	CHECK(nosv_destroy(task, NOSV_DESTROY_NONE));
 	CHECK(nosv_type_destroy(attach_type, NOSV_TYPE_DESTROY_NONE));
 	CHECK(nosv_type_destroy(task_type, NOSV_TYPE_DESTROY_NONE));
 

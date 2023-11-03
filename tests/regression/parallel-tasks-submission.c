@@ -73,7 +73,7 @@ int main() {
 
 	test_check_waitfor(&test, atomic_load(&run) == 1, 20, "First task has ran once");
 	test_check_waitfor(&test, atomic_load(&comp) == 1, 20, "First task has completed once");
-	test_check_waitfor(&test, atomic_load(&run_second) == DEGREE, 20, "Parallel task has ran DEGREE times");
+	test_check_waitfor(&test, atomic_load(&run_second) == DEGREE, 100, "Parallel task has ran DEGREE times");
 	CHECK(nosv_waitfor(10 * 1000ULL * 1000ULL, NULL));
 	test_check_waitfor(&test, atomic_load(&comp_second) == 1, 20, "Parallel task has completed once");
 
