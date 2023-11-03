@@ -28,26 +28,66 @@
 #include "nosv-internal.h"
 
 #ifdef ENABLE_INSTRUMENTATION
-__internal extern int instr_ovni_enabled;
+__internal extern uint64_t instr_ovni_control;
 
-#define CHECK_INSTR_ENABLED 			\
-	if (!instr_ovni_enabled)     \
+enum instr_bit {
+	INSTR_BIT_BASIC = 0,
+	INSTR_BIT_WORKER,
+	INSTR_BIT_SCHEDULER,
+	INSTR_BIT_SCHEDULER_SUBMIT,
+	INSTR_BIT_MEMORY,
+	INSTR_BIT_API_SUBMIT,
+	INSTR_BIT_API_PAUSE,
+	INSTR_BIT_API_YIELD,
+	INSTR_BIT_API_WAITFOR,
+	INSTR_BIT_API_SCHEDPOINT,
+	INSTR_BIT_TASK,
+	INSTR_BIT_KERNEL,
+	INSTR_BIT_MAX,
+};
+
+#define BIT(n) (1ULL<<(n))
+
+#define INSTR_FLAG_BASIC				BIT(INSTR_BIT_BASIC)
+#define INSTR_FLAG_WORKER				BIT(INSTR_BIT_WORKER)
+#define INSTR_FLAG_SCHEDULER			BIT(INSTR_BIT_SCHEDULER)
+#define INSTR_FLAG_SCHEDULER_SUBMIT		BIT(INSTR_BIT_SCHEDULER_SUBMIT)
+#define INSTR_FLAG_MEMORY				BIT(INSTR_BIT_MEMORY)
+#define INSTR_FLAG_API_SUBMIT			BIT(INSTR_BIT_API_SUBMIT)
+#define INSTR_FLAG_API_PAUSE			BIT(INSTR_BIT_API_PAUSE)
+#define INSTR_FLAG_API_YIELD			BIT(INSTR_BIT_API_YIELD)
+#define INSTR_FLAG_API_WAITFOR			BIT(INSTR_BIT_API_WAITFOR)
+#define INSTR_FLAG_API_SCHEDPOINT		BIT(INSTR_BIT_API_SCHEDPOINT)
+#define INSTR_FLAG_TASK					BIT(INSTR_BIT_TASK)
+#define INSTR_FLAG_KERNEL				BIT(INSTR_BIT_KERNEL)
+
+#define INSTR_LEVEL_0 (INSTR_FLAG_BASIC)
+#define INSTR_LEVEL_1 (INSTR_LEVEL_0 | INSTR_FLAG_WORKER | INSTR_FLAG_TASK)
+#define INSTR_LEVEL_2 (INSTR_LEVEL_1 | INSTR_FLAG_SCHEDULER | INSTR_FLAG_SCHEDULER_SUBMIT)
+#define INSTR_LEVEL_3 (INSTR_LEVEL_2 | INSTR_FLAG_API_SUBMIT | INSTR_FLAG_API_PAUSE | INSTR_FLAG_API_YIELD \
+					 | INSTR_FLAG_API_WAITFOR | INSTR_FLAG_API_SCHEDPOINT | INSTR_FLAG_KERNEL)
+#define INSTR_LEVEL_4 (INSTR_LEVEL_3 | INSTR_FLAG_MEMORY)
+
+#define CHECK_INSTR_ENABLED(name) 						 \
+	if (!(instr_ovni_control & INSTR_FLAG_##name))     \
 		return;
 
-#define INSTR_0ARG(name, mcv)                     \
+__internal void instr_parse_config(void);
+
+#define INSTR_0ARG(type, name, mcv)                     \
 	static inline void name(void)                 \
 	{                                             \
-		CHECK_INSTR_ENABLED                       \
+		CHECK_INSTR_ENABLED(type)                       \
 		struct ovni_ev ev = {0};                  \
 		ovni_ev_set_clock(&ev, ovni_clock_now()); \
 		ovni_ev_set_mcv(&ev, mcv);                \
 		ovni_ev_emit(&ev);                        \
 	}
 
-#define INSTR_1ARG(name, mcv, ta, a)                      \
+#define INSTR_1ARG(type, name, mcv, ta, a)                      \
 	static inline void name(ta a)                         \
 	{                                                     \
-		CHECK_INSTR_ENABLED                               \
+		CHECK_INSTR_ENABLED(type)                               \
 		struct ovni_ev ev = {0};                          \
 		ovni_ev_set_clock(&ev, ovni_clock_now());         \
 		ovni_ev_set_mcv(&ev, mcv);                        \
@@ -55,10 +95,10 @@ __internal extern int instr_ovni_enabled;
 		ovni_ev_emit(&ev);                                \
 	}
 
-#define INSTR_2ARG(name, mcv, ta, a, tb, b)               \
+#define INSTR_2ARG(type, name, mcv, ta, a, tb, b)               \
 	static inline void name(ta a, tb b)                   \
 	{                                                     \
-		CHECK_INSTR_ENABLED                               \
+		CHECK_INSTR_ENABLED(type)                               \
 		struct ovni_ev ev = {0};                          \
 		ovni_ev_set_clock(&ev, ovni_clock_now());         \
 		ovni_ev_set_mcv(&ev, mcv);                        \
@@ -67,10 +107,10 @@ __internal extern int instr_ovni_enabled;
 		ovni_ev_emit(&ev);                                \
 	}
 
-#define INSTR_3ARG(name, mcv, ta, a, tb, b, tc, c)        \
+#define INSTR_3ARG(type, name, mcv, ta, a, tb, b, tc, c)        \
 	static inline void name(ta a, tb b, tc c)             \
 	{                                                     \
-		CHECK_INSTR_ENABLED                               \
+		CHECK_INSTR_ENABLED(type)                               \
 		struct ovni_ev ev = {0};                          \
 		ovni_ev_set_clock(&ev, ovni_clock_now());         \
 		ovni_ev_set_mcv(&ev, mcv);                        \
@@ -80,22 +120,22 @@ __internal extern int instr_ovni_enabled;
 		ovni_ev_emit(&ev);                                \
 	}
 #else // ENABLE_INSTRUMENTATION
-#define INSTR_0ARG(name, mcv)     \
+#define INSTR_0ARG(type, name, mcv)     \
 	static inline void name(void) \
 	{                             \
 	}
 
-#define INSTR_1ARG(name, mcv, ta, a) \
+#define INSTR_1ARG(type, name, mcv, ta, a) \
 	static inline void name(ta a)    \
 	{                                \
 	}
 
-#define INSTR_2ARG(name, mcv, ta, a, tb, b) \
+#define INSTR_2ARG(type, name, mcv, ta, a, tb, b) \
 	static inline void name(ta a, tb b)     \
 	{                                       \
 	}
 
-#define INSTR_3ARG(name, mcv, ta, a, tb, b, tc, c) \
+#define INSTR_3ARG(type, name, mcv, ta, a, tb, b, tc, c) \
 	static inline void name(ta a, tb b, tc c)      \
 	{                                              \
 	}
@@ -103,50 +143,50 @@ __internal extern int instr_ovni_enabled;
 
 // ----------------------- nOS-V events  ---------------------------
 
-INSTR_0ARG(instr_worker_enter, "VHw")
-INSTR_0ARG(instr_worker_exit, "VHW")
-INSTR_0ARG(instr_delegate_enter, "VHd")
-INSTR_0ARG(instr_delegate_exit, "VHD")
+INSTR_0ARG(WORKER, instr_worker_enter, "VHw")
+INSTR_0ARG(WORKER, instr_worker_exit, "VHW")
+INSTR_0ARG(WORKER, instr_delegate_enter, "VHd")
+INSTR_0ARG(WORKER, instr_delegate_exit, "VHD")
 
-INSTR_0ARG(instr_sched_recv, "VSr")
-INSTR_0ARG(instr_sched_send, "VSs")
-INSTR_0ARG(instr_sched_self_assign, "VS@")
-INSTR_0ARG(instr_sched_hungry, "VSh")
-INSTR_0ARG(instr_sched_fill, "VSf")
-INSTR_0ARG(instr_sched_server_enter, "VS[")
-INSTR_0ARG(instr_sched_server_exit, "VS]")
+INSTR_0ARG(SCHEDULER, instr_sched_recv, "VSr")
+INSTR_0ARG(SCHEDULER, instr_sched_send, "VSs")
+INSTR_0ARG(SCHEDULER, instr_sched_self_assign, "VS@")
+INSTR_0ARG(SCHEDULER, instr_sched_hungry, "VSh")
+INSTR_0ARG(SCHEDULER, instr_sched_fill, "VSf")
+INSTR_0ARG(SCHEDULER, instr_sched_server_enter, "VS[")
+INSTR_0ARG(SCHEDULER, instr_sched_server_exit, "VS]")
 
-INSTR_0ARG(instr_sched_submit_enter, "VU[")
-INSTR_0ARG(instr_sched_submit_exit, "VU]")
+INSTR_0ARG(SCHEDULER_SUBMIT, instr_sched_submit_enter, "VU[")
+INSTR_0ARG(SCHEDULER_SUBMIT, instr_sched_submit_exit, "VU]")
 
-INSTR_0ARG(instr_salloc_enter, "VMa")
-INSTR_0ARG(instr_salloc_exit, "VMA")
-INSTR_0ARG(instr_sfree_enter, "VMf")
-INSTR_0ARG(instr_sfree_exit, "VMF")
+INSTR_0ARG(MEMORY, instr_salloc_enter, "VMa")
+INSTR_0ARG(MEMORY, instr_salloc_exit, "VMA")
+INSTR_0ARG(MEMORY, instr_sfree_enter, "VMf")
+INSTR_0ARG(MEMORY, instr_sfree_exit, "VMF")
 
-INSTR_0ARG(instr_submit_enter, "VAs")
-INSTR_0ARG(instr_submit_exit, "VAS")
-INSTR_0ARG(instr_pause_enter, "VAp")
-INSTR_0ARG(instr_pause_exit, "VAP")
-INSTR_0ARG(instr_yield_enter, "VAy")
-INSTR_0ARG(instr_yield_exit, "VAY")
-INSTR_0ARG(instr_waitfor_enter, "VAw")
-INSTR_0ARG(instr_waitfor_exit, "VAW")
-INSTR_0ARG(instr_schedpoint_enter, "VAc")
-INSTR_0ARG(instr_schedpoint_exit, "VAC")
+INSTR_0ARG(API_SUBMIT, instr_submit_enter, "VAs")
+INSTR_0ARG(API_SUBMIT, instr_submit_exit, "VAS")
+INSTR_0ARG(API_PAUSE, instr_pause_enter, "VAp")
+INSTR_0ARG(API_PAUSE, instr_pause_exit, "VAP")
+INSTR_0ARG(API_YIELD, instr_yield_enter, "VAy")
+INSTR_0ARG(API_YIELD, instr_yield_exit, "VAY")
+INSTR_0ARG(API_WAITFOR, instr_waitfor_enter, "VAw")
+INSTR_0ARG(API_WAITFOR, instr_waitfor_exit, "VAW")
+INSTR_0ARG(API_SCHEDPOINT, instr_schedpoint_enter, "VAc")
+INSTR_0ARG(API_SCHEDPOINT, instr_schedpoint_exit, "VAC")
 
-INSTR_2ARG(instr_task_create, "VTc", uint32_t, task_id, uint32_t, type_id)
-INSTR_1ARG(instr_task_execute, "VTx", uint32_t, task_id)
-INSTR_1ARG(instr_task_pause, "VTp", uint32_t, task_id)
-INSTR_1ARG(instr_task_resume, "VTr", uint32_t, task_id)
-INSTR_1ARG(instr_task_end, "VTe", uint32_t, task_id)
+INSTR_2ARG(TASK, instr_task_create, "VTc", uint32_t, task_id, uint32_t, type_id)
+INSTR_1ARG(TASK, instr_task_execute, "VTx", uint32_t, task_id)
+INSTR_1ARG(TASK, instr_task_pause, "VTp", uint32_t, task_id)
+INSTR_1ARG(TASK, instr_task_resume, "VTr", uint32_t, task_id)
+INSTR_1ARG(TASK, instr_task_end, "VTe", uint32_t, task_id)
 
 #ifdef ENABLE_INSTRUMENTATION
 
 // A jumbo event is needed to encode a large label
 static inline void instr_type_create(uint32_t typeid, const char *label)
 {
-	CHECK_INSTR_ENABLED
+	CHECK_INSTR_ENABLED(BASIC)
 	size_t bufsize, label_len, size_left;
 	uint8_t buf[1024], *p;
 
@@ -197,31 +237,31 @@ static inline void instr_type_create(uint32_t typeid, const char *label)
 
 // ----------------------- Ovni events  ---------------------------
 
-INSTR_0ARG(instr_burst, "OB.")
+INSTR_0ARG(BASIC, instr_burst, "OB.")
 
-INSTR_1ARG(instr_affinity_set, "OAs", int32_t, cpu)
-INSTR_2ARG(instr_affinity_remote, "OAr", int32_t, cpu, int32_t, tid)
+INSTR_1ARG(BASIC, instr_affinity_set, "OAs", int32_t, cpu)
+INSTR_2ARG(BASIC, instr_affinity_remote, "OAr", int32_t, cpu, int32_t, tid)
 
-INSTR_2ARG(instr_cpu_count, "OCn", int32_t, count, int32_t, maxcpu)
+INSTR_2ARG(BASIC, instr_cpu_count, "OCn", int32_t, count, int32_t, maxcpu)
 
-INSTR_2ARG(instr_thread_create, "OHC", int32_t, cpu, uint64_t, tag)
-INSTR_3ARG(instr_thread_execute, "OHx", int32_t, cpu, int32_t, creator_tid, uint64_t, tag)
-INSTR_0ARG(instr_thread_pause, "OHp")
-INSTR_0ARG(instr_thread_resume, "OHr")
-INSTR_0ARG(instr_thread_cool, "OHc")
-INSTR_0ARG(instr_thread_warm, "OHw")
+INSTR_2ARG(BASIC, instr_thread_create, "OHC", int32_t, cpu, uint64_t, tag)
+INSTR_3ARG(BASIC, instr_thread_execute, "OHx", int32_t, cpu, int32_t, creator_tid, uint64_t, tag)
+INSTR_0ARG(BASIC, instr_thread_pause, "OHp")
+INSTR_0ARG(BASIC, instr_thread_resume, "OHr")
+INSTR_0ARG(BASIC, instr_thread_cool, "OHc")
+INSTR_0ARG(BASIC, instr_thread_warm, "OHw")
 
 #ifdef ENABLE_INSTRUMENTATION
 
 static inline void instr_cpu_id(int index, int phyid)
 {
-	CHECK_INSTR_ENABLED
+	CHECK_INSTR_ENABLED(BASIC)
 	ovni_add_cpu(index, phyid);
 }
 
 static inline void instr_thread_end(void)
 {
-	CHECK_INSTR_ENABLED
+	CHECK_INSTR_ENABLED(BASIC)
 	struct ovni_ev ev = {0};
 
 	ovni_ev_set_clock(&ev, ovni_clock_now());
@@ -234,7 +274,7 @@ static inline void instr_thread_end(void)
 
 static inline void instr_proc_init(const char *suffix)
 {
-	CHECK_INSTR_ENABLED
+	CHECK_INSTR_ENABLED(BASIC)
 	char hostname[HOST_NAME_MAX + 1];
 	int appid;
 	char *appid_str;
@@ -267,26 +307,26 @@ static inline void instr_proc_init(const char *suffix)
 
 static inline void instr_proc_fini(void)
 {
-	CHECK_INSTR_ENABLED
+	CHECK_INSTR_ENABLED(BASIC)
 	ovni_proc_fini();
 }
 
 static inline void instr_gen_bursts(void)
 {
-	CHECK_INSTR_ENABLED
+	CHECK_INSTR_ENABLED(BASIC)
 	for (int i = 0; i < 100; i++)
 		instr_burst();
 }
 
 static inline void instr_thread_init(void)
 {
-	CHECK_INSTR_ENABLED
+	CHECK_INSTR_ENABLED(BASIC)
 	ovni_thread_init(gettid());
 }
 
 static inline void instr_thread_attach(void)
 {
-	CHECK_INSTR_ENABLED
+	CHECK_INSTR_ENABLED(BASIC)
 	struct ovni_ev ev = {0};
 
 	if (!ovni_thread_isready())
@@ -299,7 +339,7 @@ static inline void instr_thread_attach(void)
 
 static inline void instr_thread_detach(void)
 {
-	CHECK_INSTR_ENABLED
+	CHECK_INSTR_ENABLED(BASIC)
 	struct ovni_ev ev = {0};
 
 	ovni_ev_set_clock(&ev, ovni_clock_now());
@@ -372,7 +412,7 @@ static int perf_event_open(struct perf_event_attr *attr, pid_t pid,
 
 static inline void instr_kernel_init(struct kinstr **ki_ptr)
 {
-	CHECK_INSTR_ENABLED
+	CHECK_INSTR_ENABLED(KERNEL)
 	struct perf_event_attr attr;
 	struct kinstr *ki;
 	long pagesize;
@@ -474,7 +514,7 @@ static inline void emit_perf_event(struct perf_ev *ev)
 
 static inline void instr_kernel_flush(struct kinstr *ki)
 {
-	CHECK_INSTR_ENABLED
+	CHECK_INSTR_ENABLED(KERNEL)
 	struct ovni_ev ev0 = {0}, ev1 = {0};
 	struct perf_ev *ev;
 	uint8_t *p;
@@ -506,7 +546,7 @@ static inline void instr_kernel_flush(struct kinstr *ki)
 
 static inline void instr_kernel_free(struct kinstr *ki)
 {
-	CHECK_INSTR_ENABLED
+	CHECK_INSTR_ENABLED(KERNEL)
 	sfree(ki, sizeof(*ki), -1);
 }
 

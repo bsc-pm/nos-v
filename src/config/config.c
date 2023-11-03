@@ -90,6 +90,10 @@ static inline void config_init(rt_config_t *config)
 	config->instrumentation_version = strdup(INSTR_DEFAULT_VERSION);
 
 	config->thread_stack_size = THREAD_STACK_SIZE;
+
+	config->ovni_level = 2;
+	config->ovni_events.num_strings = 0;
+	config->ovni_events.strings = NULL;
 }
 
 #define sanity_check(cond, explanation)                             \

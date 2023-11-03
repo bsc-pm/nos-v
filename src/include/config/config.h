@@ -25,6 +25,8 @@ __internal void config_free(void);
 		- TYPE_SIZE = size_t
 		- TYPE_STR = const char *
 		- TYPE_BOOL = int
+		- TYPE_LIST_STR = string_list_t
+		- CONFIG_ARRAY = generic_array_t
 */
 
 typedef struct string_list {
@@ -84,6 +86,10 @@ typedef struct rt_config {
 
 	// Instrumentation
 	const char *instrumentation_version;
+
+	// ovni
+	uint64_t ovni_level;
+	string_list_t ovni_events;
 } rt_config_t;
 
 __internal extern rt_config_t nosv_config;
