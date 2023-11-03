@@ -50,9 +50,10 @@ void pidmanager_register(void)
 	// While holding this lock, we have to check if there are free CPUs that we have to occupy
 	cpu_t *free_cpu;
 	free_cpu = cpu_pop_free(logic_pid);
+	task_execution_handle_t handle = EMPTY_TASK_EXECUTION_HANDLE;
 
 	while(free_cpu) {
-		worker_create_local(&local->threadmanager, free_cpu, NULL);
+		worker_create_local(&local->threadmanager, free_cpu, handle);
 		free_cpu = cpu_pop_free(logic_pid);
 	}
 
@@ -119,7 +120,8 @@ void pidmanager_transfer_to_idle(cpu_t *cpu)
 
 	if (pid >= 0) {
 		// Wake remote CPU
-		cpu_transfer(pid, cpu, NULL);
+		task_execution_handle_t handle = EMPTY_TASK_EXECUTION_HANDLE;
+		cpu_transfer(pid, cpu, handle);
 	} else {
 		cpu_mark_free(cpu);
 	}

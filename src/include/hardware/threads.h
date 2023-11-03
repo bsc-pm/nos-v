@@ -41,12 +41,6 @@ typedef struct thread_manager {
 	pid_t delegate_creator_tid;
 } thread_manager_t;
 
-typedef struct task_stack {
-	nosv_task_t task;
-	int execution_id;
-	struct task_stack *next;
-} task_stack_t;
-
 typedef struct nosv_worker {
 	// Hook for linked lists
 	list_head_t list_hook;
@@ -57,7 +51,7 @@ typedef struct nosv_worker {
 	// New CPU, used when the worker is re-submitted
 	cpu_t *new_cpu;
 	// Task the worker is currently executing
-	nosv_task_t task;
+	task_execution_handle_t handle;
 	// Immediate Successor task
 	nosv_task_t immediate_successor;
 	// Condition variable to block the worker
@@ -76,8 +70,6 @@ typedef struct nosv_worker {
 	int in_task_body;
 	// The hardware counters of the thread
 	thread_hwcounters_t counters;
-	// The task stack
-	task_stack_t *task_stack;
 } nosv_worker_t;
 
 __internal void threadmanager_init(thread_manager_t *threadmanager);
@@ -87,10 +79,10 @@ __internal void worker_yield(void);
 __internal int worker_yield_if_needed(nosv_task_t current_task);
 __internal void worker_block(void);
 __internal void worker_add_to_idle_list(void);
-__internal nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, nosv_task_t task);
+__internal nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, task_execution_handle_t handle);
 __internal nosv_worker_t *worker_create_external(void);
 __internal void worker_free_external(nosv_worker_t *worker);
-__internal void worker_wake_idle(int pid, cpu_t *cpu, nosv_task_t task);
+__internal void worker_wake_idle(int pid, cpu_t *cpu, task_execution_handle_t handle);
 __internal void worker_join(nosv_worker_t *worker);
 __internal int worker_is_in_task(void);
 __internal nosv_worker_t *worker_current(void);

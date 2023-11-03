@@ -812,21 +812,21 @@ static inline size_t scheduler_serve_batch(int *cpus_were_skipped, cpu_bitset_t 
 	return served;
 }
 
-nosv_task_t scheduler_get(int cpu, nosv_flags_t flags, int *execution_count)
+task_execution_handle_t scheduler_get(int cpu, nosv_flags_t flags)
 {
 	assert(cpu >= 0);
 
 	// Whether the thread can block serving tasks
 	const int blocking = !(flags & SCHED_GET_NONBLOCKING);
 	const int external = (flags & SCHED_GET_EXTERNAL);
-	nosv_task_t task = NULL;
+	task_execution_handle_t handle = EMPTY_TASK_EXECUTION_HANDLE;
 
-	if (!dtlock_lock_or_delegate(&scheduler->dtlock, (uint64_t) cpu, (void **) &task, execution_count, blocking, external)) {
+	if (!dtlock_lock_or_delegate(&scheduler->dtlock, (uint64_t) cpu, (void **) &handle.task, &handle.execution_id, blocking, external)) {
 		// Served item
-		if (task)
+		if (handle.task)
 			instr_sched_recv();
 
-		return task;
+		return handle;
 	}
 
 	// Lock acquired
@@ -864,12 +864,12 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags, int *execution_count)
 		}
 
 		// Work for myself
-		task = scheduler_get_internal(cpu);
-	} while (!task && blocking && !worker_should_shutdown());
+		handle.task = scheduler_get_internal(cpu);
+	} while (!handle.task && blocking && !worker_should_shutdown());
 
 	// Record execution count when serving myself
-	if (task)
-		*execution_count = task->execution_count;
+	if (handle.task)
+		handle.execution_id = handle.task->execution_count;
 
 	// Keep one thread inside the lock
 	if (dtlock_empty(&scheduler->dtlock))
@@ -877,10 +877,10 @@ nosv_task_t scheduler_get(int cpu, nosv_flags_t flags, int *execution_count)
 
 	dtlock_unlock(&scheduler->dtlock);
 
-	if (task)
+	if (handle.task)
 		instr_sched_self_assign();
 
 	instr_sched_server_exit();
 
-	return task;
+	return handle;
 }

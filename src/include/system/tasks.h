@@ -33,7 +33,14 @@ static inline int task_is_parallel(nosv_task_t task)
 	return degree != 1 && degree != -1;
 }
 
-__internal void task_execute(nosv_task_t task, int execution_count);
+typedef struct task_execution_handle {
+	nosv_task_t task;
+	int execution_id;
+} task_execution_handle_t;
+
+#define EMPTY_TASK_EXECUTION_HANDLE ((task_execution_handle_t){ .task = NULL, .execution_id = 0 })
+
+__internal void task_execute(task_execution_handle_t handle);
 __internal void task_type_manager_init();
 __internal void task_type_manager_shutdown();
 __internal void task_affinity_init();
