@@ -31,6 +31,7 @@ basic_tests = basic-error-code.test \
 	basic-parallel-init.test
 
 regression_tests = regression-attach-is.test \
+	regression-parallel-tasks-cross-process.test \
 	regression-parallel-tasks-submission.test
 
 unit_tests = unit-dtlock.test \
@@ -119,6 +120,10 @@ regression_attach_is_test_LDFLAGS = $(AM_LDFLAGS)
 regression_parallel_tasks_submission_test_SOURCES = regression/parallel-tasks-submission.c
 regression_parallel_tasks_submission_test_CFLAGS = $(AM_CFLAGS)
 regression_parallel_tasks_submission_test_LDFLAGS = $(AM_LDFLAGS)
+
+regression_parallel_tasks_cross_process_test_SOURCES = regression/parallel-tasks-cross-process.c
+regression_parallel_tasks_cross_process_test_CFLAGS = $(AM_CFLAGS)
+regression_parallel_tasks_cross_process_test_LDFLAGS = $(AM_LDFLAGS)
 
 unit_dtlock_test_SOURCES = unit/test-dtlock.c $(unit_SOURCES)
 unit_dtlock_test_CFLAGS = $(unit_CFLAGS)

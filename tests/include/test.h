@@ -116,8 +116,14 @@ static inline void test_check(test_t *test, int check, const char *fmt, ...)
 }
 
 // Check with a timeout in ms
-// Note that condition _will_ be evaluated multiple times in doubling
-// amounts of ms waits
+// Note that condition _will_ be evaluated multiple times
+// There are two variants of this timeout check, depending on the specific situation:
+// - test_check_timeout uses "usleep" to wait, which will block the current task/cpu and thus
+//   it is probably a bad idea to use from inside a nOS-V thread
+// - test_check_waitfor uses "nosv_waitfor" to wait, which will be usable from a nOS-V thread,
+//   but should be avoided when there is a risk of nOS-V hanging completely, since then the
+//   waitfor will not return
+
 #define test_check_timeout(test, condition, timeout, fmt, ...) __extension__({ \
 	int _local_timeout = ((int) timeout);                                      \
 	int _increment = 1;                                                        \
