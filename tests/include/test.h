@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
@@ -9,6 +9,8 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+
+#include "common/utils.h"
 
 typedef struct test {
 	int ntests;
@@ -123,6 +125,9 @@ static inline void test_check(test_t *test, int check, const char *fmt, ...)
 // - test_check_waitfor uses "nosv_waitfor" to wait, which will be usable from a nOS-V thread,
 //   but should be avoided when there is a risk of nOS-V hanging completely, since then the
 //   waitfor will not return
+// - test_check_waitfor_api is the same as the previous test_check_waitfor, but it allows
+//   to specify the waitfor API function name. The waitfor function must have the same
+//   function prototype as the nosv_waitfor
 
 #define test_check_timeout(test, condition, timeout, fmt, ...) __extension__({ \
 	int _local_timeout = ((int) timeout);                                      \
@@ -140,21 +145,24 @@ static inline void test_check(test_t *test, int check, const char *fmt, ...)
 	test_check((test), _evaluated_condition, (fmt), ##__VA_ARGS__);            \
 })
 
-#define test_check_waitfor(test, condition, timeout, fmt, ...) __extension__({ \
-	int64_t _local_timeout = ((int64_t) timeout);                              \
-	int64_t _increment = 1;                                                    \
-	assert(_local_timeout > 0);                                                \
-	int _evaluated_condition = (condition);                                    \
-	while (_local_timeout > 0 && !_evaluated_condition) {                      \
-		nosv_waitfor(_increment * 1000LL * 1000LL, NULL);                      \
-		_local_timeout -= _increment;                                          \
-		_increment *= 2;                                                       \
-		if (_increment > _local_timeout)                                       \
-			_increment = _local_timeout;                                       \
-		_evaluated_condition = (condition);                                    \
-	}                                                                          \
-	test_check((test), _evaluated_condition, (fmt), ##__VA_ARGS__);            \
+#define test_check_waitfor_api(test, condition, timeout, api, fmt, ...) __extension__({ \
+	int64_t _local_timeout = ((int64_t) timeout);                                       \
+	int64_t _increment = 1;                                                             \
+	assert(_local_timeout > 0);                                                         \
+	int _evaluated_condition = (condition);                                             \
+	while (_local_timeout > 0 && !_evaluated_condition) {                               \
+		CHECK(api(_increment * 1000LL * 1000LL, NULL));                                 \
+		_local_timeout -= _increment;                                                   \
+		_increment *= 2;                                                                \
+		if (_increment > _local_timeout)                                                \
+			_increment = _local_timeout;                                                \
+		_evaluated_condition = (condition);                                             \
+	}                                                                                   \
+	test_check((test), _evaluated_condition, (fmt), ##__VA_ARGS__);                     \
 })
+
+#define test_check_waitfor(test, condition, timeout, fmt, ...) \
+	test_check_waitfor_api(test, condition, timeout, nosv_waitfor, fmt, ##__VA_ARGS__)
 
 static inline void test_end(test_t *test)
 {
