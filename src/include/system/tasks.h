@@ -34,8 +34,11 @@ static inline int task_is_parallel(nosv_task_t task)
 }
 
 typedef struct task_execution_handle {
+	// Task in the handle. A value of task == NULL signifies an empty handle
 	nosv_task_t task;
-	int execution_id;
+	// Execution count when this task was scheduled
+	// An execution_id of 0 is only valid for empty handles, otherwise it must be 1 or higher
+	uint32_t execution_id;
 } task_execution_handle_t;
 
 #define EMPTY_TASK_EXECUTION_HANDLE ((task_execution_handle_t){ .task = NULL, .execution_id = 0 })

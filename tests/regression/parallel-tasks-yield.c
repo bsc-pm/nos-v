@@ -26,7 +26,7 @@ void task_run(nosv_task_t task)
 {
 	// Use up some time
 	usleep(1000);
-	atomic_fetch_add(&run_value, nosv_get_execution_id());
+	atomic_fetch_add(&run_value, (int) nosv_get_execution_id());
 }
 
 void task_comp(nosv_task_t task)

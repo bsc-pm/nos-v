@@ -59,7 +59,7 @@ void nosv_set_task_priority(nosv_task_t task, int priority);
 int nosv_get_task_degree(nosv_task_t task);
 void nosv_set_task_degree(nosv_task_t task, int degree);
 /* Callable from task context */
-int nosv_get_execution_id(void);
+uint32_t nosv_get_execution_id(void);
 
 /* Read-only task type attributes */
 nosv_task_run_callback_t nosv_get_task_type_run_callback(nosv_task_type_t type);

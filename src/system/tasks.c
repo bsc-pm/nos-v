@@ -944,7 +944,7 @@ int nosv_get_task_degree(nosv_task_t task)
 	return task_get_degree(task);
 }
 
-int nosv_get_execution_id(void)
+uint32_t nosv_get_execution_id(void)
 {
 	if (!worker_is_in_task())
 		return NOSV_ERR_OUTSIDE_TASK;

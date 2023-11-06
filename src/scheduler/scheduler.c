@@ -151,7 +151,7 @@ static inline int scheduler_get_from_queue(scheduler_queue_t *queue, nosv_task_t
 		nosv_task_t t = *task;
 		int degree = atomic_load_explicit(&(t->degree), memory_order_relaxed);
 
-		if (++(t->execution_count) >= degree) {
+		if (++(t->execution_count) >= ((uint32_t) degree) || degree < 0) {
 			scheduler_pop_queue(queue, t);
 
 			// Cancelled task
@@ -776,7 +776,7 @@ static inline nosv_task_t scheduler_get_internal(int cpu)
 	return NULL;
 }
 
-static inline void scheduler_serve(nosv_task_t task, int execution_count, int cpu)
+static inline void scheduler_serve(nosv_task_t task, uint32_t execution_count, int cpu)
 {
 	int waiter = governor_served(&scheduler->governor, cpu);
 	int action = (waiter) ? DTLOCK_SIGNAL_WAKE : DTLOCK_SIGNAL_DEFAULT;
