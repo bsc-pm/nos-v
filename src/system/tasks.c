@@ -278,6 +278,8 @@ int nosv_create(
 	if (unlikely(metadata_size > NOSV_MAX_METADATA_SIZE))
 		return NOSV_ERR_INVALID_METADATA_SIZE;
 
+	instr_create_enter();
+
 	// Update the counters of the current task if it exists, as we don't want
 	// the creation to be accounted in this task's counters
 	nosv_task_t current_task = worker_current_task();
@@ -292,6 +294,8 @@ int nosv_create(
 		hwcounters_update_runtime_counters();
 		monitoring_task_changed_status(current_task, executing_status);
 	}
+
+	instr_create_exit();
 
 	return ret;
 }
@@ -640,12 +644,16 @@ int nosv_destroy(
 	if (unlikely(!task))
 		return NOSV_ERR_INVALID_PARAMETER;
 
+	instr_destroy_enter();
+
 	sfree(task, sizeof(struct nosv_task) +
 		task->metadata +
 		hwcounters_get_task_size() +
 		monitoring_get_task_size(),
 		cpu_get_current()
 	);
+
+	instr_destroy_exit();
 
 	return NOSV_SUCCESS;
 }
