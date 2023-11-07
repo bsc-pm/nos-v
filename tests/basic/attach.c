@@ -24,27 +24,24 @@ int main() {
 
 	sched_getaffinity(0, sizeof(cpu_set_t), &original);
 
-	nosv_task_type_t type;
-	CHECK(nosv_type_init(&type, NULL, NULL, NULL, "main", NULL, NULL, NOSV_TYPE_INIT_EXTERNAL));
 	nosv_task_t task;
-	CHECK(nosv_attach(&task, type, 0, NULL, NOSV_ATTACH_NONE));
+	CHECK(nosv_attach(&task, NULL, "main" ,NOSV_ATTACH_NONE));
 	CHECK(nosv_detach(NOSV_DETACH_NONE));
 
 	sched_getaffinity(0, sizeof(cpu_set_t), &new);
 	test_check(&test, CPU_EQUAL(&original, &new), "nosv_detach restores the original thread affinity");
 
-	CHECK(nosv_attach(&task, type, 0, NULL, NOSV_ATTACH_NONE));
+	CHECK(nosv_attach(&task, NULL, "main", NOSV_ATTACH_NONE));
 	sched_getaffinity(0, sizeof(cpu_set_t), &attached);
 	CHECK(nosv_detach(NOSV_DETACH_NO_RESTORE_AFFINITY));
 
 	sched_getaffinity(0, sizeof(cpu_set_t), &new);
 	test_check(&test, CPU_EQUAL(&attached, &new), "NOSV_DETACH_NO_RESTORE_AFFINITY skips restoring the original affinity");
 
-	CHECK(nosv_attach(&task, type, 0, NULL, NOSV_ATTACH_NONE));
-	int ret = nosv_attach(&task, type, 0, NULL, NOSV_ATTACH_NONE);
+	CHECK(nosv_attach(&task, NULL, "main", NOSV_ATTACH_NONE));
+	int ret = nosv_attach(&task, NULL, "main", NOSV_ATTACH_NONE);
 	test_check(&test, ret != NOSV_SUCCESS, "nosv_attach() twice fails");
 	CHECK(nosv_detach(NOSV_DETACH_NONE));
 
-	CHECK(nosv_type_destroy(type, NOSV_DESTROY_NONE));
 	CHECK(nosv_shutdown());
 }

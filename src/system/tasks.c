@@ -795,33 +795,27 @@ int nosv_decrease_event_counter(
 */
 int nosv_attach(
 	nosv_task_t *task /* out */,
-	nosv_task_type_t type /* must have null callbacks */,
-	size_t metadata_size,
 	nosv_affinity_t *affinity,
+	const char * label,
 	nosv_flags_t flags)
 {
 	if (unlikely(!task))
 		return NOSV_ERR_INVALID_PARAMETER;
-
-	if (unlikely(!type))
-		return NOSV_ERR_INVALID_PARAMETER;
-
-	if (unlikely(metadata_size > NOSV_MAX_METADATA_SIZE))
-		return NOSV_ERR_INVALID_METADATA_SIZE;
-
-	if (unlikely(type->run_callback || type->end_callback || type->completed_callback))
-		return NOSV_ERR_INVALID_CALLBACK;
 
 	if (unlikely(worker_current()))
 		return NOSV_ERR_INVALID_OPERATION;
 
 	instr_thread_attach();
 
+	nosv_task_type_t type;
+	int ret = nosv_type_init(&type, NULL, NULL, NULL, label, NULL, NULL, NOSV_TYPE_INIT_EXTERNAL);
+	if (ret != NOSV_SUCCESS)
+		return ret;
+
 	nosv_worker_t *worker = worker_create_external();
 	assert(worker);
 
-	int ret = nosv_create_internal(task, type, metadata_size);
-
+	ret = nosv_create_internal(task, type, 0);
 	if (ret) {
 		worker_free_external(worker);
 		return ret;
@@ -888,8 +882,11 @@ int nosv_detach(
 
 	instr_task_end((uint32_t)task->taskid);
 
-	// First free the task
+	// First, free both the task and the type
+	nosv_task_type_t type = task->type;
+	assert(type);
 	nosv_destroy(task, NOSV_DESTROY_NONE);
+	nosv_type_destroy(type, NOSV_DESTROY_NONE);
 
 	cpu_t *cpu = worker->cpu;
 	assert(cpu);

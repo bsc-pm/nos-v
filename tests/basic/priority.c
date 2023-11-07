@@ -44,11 +44,9 @@ int main() {
 	CHECK(nosv_init());
 
 	// Attach ourselves in CPU 0
-	nosv_task_type_t adopted_type;
-	CHECK(nosv_type_init(&adopted_type, NULL, NULL, NULL, NULL, NULL, NULL,  NOSV_TYPE_INIT_EXTERNAL));
 	nosv_affinity_t single_cpu = nosv_affinity_get(get_first_cpu(), NOSV_AFFINITY_LEVEL_CPU, NOSV_AFFINITY_TYPE_STRICT);
 	nosv_task_t task_attach;
-	CHECK(nosv_attach(&task_attach, adopted_type, 0, &single_cpu, NOSV_ATTACH_NONE));
+	CHECK(nosv_attach(&task_attach, &single_cpu, NULL, NOSV_ATTACH_NONE));
 
 	// Inside CPU 0 in nOS-V
 	nosv_task_type_t task_type;
@@ -80,7 +78,6 @@ int main() {
 
 	CHECK(nosv_detach(NOSV_DETACH_NONE));
 
-	CHECK(nosv_type_destroy(adopted_type, NOSV_TYPE_DESTROY_NONE));
 	CHECK(nosv_type_destroy(task_type, NOSV_TYPE_DESTROY_NONE));
 
 	CHECK(nosv_shutdown());

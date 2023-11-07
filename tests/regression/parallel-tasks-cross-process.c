@@ -43,9 +43,7 @@ int main() {
 	nosv_task_t main_task;
 
 	// Attach main thread
-	nosv_task_type_t attach_type;
-	CHECK(nosv_type_init(&attach_type, NULL, NULL, NULL, "main", NULL, NULL, NOSV_TYPE_INIT_EXTERNAL));
-	CHECK(nosv_attach(&main_task, attach_type, 0, NULL, NOSV_ATTACH_NONE));
+	CHECK(nosv_attach(&main_task, NULL, "main", NOSV_ATTACH_NONE));
 
 	// Create some task type
 	nosv_task_type_t task_type;
@@ -63,7 +61,6 @@ int main() {
 	int32_t expected_sum_of_execution_id = ((degree - 1) * degree) / 2;
 	test_check_timeout(&test, atomic_load(&run_value) == expected_sum_of_execution_id, 2000, "Execution ids were correct");
 
-	CHECK(nosv_type_destroy(attach_type, NOSV_TYPE_DESTROY_NONE));
 	CHECK(nosv_type_destroy(task_type, NOSV_TYPE_DESTROY_NONE));
 
 	CHECK(nosv_shutdown());
