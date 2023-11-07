@@ -21,10 +21,10 @@ NOSV_CONFIG="~/nosv.toml" NOSV_CONFIG_OVERRIDE="turbo.enabled=true,hwcounters.ba
 
 Presets are a mechanism to override several configuration options that are needed for common use-cases. For example, there is a preset for running completely isolated nOS-V applications, and another to run MPI applications. These presets will apply a specific set of configurations that are needed to support the specific use-case.
 
-Users can apply a preset by using the `NOSV_PRESET` environment variable. For example, the `isolate` preset can be applied by setting `NOSV_PRESET=isolate`
+Users can apply a preset by using the `NOSV_PRESET` environment variable. For example, the `isolated` preset can be applied by setting `NOSV_PRESET=isolated`
 
 The following presets are currently available:
 | Preset  | Effect |
 | --- | --- |
-| `isolate` | Runs nOS-V applications without sharing the nOS-V instances. CPU binding is inherited from the parent process |
+| `isolated` | Runs nOS-V applications without sharing the nOS-V instances. CPU binding is inherited from the parent process |
 | `shared-mpi` | Runs applications sharing a single nOS-V instance amongst processes of the same user. CPU binding is set to the whole machine, and default affinity to the parent process' binding. |
