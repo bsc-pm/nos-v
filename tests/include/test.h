@@ -128,28 +128,32 @@ static inline void test_check(test_t *test, int check, const char *fmt, ...)
 	int _local_timeout = ((int) timeout);                                      \
 	int _increment = 1;                                                        \
 	assert(_local_timeout > 0);                                                \
-	while (_local_timeout > 0 && !(condition)) {                               \
+	int _evaluated_condition = (condition);                                    \
+	while (_local_timeout > 0 && !_evaluated_condition) {                      \
 		usleep(_increment * 1000);                                             \
 		_local_timeout -= _increment;                                          \
 		_increment *= 2;                                                       \
 		if (_increment > _local_timeout)                                       \
 			_increment = _local_timeout;                                       \
+		_evaluated_condition = (condition);                                    \
 	}                                                                          \
-	test_check((test), (condition), (fmt), ##__VA_ARGS__);                     \
+	test_check((test), _evaluated_condition, (fmt), ##__VA_ARGS__);            \
 })
 
 #define test_check_waitfor(test, condition, timeout, fmt, ...) __extension__({ \
 	int64_t _local_timeout = ((int64_t) timeout);                              \
 	int64_t _increment = 1;                                                    \
 	assert(_local_timeout > 0);                                                \
-	while (_local_timeout > 0 && !(condition)) {                               \
+	int _evaluated_condition = (condition);                                    \
+	while (_local_timeout > 0 && !_evaluated_condition) {                      \
 		nosv_waitfor(_increment * 1000LL * 1000LL, NULL);                      \
 		_local_timeout -= _increment;                                          \
 		_increment *= 2;                                                       \
 		if (_increment > _local_timeout)                                       \
 			_increment = _local_timeout;                                       \
+		_evaluated_condition = (condition);                                    \
 	}                                                                          \
-	test_check((test), (condition), (fmt), ##__VA_ARGS__);                     \
+	test_check((test), _evaluated_condition, (fmt), ##__VA_ARGS__);            \
 })
 
 static inline void test_end(test_t *test)

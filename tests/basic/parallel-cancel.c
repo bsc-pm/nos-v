@@ -14,7 +14,7 @@
 
 #define NTASKS 200
 
-int degree;
+int32_t degree;
 
 atomic_int nr_completed_tasks;
 atomic_int task_cnt[NTASKS];

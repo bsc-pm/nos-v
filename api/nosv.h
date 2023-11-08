@@ -56,8 +56,8 @@ int nosv_get_task_priority(nosv_task_t task);
 void nosv_set_task_priority(nosv_task_t task, int priority);
 /* Set how many -potentially concurrent- times should a task be run before ending */
 /* Degree should be > 0 and only set in parallel tasks */
-int nosv_get_task_degree(nosv_task_t task);
-void nosv_set_task_degree(nosv_task_t task, int degree);
+int32_t nosv_get_task_degree(nosv_task_t task);
+void nosv_set_task_degree(nosv_task_t task, int32_t degree);
 /* Callable from task context */
 uint32_t nosv_get_execution_id(void);
 

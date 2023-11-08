@@ -70,8 +70,8 @@ struct nosv_task {
 	// Parallelism degree
 	atomic_int32_t degree;
 
-	// Current execution count
-	uint32_t execution_count;
+	// Current scheduled count
+	uint32_t scheduled_count;
 
 	// Hardware counters
 	task_hwcounters_t *counters;

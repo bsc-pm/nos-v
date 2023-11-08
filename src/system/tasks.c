@@ -248,7 +248,7 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	res->stats = (task_stats_t *) (((char *) res) + sizeof(struct nosv_task) + metadata_size + hwcounters_get_task_size());
 
 	atomic_store_explicit(&(res->degree), 1, memory_order_relaxed);
-	res->execution_count = 0;
+	res->scheduled_count = 0;
 
 	// Initialize hardware counters and monitoring for the task
 	hwcounters_task_created(res, /* enabled */ 1);
@@ -486,7 +486,7 @@ int nosv_cancel(
 	nosv_task_t task = worker_current_task();
 	assert(task);
 
-	int degree = task_get_degree(task);
+	int32_t degree = task_get_degree(task);
 	assert(degree != 0);
 
 	do {
@@ -932,14 +932,14 @@ void nosv_set_task_affinity(nosv_task_t task, nosv_affinity_t *affinity)
 	task->affinity = *affinity;
 }
 
-void nosv_set_task_degree(nosv_task_t task, int degree)
+void nosv_set_task_degree(nosv_task_t task, int32_t degree)
 {
 	assert(degree > 0);
 	assert(task);
 	atomic_store_explicit(&(task->degree), degree, memory_order_relaxed);
 }
 
-int nosv_get_task_degree(nosv_task_t task)
+int32_t nosv_get_task_degree(nosv_task_t task)
 {
 	return task_get_degree(task);
 }

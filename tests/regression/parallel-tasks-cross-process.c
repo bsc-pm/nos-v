@@ -51,7 +51,7 @@ int main() {
 	nosv_task_type_t task_type;
 	CHECK(nosv_type_init(&task_type, task_run, NULL, task_comp, "task", NULL, NULL, NOSV_TYPE_INIT_NONE));
 	CHECK(nosv_create(&task, task_type, 0, NOSV_CREATE_NONE));
-	int degree = nosv_get_num_cpus();
+	int32_t degree = nosv_get_num_cpus();
 	nosv_set_task_degree(task, degree);
 	CHECK(nosv_submit(task, NOSV_SUBMIT_NONE));
 	CHECK(nosv_detach(NOSV_DETACH_NONE));
@@ -60,7 +60,7 @@ int main() {
 	test_check_timeout(&test, atomic_load(&comp) == 1, 2000, "Tasks are completed");
 
 	// Calculate sum of execution ids based on the degree, take into account they begin on 0.
-	int expected_sum_of_execution_id = ((degree - 1) * degree) / 2;
+	int32_t expected_sum_of_execution_id = ((degree - 1) * degree) / 2;
 	test_check_timeout(&test, atomic_load(&run_value) == expected_sum_of_execution_id, 2000, "Execution ids were correct");
 
 	CHECK(nosv_type_destroy(attach_type, NOSV_TYPE_DESTROY_NONE));

@@ -149,17 +149,21 @@ static inline int scheduler_get_from_queue(scheduler_queue_t *queue, nosv_task_t
 
 	if (scheduler_find_in_queue(queue, task)) {
 		nosv_task_t t = *task;
-		int degree = atomic_load_explicit(&(t->degree), memory_order_relaxed);
+		int32_t degree = atomic_load_explicit(&(t->degree), memory_order_relaxed);
 
-		if (++(t->execution_count) >= ((uint32_t) degree) || degree < 0) {
+		assert(task_is_parallel(t) || t->scheduled_count == 0);
+		t->scheduled_count++;
+		assert(t->scheduled_count > 0);
+
+		if (degree < 0 || t->scheduled_count >= degree) {
 			scheduler_pop_queue(queue, t);
 
 			// Cancelled task
 			// Add to removed counter all the pending executions of this task
 			if (degree < 0) {
 				int original_degree = -degree;
-				assert(original_degree >= t->execution_count);
-				*removed += (original_degree - t->execution_count);
+				assert(original_degree >= t->scheduled_count);
+				*removed += (original_degree - t->scheduled_count);
 			}
 		} else {
 			atomic_fetch_add_explicit(&t->event_count, 1, memory_order_relaxed);
@@ -274,7 +278,7 @@ static inline void scheduler_process_ready_tasks(void)
 			nosv_task_t task = task_batch_buffer[i];
 			int pid = task->type->pid;
 			process_scheduler_t *pidqueue = scheduler->queues_direct[pid];
-			int degree = task_get_degree(task);
+			int32_t degree = task_get_degree(task);
 			assert(degree > 0);
 
 			if (!pidqueue)
@@ -776,12 +780,12 @@ static inline nosv_task_t scheduler_get_internal(int cpu)
 	return NULL;
 }
 
-static inline void scheduler_serve(nosv_task_t task, uint32_t execution_count, int cpu)
+static inline void scheduler_serve(nosv_task_t task, uint32_t scheduled_count, int cpu)
 {
 	int waiter = governor_served(&scheduler->governor, cpu);
 	int action = (waiter) ? DTLOCK_SIGNAL_WAKE : DTLOCK_SIGNAL_DEFAULT;
 
-	dtlock_serve(&scheduler->dtlock, cpu, task, execution_count, action);
+	dtlock_serve(&scheduler->dtlock, cpu, task, scheduled_count, action);
 
 	instr_sched_send();
 }
@@ -804,7 +808,7 @@ static inline size_t scheduler_serve_batch(int *cpus_were_skipped, cpu_bitset_t 
 		if (!task) {
 			*cpus_were_skipped = 1;
 		} else {
-			scheduler_serve(task, task->execution_count, cpu_delegated);
+			scheduler_serve(task, task->scheduled_count, cpu_delegated);
 			served++;
 		}
 	}
@@ -826,6 +830,7 @@ task_execution_handle_t scheduler_get(int cpu, nosv_flags_t flags)
 		if (handle.task)
 			instr_sched_recv();
 
+		assert(handle.task == NULL || handle.execution_id != 0);
 		return handle;
 	}
 
@@ -869,7 +874,7 @@ task_execution_handle_t scheduler_get(int cpu, nosv_flags_t flags)
 
 	// Record execution count when serving myself
 	if (handle.task)
-		handle.execution_id = handle.task->execution_count;
+		handle.execution_id = handle.task->scheduled_count;
 
 	// Keep one thread inside the lock
 	if (dtlock_empty(&scheduler->dtlock))
@@ -879,6 +884,8 @@ task_execution_handle_t scheduler_get(int cpu, nosv_flags_t flags)
 
 	if (handle.task)
 		instr_sched_self_assign();
+
+	assert(handle.task == NULL || handle.execution_id != 0);
 
 	instr_sched_server_exit();
 

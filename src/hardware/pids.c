@@ -52,7 +52,7 @@ void pidmanager_register(void)
 	free_cpu = cpu_pop_free(logic_pid);
 	task_execution_handle_t handle = EMPTY_TASK_EXECUTION_HANDLE;
 
-	while(free_cpu) {
+	while (free_cpu) {
 		worker_create_local(&local->threadmanager, free_cpu, handle);
 		free_cpu = cpu_pop_free(logic_pid);
 	}

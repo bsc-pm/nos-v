@@ -18,7 +18,7 @@ typedef struct task_type_manager {
 	list_head_t types;
 } task_type_manager_t;
 
-static inline int task_get_degree(nosv_task_t task)
+static inline int32_t task_get_degree(nosv_task_t task)
 {
 	return atomic_load_explicit(&(task->degree), memory_order_relaxed);
 }
@@ -27,12 +27,16 @@ static inline int task_is_parallel(nosv_task_t task)
 {
 	assert(task);
 
-	int degree = task_get_degree(task);
+	int32_t degree = task_get_degree(task);
 	assert(degree != 0);
 
 	return degree != 1 && degree != -1;
 }
 
+// A task execution handle contains all the needed context to execute a nos-v task body
+// Most of the context is in the task itself, but since parallel tasks share the nosv_task_t structure,
+// they need additional context (the execution_id). From the point the task is returned for the
+// scheduler, it should be passed around as this handle, to prevent losing any needed context.
 typedef struct task_execution_handle {
 	// Task in the handle. A value of task == NULL signifies an empty handle
 	nosv_task_t task;
@@ -41,7 +45,7 @@ typedef struct task_execution_handle {
 	uint32_t execution_id;
 } task_execution_handle_t;
 
-#define EMPTY_TASK_EXECUTION_HANDLE ((task_execution_handle_t){ .task = NULL, .execution_id = 0 })
+#define EMPTY_TASK_EXECUTION_HANDLE ((task_execution_handle_t){ 0 })
 
 __internal void task_execute(task_execution_handle_t handle);
 __internal void task_type_manager_init();
