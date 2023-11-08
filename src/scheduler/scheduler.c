@@ -151,7 +151,9 @@ static inline int scheduler_get_from_queue(scheduler_queue_t *queue, nosv_task_t
 		nosv_task_t t = *task;
 		int32_t degree = atomic_load_explicit(&(t->degree), memory_order_relaxed);
 
-		assert(task_is_parallel(t) || t->scheduled_count == 0);
+		// The only cases where scheduled_count may not be zero here
+		// are when dealing with parallel tasks or blocked tasks
+		assert(task_is_parallel(t) || t->worker || t->scheduled_count == 0);
 		t->scheduled_count++;
 		assert(t->scheduled_count > 0);
 

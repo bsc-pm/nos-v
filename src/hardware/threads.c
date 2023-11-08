@@ -213,6 +213,7 @@ void threadmanager_shutdown(thread_manager_t *threadmanager)
 static inline void worker_execute_or_delegate(task_execution_handle_t handle, cpu_t *cpu, int is_busy_worker)
 {
 	assert(handle.task);
+	assert(handle.execution_id > 0);
 	assert(cpu);
 
 	nosv_task_t task = handle.task;
