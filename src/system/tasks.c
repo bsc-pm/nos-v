@@ -23,6 +23,7 @@
 #include <sys/errno.h>
 
 __internal task_type_manager_t *task_type_manager;
+__internal thread_local int32_t rt_attach_refcount = 0;
 
 // Start the taskid and typeid counters at 1 so we have the same
 // identifiers in Paraver. It is also used to check for overflows.
@@ -802,8 +803,11 @@ int nosv_attach(
 	if (unlikely(!task))
 		return NOSV_ERR_INVALID_PARAMETER;
 
-	if (unlikely(worker_current()))
-		return NOSV_ERR_INVALID_OPERATION;
+	// Mind nested nosv_attach and nosv_detach
+	if (rt_attach_refcount++)
+		return NOSV_SUCCESS;
+
+	assert(!worker_current());
 
 	instr_thread_attach();
 
@@ -873,6 +877,10 @@ int nosv_detach(
 	nosv_worker_t *worker = worker_current();
 	if (!worker || !worker->handle.task)
 		return NOSV_ERR_OUTSIDE_TASK;
+
+	// Mind nested nosv_attach and nosv_detach
+	if (--rt_attach_refcount)
+		return NOSV_SUCCESS;
 
 	nosv_task_t task = worker->handle.task;
 

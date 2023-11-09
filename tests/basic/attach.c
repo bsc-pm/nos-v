@@ -14,7 +14,7 @@
 int main() {
 	test_t test;
 
-	test_init(&test, 3);
+	test_init(&test, 5);
 
 	putenv("NOSV_CONFIG_OVERRIDE=affinity.compat_support=false");
 
@@ -39,9 +39,13 @@ int main() {
 	test_check(&test, CPU_EQUAL(&attached, &new), "NOSV_DETACH_NO_RESTORE_AFFINITY skips restoring the original affinity");
 
 	CHECK(nosv_attach(&task, NULL, "main", NOSV_ATTACH_NONE));
+	nosv_task_t aux = task;
 	int ret = nosv_attach(&task, NULL, "main", NOSV_ATTACH_NONE);
-	test_check(&test, ret != NOSV_SUCCESS, "nosv_attach() twice fails");
-	CHECK(nosv_detach(NOSV_DETACH_NONE));
+	test_check(&test, (ret == NOSV_SUCCESS) && (aux == task), "nosv_attach() twice sucess");
+	ret = nosv_detach(NOSV_DETACH_NONE);
+	test_check(&test, (ret == NOSV_SUCCESS) && (nosv_self() == task), "inner nosv_detach() has not detached");
+	ret = nosv_detach(NOSV_DETACH_NONE);
+	test_check(&test, (ret == NOSV_SUCCESS) && !nosv_self(), "outer nosv_detach() has detached");
 
 	CHECK(nosv_shutdown());
 }
