@@ -248,7 +248,7 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	res->stats = (task_stats_t *) (((char *) res) + sizeof(struct nosv_task) + metadata_size + hwcounters_get_task_size());
 
 	atomic_store_explicit(&(res->degree), 1, memory_order_relaxed);
-	res->execution_count = 0;
+	res->scheduled_count = 0;
 
 	// Initialize hardware counters and monitoring for the task
 	hwcounters_task_created(res, /* enabled */ 1);
@@ -351,9 +351,14 @@ int nosv_submit(
 	}
 
 	// This combination would make no sense
-	if (is_inline && task_is_parallel(task)) {
+	if (is_inline && task_is_parallel(task))
 		return NOSV_ERR_INVALID_OPERATION;
-	}
+
+	// Parallel tasks cannot block
+	if (is_dl_wake && task_is_parallel(task))
+		return NOSV_ERR_INVALID_OPERATION;
+	if (is_blocking && task_is_parallel(worker_current_task()))
+		return NOSV_ERR_INVALID_OPERATION;
 
 	// If we're in a task context, update task counters now since we don't want
 	// the creation to be added to the counters of the task
@@ -368,7 +373,7 @@ int nosv_submit(
 
 	nosv_worker_t *worker = worker_current();
 	if (is_blocking)
-		task->wakeup = worker->task;
+		task->wakeup = worker->handle.task;
 
 	uint32_t count;
 
@@ -398,13 +403,17 @@ int nosv_submit(
 		count = atomic_fetch_sub_explicit(&task->blocking_count, 1, memory_order_relaxed) - 1;
 		assert(count == 0);
 
-		nosv_task_t old_task = worker_current_task();
-		assert(old_task);
+		task_execution_handle_t old_handle = worker->handle;
+		assert(old_handle.task);
 
-		task_execute(task, 1);
+		task_execution_handle_t handle = {
+			.task = task,
+			.execution_id = 1
+		};
+		task_execute(handle);
 
 		// Restore old task
-		worker->task = old_task;
+		worker->handle = old_handle;
 	} else if (is_dl_wake) {
 		deadline_state_t state = atomic_exchange_explicit(&task->deadline_state, NOSV_DEADLINE_READY, memory_order_relaxed);
 		if (state == NOSV_DEADLINE_WAITING)
@@ -477,7 +486,7 @@ int nosv_cancel(
 	nosv_task_t task = worker_current_task();
 	assert(task);
 
-	int degree = task_get_degree(task);
+	int32_t degree = task_get_degree(task);
 	assert(degree != 0);
 
 	do {
@@ -676,21 +685,16 @@ static inline void task_complete(nosv_task_t task)
 		nosv_submit(wakeup, NOSV_SUBMIT_UNLOCKED);
 }
 
-void task_execute(nosv_task_t task, int execution_count)
+void task_execute(task_execution_handle_t handle)
 {
+	nosv_task_t task = handle.task;
+	assert(task);
 	nosv_worker_t *worker = worker_current();
 	assert(worker);
+
 	if (!task_is_parallel(task))
 		task->worker = worker;
-	worker->task = task;
-
-	task_stack_t frame = {
-		.task = task,
-		.execution_id = execution_count,
-		.next = worker->task_stack
-	};
-
-	worker->task_stack = &frame;
+	worker->handle = handle;
 
 	// Task is about to execute, update runtime counters
 	hwcounters_update_runtime_counters();
@@ -720,11 +724,10 @@ void task_execute(nosv_task_t task, int execution_count)
 	// Reset the blocking count
 	atomic_store_explicit(&task->blocking_count, 1, memory_order_relaxed);
 	// Remove stack frame
-	worker->task_stack = frame.next;
 	// Remove the worker assigned to this task
 	task->worker = NULL;
 	// Remove the task assigned to the worker as well
-	worker->task = NULL;
+	worker->handle = EMPTY_TASK_EXECUTION_HANDLE;
 
 	uint64_t res = atomic_fetch_sub_explicit(&task->event_count, 1, memory_order_relaxed) - 1;
 	if (!res) {
@@ -826,8 +829,13 @@ int nosv_attach(
 
 	// We created the task fine. Now map the task to the worker
 	nosv_task_t t = *task;
+	task_execution_handle_t handle = {
+		.task = t,
+		.execution_id = 1
+	};
+
 	t->worker = worker;
-	worker->task = t;
+	worker->handle = handle;
 
 	// Set the affinity if required
 	if (affinity != NULL) {
@@ -869,17 +877,19 @@ int nosv_detach(
 {
 	// First, make sure we are on a worker context
 	nosv_worker_t *worker = worker_current();
-	if (!worker || !worker->task)
+	if (!worker || !worker->handle.task)
 		return NOSV_ERR_OUTSIDE_TASK;
 
-	// Task just completed, read and accumulate hardware counters for the task
-	hwcounters_update_task_counters(worker->task);
-	monitoring_task_completed(worker->task);
+	nosv_task_t task = worker->handle.task;
 
-	instr_task_end((uint32_t)worker->task->taskid);
+	// Task just completed, read and accumulate hardware counters for the task
+	hwcounters_update_task_counters(task);
+	monitoring_task_completed(task);
+
+	instr_task_end((uint32_t)task->taskid);
 
 	// First free the task
-	nosv_destroy(worker->task, NOSV_DESTROY_NONE);
+	nosv_destroy(task, NOSV_DESTROY_NONE);
 
 	cpu_t *cpu = worker->cpu;
 	assert(cpu);
@@ -902,7 +912,8 @@ int nosv_detach(
 	cpu_set_current(-1);
 
 	// Then resume a thread on the current cpu
-	worker_wake_idle(logic_pid, cpu, NULL);
+	task_execution_handle_t handle = EMPTY_TASK_EXECUTION_HANDLE;
+	worker_wake_idle(logic_pid, cpu, handle);
 
 	instr_thread_detach();
 
@@ -921,19 +932,19 @@ void nosv_set_task_affinity(nosv_task_t task, nosv_affinity_t *affinity)
 	task->affinity = *affinity;
 }
 
-void nosv_set_task_degree(nosv_task_t task, int degree)
+void nosv_set_task_degree(nosv_task_t task, int32_t degree)
 {
 	assert(degree > 0);
 	assert(task);
 	atomic_store_explicit(&(task->degree), degree, memory_order_relaxed);
 }
 
-int nosv_get_task_degree(nosv_task_t task)
+int32_t nosv_get_task_degree(nosv_task_t task)
 {
 	return task_get_degree(task);
 }
 
-int nosv_get_execution_id(void)
+uint32_t nosv_get_execution_id(void)
 {
 	if (!worker_is_in_task())
 		return NOSV_ERR_OUTSIDE_TASK;
@@ -941,12 +952,7 @@ int nosv_get_execution_id(void)
 	nosv_worker_t *worker = worker_current();
 	assert(worker);
 
-	// For attached threads, there may be no task stack
-	// In that case, we return as we're the first
-	if (!worker->task_stack)
-		return 0;
-
-	return worker->task_stack->execution_id - 1;
+	return worker->handle.execution_id - 1;
 }
 
 nosv_affinity_t nosv_get_default_affinity(void)

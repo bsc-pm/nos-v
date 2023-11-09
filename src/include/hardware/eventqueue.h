@@ -12,6 +12,7 @@
 #include "generic/signalmutex.h"
 #include "hardware/cpus.h"
 #include "memory/slab.h"
+#include "system/tasks.h"
 
 typedef enum creation_event_type {
 	Creation,
@@ -19,7 +20,7 @@ typedef enum creation_event_type {
 } creation_event_type_t;
 
 typedef struct creation_event {
-	nosv_task_t task;
+	task_execution_handle_t handle;
 	cpu_t *cpu;
 	creation_event_type_t type;
 } creation_event_t;

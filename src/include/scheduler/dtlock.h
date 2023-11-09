@@ -57,7 +57,7 @@ union dtlock_signal {
 struct dtlock_item {
 	uint64_t ticket __cacheline_aligned;
 	void *item;
-	int execution_count;
+	uint32_t scheduled_count;
 	atomic_uint32_t signal; // Accessed through union dtlock_signal
 	uint32_t next;
 	unsigned char flags;
@@ -130,7 +130,7 @@ static inline int dtlock_lock_or_delegate(
 	delegation_lock_t *dtlock,
 	const uint64_t cpu_index,
 	void **item,
-	int *execution_count,
+	uint32_t *scheduled_count,
 	const int blocking,
 	const int external)
 {
@@ -191,12 +191,12 @@ static inline int dtlock_lock_or_delegate(
 		}
 
 		recv_item = dtlock->items[cpu_index].item;
-		recv_count = dtlock->items[cpu_index].execution_count;
+		recv_count = dtlock->items[cpu_index].scheduled_count;
 
 	} while (recv_item == DTLOCK_ITEM_RETRY);
 
 	*item = recv_item;
-	*execution_count = recv_count;
+	*scheduled_count = recv_count;
 	// Served
 	return 0;
 }
@@ -243,11 +243,11 @@ static inline uint64_t dtlock_front(const delegation_lock_t *dtlock)
 }
 
 // Must be called with lock acquired
-static inline void dtlock_serve(delegation_lock_t *dtlock, const uint64_t cpu, void *item, int execution_count, int signal)
+static inline void dtlock_serve(delegation_lock_t *dtlock, const uint64_t cpu, void *item, uint32_t scheduled_count, int signal)
 {
 	assert(cpu < dtlock->size);
 	dtlock->items[cpu].item = item;
-	dtlock->items[cpu].execution_count = execution_count;
+	dtlock->items[cpu].scheduled_count = scheduled_count;
 
 	if (signal == DTLOCK_SIGNAL_WAKE) {
 		nosv_futex_signal(&dtlock->cpu_sleep_vars[cpu]);

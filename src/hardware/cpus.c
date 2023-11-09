@@ -361,13 +361,13 @@ void cpu_mark_free(cpu_t *cpu)
 	monitoring_cpu_idle(cpu->logic_id);
 }
 
-void cpu_transfer(int destination_pid, cpu_t *cpu, nosv_task_t task)
+void cpu_transfer(int destination_pid, cpu_t *cpu, task_execution_handle_t handle)
 {
 	assert(cpu);
 	cpumanager->pids_cpus[cpu->logic_id] = destination_pid;
 
 	// Wake up a worker from another PID to take over
-	worker_wake_idle(destination_pid, cpu, task);
+	worker_wake_idle(destination_pid, cpu, handle);
 }
 
 int nosv_get_num_cpus(void)

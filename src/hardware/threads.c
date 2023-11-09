@@ -52,7 +52,7 @@ static inline void *delegate_routine(void *args)
 			break;
 
 		assert(event.type == Creation);
-		worker_create_local(threadmanager, event.cpu, event.task);
+		worker_create_local(threadmanager, event.cpu, event.handle);
 	}
 
 	instr_delegate_exit();
@@ -210,14 +210,18 @@ void threadmanager_shutdown(thread_manager_t *threadmanager)
 	}
 }
 
-static inline void worker_execute_or_delegate(nosv_task_t task, cpu_t *cpu, int is_busy_worker, int execution_count)
+static inline void worker_execute_or_delegate(task_execution_handle_t handle, cpu_t *cpu, int is_busy_worker)
 {
-	assert(task);
+	assert(handle.task);
+	assert(handle.execution_id > 0);
 	assert(cpu);
+
+	nosv_task_t task = handle.task;
 
 	if (task->worker != NULL) {
 		// Another thread was already running the task, so we have to resume
 		// the execution of the thread
+		assert(!task_is_parallel(task));
 		instr_thread_cool();
 		if (!is_busy_worker)
 			worker_add_to_idle_list();
@@ -231,7 +235,7 @@ static inline void worker_execute_or_delegate(nosv_task_t task, cpu_t *cpu, int 
 		if (!is_busy_worker)
 			worker_add_to_idle_list();
 
-		cpu_transfer(task->type->pid, cpu, task);
+		cpu_transfer(task->type->pid, cpu, handle);
 		worker_block();
 	} else if (is_busy_worker) {
 		// The task has not started and it is from the current PID, but the
@@ -239,12 +243,12 @@ static inline void worker_execute_or_delegate(nosv_task_t task, cpu_t *cpu, int 
 		// delegate the work and wake up an idle thread from this PID to
 		// execute the task
 		instr_thread_cool();
-		worker_wake_idle(logic_pid, cpu, task);
+		worker_wake_idle(logic_pid, cpu, handle);
 		worker_block();
 	} else {
 		// Otherwise, start running the task because the current thread is
 		// valid to run the task and it is idle
-		task_execute(task, execution_count);
+		task_execute(handle);
 		// The task execution has ended, so do not block the thread
 	}
 }
@@ -253,7 +257,6 @@ static inline void *worker_start_routine(void *arg)
 {
 	uint64_t timestamp;
 	int pid;
-	int execution_count;
 
 	current_worker = (nosv_worker_t *)arg;
 	assert(current_worker);
@@ -282,38 +285,41 @@ static inline void *worker_start_routine(void *arg)
 	instr_sched_hungry();
 
 	while (!atomic_load_explicit(&threads_shutdown_signal, memory_order_relaxed)) {
-		nosv_task_t task = current_worker->task;
+		task_execution_handle_t handle = current_worker->handle;
 		int cpu = cpu_get_current();
 
-		if (!task && current_worker->immediate_successor) {
+		if (!handle.task && current_worker->immediate_successor) {
+			assert(!task_is_parallel(current_worker->immediate_successor));
+
 			// Check if our quantum is up to prevent hoarding CPU resources. This is only
 			// necessary here as quantum is already taken into account in "scheduler_get"
 			if (scheduler_should_yield(pid, cpu, &timestamp)) {
 				// To prevent immediate successor chains to be unnecessarily broken if no tasks are up,
 				// try to obtain a new task first
-				// TODO: Ideally there should be a scheduler flag to say: only give me a task if it belongs to a different process
-				nosv_task_t candidate = scheduler_get(cpu, SCHED_GET_NONBLOCKING | SCHED_GET_EXTERNAL, &execution_count);
+				task_execution_handle_t candidate = scheduler_get(cpu, SCHED_GET_NONBLOCKING | SCHED_GET_EXTERNAL);
 
-				if (candidate) {
-					assert(candidate->type->pid != pid);
+				if (candidate.task) {
+					assert(candidate.task->type->pid != pid);
 					scheduler_submit(current_worker->immediate_successor);
-					task = candidate;
+					handle = candidate;
 				} else {
-					task = current_worker->immediate_successor;
+					handle.task = current_worker->immediate_successor;
+					handle.execution_id = 1;
 					// Reset the quantum
 					scheduler_reset_accounting(pid, cpu);
 				}
 			} else {
-				task = current_worker->immediate_successor;
+				handle.task = current_worker->immediate_successor;
+				handle.execution_id = 1;
 			}
 
 			worker_set_immediate(NULL);
 		}
 
-		if (!task && current_worker->cpu)
-			task = scheduler_get(cpu, SCHED_GET_DEFAULT, &execution_count);
+		if (!handle.task && current_worker->cpu)
+			handle = scheduler_get(cpu, SCHED_GET_DEFAULT);
 
-		if (task) {
+		if (handle.task) {
 			// We can only reach this point in two cases:
 			// 1) When this thread requests a task as
 			// client, and is assigned one by another
@@ -325,7 +331,7 @@ static inline void *worker_start_routine(void *arg)
 			// Therefore, we are now filled with work.
 			instr_sched_fill();
 
-			worker_execute_or_delegate(task, current_worker->cpu, /* idle thread */ 0, execution_count);
+			worker_execute_or_delegate(handle, current_worker->cpu, /* idle thread */ 0);
 
 			instr_kernel_flush(kinstr);
 
@@ -390,7 +396,8 @@ void worker_yield(void)
 
 	// Block this thread and place another one. This is called on nosv_pause
 	// First, wake up another worker in this cpu, one from the same PID
-	worker_wake_idle(logic_pid, current_worker->cpu, NULL);
+	task_execution_handle_t handle = EMPTY_TASK_EXECUTION_HANDLE;
+	worker_wake_idle(logic_pid, current_worker->cpu, handle);
 
 	// Then, sleep and return once we have been woken up
 	worker_block();
@@ -399,21 +406,20 @@ void worker_yield(void)
 int worker_yield_if_needed(nosv_task_t current_task)
 {
 	assert(current_worker);
-	assert(current_worker->task == current_task);
+	assert(current_worker->handle.task == current_task);
 	assert(current_task->worker == current_worker);
 
 	cpu_t *cpu = current_worker->cpu;
 	assert(cpu);
-	int execution_count;
 
 	instr_sched_hungry();
 
 	// Try to get a ready task without blocking
-	nosv_task_t new_task = scheduler_get(cpu->logic_id, SCHED_GET_NONBLOCKING, &execution_count);
+	task_execution_handle_t handle = scheduler_get(cpu->logic_id, SCHED_GET_NONBLOCKING);
 
 	instr_sched_fill();
 
-	if (!new_task)
+	if (!handle.task)
 		return 0;
 
 	instr_task_pause((uint32_t)current_task->taskid);
@@ -422,7 +428,7 @@ int worker_yield_if_needed(nosv_task_t current_task)
 	scheduler_submit(current_task);
 
 	// Wake up the corresponding thread to execute the task
-	worker_execute_or_delegate(new_task, cpu, /* busy thread */ 1, execution_count);
+	worker_execute_or_delegate(handle, cpu, /* busy thread */ 1);
 
 	instr_task_resume((uint32_t)current_task->taskid);
 
@@ -460,17 +466,17 @@ void worker_block(void)
 	instr_thread_resume();
 }
 
-static inline void worker_create_remote(thread_manager_t *threadmanager, cpu_t *cpu, nosv_task_t task)
+static inline void worker_create_remote(thread_manager_t *threadmanager, cpu_t *cpu, task_execution_handle_t handle)
 {
 	creation_event_t event;
 	event.cpu = cpu;
-	event.task = task;
+	event.handle = handle;
 	event.type = Creation;
 
 	event_queue_put(&threadmanager->thread_creation_queue, &event);
 }
 
-void worker_wake_idle(int pid, cpu_t *cpu, nosv_task_t task)
+void worker_wake_idle(int pid, cpu_t *cpu, task_execution_handle_t handle)
 {
 	// Find the remote thread manager
 	thread_manager_t *threadmanager = pidmanager_get_threadmanager(pid);
@@ -483,34 +489,33 @@ void worker_wake_idle(int pid, cpu_t *cpu, nosv_task_t task)
 	if (head) {
 		// We have an idle thread to wake up
 		nosv_worker_t *worker = list_elem(head, nosv_worker_t, list_hook);
-		assert(!worker->task);
-		worker->task = task;
+		assert(!worker->handle.task);
+		worker->handle = handle;
 		worker_wake_internal(worker, cpu);
 		return;
 	}
 
 	// We need to create a new worker.
 	if (pid == logic_pid) {
-		worker_create_local(threadmanager, cpu, task);
+		worker_create_local(threadmanager, cpu, handle);
 	} else {
-		worker_create_remote(threadmanager, cpu, task);
+		worker_create_remote(threadmanager, cpu, handle);
 	}
 }
 
-nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, nosv_task_t task)
+nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, task_execution_handle_t handle)
 {
 	atomic_fetch_add_explicit(&threadmanager->created, 1, memory_order_release);
 	assert(cpu);
 
 	nosv_worker_t *worker = (nosv_worker_t *)salloc(sizeof(nosv_worker_t), cpu_get_current());
 	worker->cpu = cpu;
-	worker->task = task;
+	worker->handle = handle;
 	worker->logic_pid = logic_pid;
 	worker->immediate_successor = NULL;
 	worker->creator_tid = gettid();
 	worker->in_task_body = 0;
 	nosv_condvar_init(&worker->condvar);
-	worker->task_stack = NULL;
 
 	// We use the address of the worker structure as the tag of the
 	// thread create event, as it provides a unique value known to
@@ -526,7 +531,7 @@ nosv_worker_t *worker_create_external(void)
 {
 	nosv_worker_t *worker = (nosv_worker_t *)salloc(sizeof(nosv_worker_t), cpu_get_current());
 	worker->cpu = NULL;
-	worker->task = NULL;
+	worker->handle = EMPTY_TASK_EXECUTION_HANDLE;
 	worker->kthread = pthread_self();
 	worker->tid = gettid();
 	worker->logic_pid = logic_pid;
@@ -537,7 +542,6 @@ nosv_worker_t *worker_create_external(void)
 	worker->in_task_body = 1;
 	worker->original_affinity = NULL;
 	worker->original_affinity_size = 0;
-	worker->task_stack = NULL;
 
 	instr_kernel_init(&kinstr);
 
@@ -579,7 +583,7 @@ int worker_is_in_task(void)
 	if (!current_worker)
 		return 0;
 
-	if (!current_worker->task)
+	if (!current_worker->handle.task)
 		return 0;
 
 	return 1;
@@ -595,7 +599,7 @@ nosv_task_t worker_current_task(void)
 	if (!current_worker)
 		return NULL;
 
-	return current_worker->task;
+	return current_worker->handle.task;
 }
 
 nosv_task_t worker_get_immediate(void)
