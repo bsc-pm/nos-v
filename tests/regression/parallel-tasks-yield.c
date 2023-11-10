@@ -53,12 +53,11 @@ int main() {
 
 	CHECK(nosv_init());
 
+	nosv_task_type_t task_type, task_type_yield;
 	nosv_task_t task, task_yield, main_task;
 
 	// Attach main thread
-	nosv_task_type_t attach_type, task_type, task_type_yield;
-	CHECK(nosv_type_init(&attach_type, NULL, NULL, NULL, "main", NULL, NULL, NOSV_TYPE_INIT_EXTERNAL));
-	CHECK(nosv_attach(&main_task, attach_type, 0, NULL, NOSV_ATTACH_NONE));
+	CHECK(nosv_attach(&main_task, NULL, "main", NOSV_ATTACH_NONE));
 
 	// Create some task type
 	CHECK(nosv_type_init(&task_type, task_run, NULL, task_comp, "task", NULL, NULL, NOSV_TYPE_INIT_NONE));
@@ -83,7 +82,6 @@ int main() {
 	// Wait for yield task before cleaning up
 	test_check_timeout(&test, atomic_load(&comp_yield) == 1, 1000, "Yield task finished");
 
-	CHECK(nosv_type_destroy(attach_type, NOSV_TYPE_DESTROY_NONE));
 	CHECK(nosv_type_destroy(task_type, NOSV_TYPE_DESTROY_NONE));
 	CHECK(nosv_type_destroy(task_type_yield, NOSV_TYPE_DESTROY_NONE));
 

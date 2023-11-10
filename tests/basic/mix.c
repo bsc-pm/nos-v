@@ -131,10 +131,7 @@ int main()
 
 	CHECK(nosv_init());
 
-	nosv_task_type_t adopted_type;
-	CHECK(nosv_type_init(&adopted_type, NULL, NULL, NULL, NULL, NULL, NULL,  NOSV_TYPE_INIT_EXTERNAL));
-
-	CHECK(nosv_attach(&task_attach, adopted_type, 0, /* affinity */ NULL, NOSV_ATTACH_NONE));
+	CHECK(nosv_attach(&task_attach, /* affinity */ NULL, NULL, NOSV_ATTACH_NONE));
 	// Now we are inside nOS-V
 
 	nosv_task_type_t deadline_type;
@@ -197,7 +194,6 @@ int main()
 
 	CHECK(nosv_detach(NOSV_DETACH_NONE));
 
-	CHECK(nosv_type_destroy(adopted_type, NOSV_TYPE_DESTROY_NONE));
 	CHECK(nosv_type_destroy(type, NOSV_TYPE_DESTROY_NONE));
 	CHECK(nosv_type_destroy(deadline_type, NOSV_TYPE_DESTROY_NONE));
 	CHECK(nosv_type_destroy(cost_type, NOSV_TYPE_DESTROY_NONE));

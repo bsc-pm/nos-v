@@ -187,12 +187,9 @@ void *getaffinity_test(void *arg)
 	parg_t *parg = (parg_t *) arg;
 	cpu_set_t new;
 	nosv_task_t task;
-	nosv_task_type_t type;
 	pthread_t self = pthread_self();
 	cpu_set_t *set = atomic_load_explicit(&parg->set, memory_order_relaxed);
 	size_t cpusetsize = sizeof(cpu_set_t);
-
-	nosv_type_init(&type, NULL, NULL, NULL, "gettafinity_test", NULL, NULL, NOSV_TYPE_INIT_EXTERNAL);
 
 	// The following sched_getaffinity bypasses the nosv affinity support
 	// because this thread has not been attached yet. It will return the
@@ -204,7 +201,7 @@ void *getaffinity_test(void *arg)
 	rc = pthread_getaffinity_np(self, cpusetsize, &new);
 	test_check(&test, !rc && CPU_EQUAL(set, &new), "%s: pthread_getaffinity_np before attach on a pthread returns the original parent affinity", parg->msg);
 
-	nosv_attach(&task, type, 0, NULL, NOSV_ATTACH_NONE);
+	nosv_attach(&task, NULL, "gettafinity_test", NOSV_ATTACH_NONE);
 
 	// After attaching, getaffinity should return still the original
 	// affinity
@@ -250,9 +247,7 @@ void *remote_affinity_test(void *arg)
 	nosv_task_t task;
 	cpu_set_t new;
 	cpu_set_t *set;
-	nosv_task_type_t type;
 	parg_t *parg = (parg_t *) arg;
-	nosv_type_init(&type, NULL, NULL, NULL, "remote_affinity_test", NULL, NULL, NOSV_TYPE_INIT_EXTERNAL);
 	pthread_t self = pthread_self();
 	int attached = 0;
 
@@ -264,7 +259,7 @@ void *remote_affinity_test(void *arg)
 		//fprintf(stderr, "rat current status: %s\n", ratstr(status));
 		switch (status) {
 		case RAT_ATTACH:
-			nosv_attach(&task, type, 0, NULL, NOSV_ATTACH_NONE);
+			nosv_attach(&task, NULL, "remote_affinity_test", NOSV_ATTACH_NONE);
 			attached = 1;
 			atomic_store_explicit(&parg->task, task, memory_order_relaxed);
 			atomic_store_explicit(&parg->status, RAT_READY, memory_order_release);
@@ -371,9 +366,7 @@ void *looping_remote_affinity_test(void *arg)
 	rat_cmd_t status;
 	nosv_task_t task;
 	cpu_set_t set;
-	nosv_task_type_t type;
 	parg_t *parg = (parg_t *) arg;
-	nosv_type_init(&type, NULL, NULL, NULL, "remote_affinity_test", NULL, NULL, NOSV_TYPE_INIT_EXTERNAL);
 	pthread_t self = pthread_self();
 	cpu_set_t *expected_set;
 	int attached = 0;
@@ -392,7 +385,7 @@ void *looping_remote_affinity_test(void *arg)
 		// remote setaffinities and attach/detach are safe.
 
 		if (!attached) {
-			nosv_attach(&task, type, 0, NULL, NOSV_ATTACH_NONE);
+			nosv_attach(&task, NULL, "looping_remote_affinty_test", NOSV_ATTACH_NONE);
 			atomic_store_explicit(&parg->task, task, memory_order_relaxed);
 			attached = 1;
 		} else {
@@ -626,7 +619,6 @@ void run_getaffinity_after_attach_test(cpu_set_t *original, cpu_set_t *target, n
 
 int main() {
 	cpu_set_t original, target;
-	nosv_task_type_t type;
 	nosv_task_t task;
 	int ntests = 39;
 
@@ -661,8 +653,7 @@ int main() {
 	run_getaffiniy_before_attach_test(&original);
 
 	// attach main thread
-	nosv_type_init(&type, NULL, NULL, NULL, "main", NULL, NULL, NOSV_TYPE_INIT_EXTERNAL);
-	nosv_attach(&task, type, 0, NULL, NOSV_ATTACH_NONE);
+	nosv_attach(&task, NULL, "main", NOSV_ATTACH_NONE);
 
 	// run tests after attaching main thread
 	run_getaffinity_after_attach_test(&original, &target, task);
@@ -677,6 +668,5 @@ int main() {
 
 	// finalize test
 	nosv_detach(NOSV_DETACH_NONE);
-	nosv_type_destroy(type, NOSV_DESTROY_NONE);
 	nosv_shutdown();
 }

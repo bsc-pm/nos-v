@@ -183,18 +183,17 @@ int nosv_decrease_event_counter(
 	uint64_t decrement);
 
 /* Flags */
-#define NOSV_ATTACH_NONE 			__ZEROBITS
+#define NOSV_ATTACH_NONE			__ZEROBITS
 
 /* Thread Attaching API */
 int nosv_attach(
 	nosv_task_t *task /* out */,
-	nosv_task_type_t type /* must have null callbacks */,
-	size_t metadata_size,
 	nosv_affinity_t *affinity,
+	const char *label,
 	nosv_flags_t flags);
 
 /* Flags */
-#define NOSV_DETACH_NONE 				__ZEROBITS
+#define NOSV_DETACH_NONE				__ZEROBITS
 /* Do not restore the original affinity of the attached thread */
 #define NOSV_DETACH_NO_RESTORE_AFFINITY	__BIT(0)
 

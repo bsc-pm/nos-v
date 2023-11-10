@@ -39,11 +39,8 @@ int main() {
 
 	CHECK(nosv_init());
 
-	nosv_task_type_t ext;
-	CHECK(nosv_type_init(&ext, NULL, NULL, NULL, NULL, NULL, NULL, NOSV_TYPE_INIT_EXTERNAL));
-
 	nosv_task_t ext_task;
-	CHECK(nosv_attach(&ext_task, ext, 0, NULL, NOSV_ATTACH_NONE));
+	CHECK(nosv_attach(&ext_task, NULL, NULL, NOSV_ATTACH_NONE));
 
 	nosv_task_type_t worker;
 	CHECK(nosv_type_init(&worker, worker_run, NULL, worker_comp, "worker", NULL, NULL, NOSV_TYPE_INIT_NONE));
@@ -56,7 +53,6 @@ int main() {
 
 	test_check(&test, exec == 1, "Execution order respected");
 	CHECK(nosv_detach(NOSV_DETACH_NONE));
-	CHECK(nosv_type_destroy(ext, NOSV_TYPE_DESTROY_NONE));
 
 	CHECK(nosv_shutdown());
 }
