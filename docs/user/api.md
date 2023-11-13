@@ -96,9 +96,8 @@ int nosv_destroy(
 
 int nosv_attach(
 	nosv_task_t *task /* out */,
-	nosv_task_type_t type /* must have null callbacks */,
-	size_t metadata_size,
 	nosv_affinity_t *affinity,
+	const char *label,
 	nosv_flags_t flags);
 
 int nosv_detach(
