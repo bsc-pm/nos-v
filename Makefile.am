@@ -35,8 +35,8 @@ pkgconfig_DATA = nos-v.pc
 
 libnosv_la_SOURCES = \
 	src/alpi.c \
-    src/bootstrap.c \
-    src/error.c \
+	src/bootstrap.c \
+	src/error.c \
 	src/config/config.c \
 	src/config/toml.c \
 	src/hardware/cpus.c \
@@ -72,7 +72,7 @@ libnosv_la_SOURCES += \
 endif
 
 include_HEADERS = \
-    api/nosv.h
+	api/nosv.h
 
 noinst_HEADERS = \
 	src/include/defaults.h \
