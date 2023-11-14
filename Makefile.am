@@ -34,8 +34,9 @@ lib_LTLIBRARIES = libnosv.la
 pkgconfig_DATA = nos-v.pc
 
 libnosv_la_SOURCES = \
-    src/bootstrap.c \
-    src/error.c \
+	src/alpi.c \
+	src/bootstrap.c \
+	src/error.c \
 	src/config/config.c \
 	src/config/toml.c \
 	src/hardware/cpus.c \
@@ -71,7 +72,7 @@ libnosv_la_SOURCES += \
 endif
 
 include_HEADERS = \
-    api/nosv.h
+	api/nosv.h
 
 noinst_HEADERS = \
 	src/include/defaults.h \
@@ -150,7 +151,8 @@ endif
 subincludedir = $(includedir)/nosv
 subinclude_HEADERS = \
 	api/nosv/affinity.h \
-    api/nosv/error.h \
+	api/nosv/alpi.h \
+	api/nosv/error.h \
 	api/nosv/hwinfo.h
 
 # Install config file

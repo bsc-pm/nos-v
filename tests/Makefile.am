@@ -28,7 +28,8 @@ basic_tests = basic-error-code.test \
 	basic-deadline-wake.test \
 	basic-parallel.test \
 	basic-parallel-cancel.test \
-	basic-parallel-init.test
+	basic-parallel-init.test \
+	basic-alpi.test
 
 regression_tests = regression-attach-is.test \
 	regression-parallel-tasks-cross-process.test \
@@ -113,6 +114,10 @@ basic_parallel_cancel_test_LDFLAGS = $(AM_LDFLAGS)
 basic_parallel_init_test_SOURCES = basic/parallel-init.c
 basic_parallel_init_test_CFLAGS = $(AM_CFLAGS)
 basic_parallel_init_test_LDFLAGS = $(AM_LDFLAGS)
+
+basic_alpi_test_SOURCES = basic/alpi.c
+basic_alpi_test_CFLAGS = $(AM_CFLAGS)
+basic_alpi_test_LDFLAGS = $(AM_LDFLAGS)
 
 regression_attach_is_test_SOURCES = regression/attach-is.c
 regression_attach_is_test_CFLAGS = $(AM_CFLAGS)
