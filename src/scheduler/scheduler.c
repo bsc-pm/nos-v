@@ -567,8 +567,10 @@ static inline nosv_task_t scheduler_find_task_process(process_scheduler_t *sched
 		assert(!task_is_parallel(task));
 
 		// Check if the task is affine with the current cpu
-		if (task_affine(task, cpu))
+		if (task_affine(task, cpu)) {
+			task->scheduled_count++;
 			goto task_obtained;
+		}
 
 		// Not affine. Insert to an appropiate queue
 		scheduler_insert_affine(sched, task);
@@ -579,8 +581,10 @@ static inline nosv_task_t scheduler_find_task_process(process_scheduler_t *sched
 		assert(!task_is_parallel(task));
 
 		// Check if the task is affine with the current cpu
-		if (task_affine(task, cpu))
+		if (task_affine(task, cpu)) {
+			task->scheduled_count++;
 			goto task_obtained;
+		}
 
 		// Not affine. Insert to an appropiate queue
 		scheduler_insert_affine(sched, task);
@@ -684,6 +688,7 @@ static inline nosv_task_t scheduler_find_task_yield_process(process_scheduler_t 
 		assert(!task_is_parallel(task));
 
 		if (task_affine(task, cpu)) {
+			task->scheduled_count++;
 			sched->tasks--;
 			return task;
 		} else {
