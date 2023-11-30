@@ -306,6 +306,7 @@ static inline void *worker_start_routine(void *arg)
 					handle.execution_id = 1;
 					// Reset the quantum
 					scheduler_reset_accounting(pid, cpu);
+
 				}
 			} else {
 				handle.task = current_worker->immediate_successor;
@@ -425,7 +426,8 @@ int worker_yield_if_needed(nosv_task_t current_task)
 	if (!handle.task)
 		return 0;
 
-	instr_task_pause((uint32_t)current_task->taskid);
+	uint32_t bodyid = instr_get_bodyid(handle);
+	instr_task_pause((uint32_t)current_task->taskid, bodyid);
 
 	// We retrieved a ready task, so submit the current one
 	scheduler_submit(current_task);
@@ -433,7 +435,7 @@ int worker_yield_if_needed(nosv_task_t current_task)
 	// Wake up the corresponding thread to execute the task
 	worker_execute_or_delegate(handle, cpu, /* busy thread */ 1);
 
-	instr_task_resume((uint32_t)current_task->taskid);
+	instr_task_resume((uint32_t)current_task->taskid, bodyid);
 
 	return 1;
 }

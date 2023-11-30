@@ -25,6 +25,7 @@
 #include "config/config.h"
 #include "hardware/pids.h"
 #include "hardware/threads.h"
+#include "system/tasks.h"
 #include "nosv-internal.h"
 
 #ifdef ENABLE_INSTRUMENTATION
@@ -191,10 +192,11 @@ INSTR_0ARG(API_ATTACH, instr_attach_exit, "VAA")
 INSTR_0ARG(API_ATTACH, instr_detach_enter, "VAe")
 
 INSTR_2ARG(TASK, instr_task_create, "VTc", uint32_t, task_id, uint32_t, type_id)
-INSTR_1ARG(TASK, instr_task_execute, "VTx", uint32_t, task_id)
-INSTR_1ARG(TASK, instr_task_pause, "VTp", uint32_t, task_id)
-INSTR_1ARG(TASK, instr_task_resume, "VTr", uint32_t, task_id)
-INSTR_1ARG(TASK, instr_task_end, "VTe", uint32_t, task_id)
+INSTR_2ARG(TASK, instr_task_create_par, "VTC", uint32_t, task_id, uint32_t, type_id)
+INSTR_2ARG(TASK, instr_task_execute, "VTx", uint32_t, task_id, uint32_t, body_id)
+INSTR_2ARG(TASK, instr_task_pause, "VTp", uint32_t, task_id, uint32_t, body_id)
+INSTR_2ARG(TASK, instr_task_resume, "VTr", uint32_t, task_id, uint32_t, body_id)
+INSTR_2ARG(TASK, instr_task_end, "VTe", uint32_t, task_id, uint32_t, body_id)
 
 #ifdef ENABLE_INSTRUMENTATION
 
@@ -242,10 +244,26 @@ static inline void instr_type_create(uint32_t typeid, const char *label)
 	ovni_ev_jumbo_emit(&ev, buf, bufsize);
 }
 
+static inline uint32_t instr_get_bodyid(task_execution_handle_t handle)
+{
+	if (!task_is_parallel(handle.task))
+		return 0;
+
+	assert(handle.execution_id > 0); // Zero is forbidden
+
+	// The body id matches the execution id only for parallel tasks
+	return handle.execution_id;
+}
+
 #else // ENABLE_INSTRUMENTATION
 
 static inline void instr_type_create(uint32_t typeid, const char *label)
 {
+}
+
+static inline uint32_t instr_get_bodyid(task_execution_handle_t handle)
+{
+	return 0;
 }
 
 #endif // ENABLE_INSTRUMENTATION
@@ -338,7 +356,7 @@ static inline void instr_thread_require(void)
 {
 	CHECK_INSTR_ENABLED(BASIC)
 	if (!instr_require_done) {
-		ovni_thread_require("nosv", "1.1.0");
+		ovni_thread_require("nosv", "2.0.0");
 
 		if (instr_ovni_control & INSTR_FLAG_KERNEL)
 			ovni_thread_require("kernel", "1.0.0");

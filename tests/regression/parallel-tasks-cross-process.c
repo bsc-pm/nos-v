@@ -48,7 +48,7 @@ int main() {
 	// Create some task type
 	nosv_task_type_t task_type;
 	CHECK(nosv_type_init(&task_type, task_run, NULL, task_comp, "task", NULL, NULL, NOSV_TYPE_INIT_NONE));
-	CHECK(nosv_create(&task, task_type, 0, NOSV_CREATE_NONE));
+	CHECK(nosv_create(&task, task_type, 0, NOSV_CREATE_PARALLEL));
 	int32_t degree = nosv_get_num_cpus();
 	nosv_set_task_degree(task, degree);
 	CHECK(nosv_submit(task, NOSV_SUBMIT_NONE));

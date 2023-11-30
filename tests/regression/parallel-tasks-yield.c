@@ -66,7 +66,7 @@ int main() {
 	CHECK(nosv_create(&task_yield, task_type_yield, 0, NOSV_CREATE_NONE));
 	CHECK(nosv_submit(task_yield, NOSV_SUBMIT_NONE));
 
-	CHECK(nosv_create(&task, task_type, 0, NOSV_CREATE_NONE));
+	CHECK(nosv_create(&task, task_type, 0, NOSV_CREATE_PARALLEL));
 	int32_t degree = nosv_get_num_cpus() * 4;
 	nosv_set_task_degree(task, degree);
 	CHECK(nosv_submit(task, NOSV_SUBMIT_NONE));

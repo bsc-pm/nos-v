@@ -102,7 +102,9 @@ int nosv_type_destroy(
 	nosv_flags_t flags);
 
 /* Flags */
-#define NOSV_CREATE_NONE 		__ZEROBITS
+#define NOSV_CREATE_NONE        __ZEROBITS
+/* Create a parallel task that can run multiple times */
+#define NOSV_CREATE_PARALLEL    __BIT(0)
 
 /* May return -ENOMEM. 0 on success */
 /* Callable from everywhere */
