@@ -677,6 +677,7 @@ static inline void task_complete(nosv_task_t task)
 	task->wakeup = NULL;
 
 	atomic_store_explicit(&task->event_count, 1, memory_order_relaxed);
+	task->scheduled_count = 0;
 
 	if (task->type->completed_callback)
 		task->type->completed_callback(task);
