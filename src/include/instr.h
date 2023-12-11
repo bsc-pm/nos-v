@@ -331,6 +331,7 @@ static inline void instr_thread_init(void)
 {
 	CHECK_INSTR_ENABLED(BASIC)
 	ovni_thread_init(gettid());
+	ovni_thread_require("nosv", "1.0.0");
 }
 
 static inline void instr_thread_attach(void)
@@ -341,6 +342,7 @@ static inline void instr_thread_attach(void)
 	if (!ovni_thread_isready())
 		nosv_abort("The current thread is not instrumented in nosv_attach()");
 
+	ovni_thread_require("nosv", "1.0.0");
 	ovni_ev_set_clock(&ev, ovni_clock_now());
 	ovni_ev_set_mcv(&ev, "VHa");
 	ovni_ev_emit(&ev);
