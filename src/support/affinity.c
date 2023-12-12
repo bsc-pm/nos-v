@@ -27,6 +27,7 @@ hash_table_t ht_pthread;
 cpu_set_t original_affinity;
 size_t original_affinity_size = sizeof(cpu_set_t);
 pthread_once_t once_control = PTHREAD_ONCE_INIT;
+thread_local int bypass;
 
 static int (*_next_sched_setaffinity)(pid_t, size_t, const cpu_set_t *);
 static int (*_next_sched_getaffinity)(pid_t, size_t, cpu_set_t *);
@@ -294,6 +295,55 @@ static char pthread_attr_has_cpuset(const pthread_attr_t *attr)
 	nosv_abort("unexpected pthread_attr_getaffinity_np return value");
 }
 
+// The next_* family of function calls should only be called by their
+// corresponding interceptor function. These functions call the corresponding
+// next symbol in the lookup scope order with respect to the nosv library.
+
+static inline int next_pthread_create(
+	pthread_t *restrict thread,
+	const pthread_attr_t *restrict attr,
+	void *(*start_routine)(void *),
+	void *restrict arg
+) {
+	pthread_once(&once_control, affinity_support_init_once);
+	return _next_pthread_create(thread, attr, start_routine, arg);
+}
+
+static inline int next_sched_setaffinity(pid_t pid, size_t cpusetsize, const cpu_set_t *mask)
+{
+	pthread_once(&once_control, affinity_support_init_once);
+	return _next_sched_setaffinity(pid, cpusetsize, mask);
+}
+
+static inline int next_sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask)
+{
+	pthread_once(&once_control, affinity_support_init_once);
+	return _next_sched_getaffinity(pid, cpusetsize, mask);
+}
+
+static inline int next_pthread_setaffinity_np(
+	pthread_t thread,
+	size_t cpusetsize,
+	const cpu_set_t *cpuset
+) {
+	pthread_once(&once_control, affinity_support_init_once);
+	return _next_pthread_setaffinity_np(thread, cpusetsize, cpuset);
+}
+
+static inline int next_pthread_getaffinity_np(
+	pthread_t thread,
+	size_t cpusetsize,
+	cpu_set_t *cpuset
+) {
+	pthread_once(&once_control, affinity_support_init_once);
+	return _next_pthread_getaffinity_np(thread, cpusetsize, cpuset);
+}
+
+// The following pthread_* and sched_* family of interceptor functions are
+// intended to be called transparently by user code that makes use of nosv. This
+// functions trigger the "fake affinity" mechanism if enabled within the nosv
+// config.
+
 int pthread_create(
 	pthread_t *restrict thread,
 	const pthread_attr_t *restrict attr,
@@ -306,8 +356,8 @@ int pthread_create(
 	nosv_worker_t *worker = worker_current();
 	char needs_reset = 0;
 
-	if (!worker || !nosv_config.affinity_compat_support)
-		return bypass_pthread_create(thread, attr, start_routine, arg);
+	if (!worker || !nosv_config.affinity_compat_support || bypass)
+		return next_pthread_create(thread, attr, start_routine, arg);
 
 	// We need to create the new pthread considering the current worker fake
 	// affinity instead of the real one. To do so, we calculate its
@@ -359,7 +409,7 @@ int pthread_create(
 #endif
 	}
 
-	ret = bypass_pthread_create(thread, new_attr_ptr, start_routine, arg);
+	ret = next_pthread_create(thread, new_attr_ptr, start_routine, arg);
 
 	if (needs_reset) {
 		// reset the user attr as it was before calling pthread_create
@@ -400,8 +450,8 @@ int sched_setaffinity(pid_t pid, size_t cpusetsize, const cpu_set_t *mask)
 	int ret;
 	nosv_worker_t *worker;
 
-	if (!nosv_config.affinity_compat_support)
-		return bypass_sched_setaffinity(pid, cpusetsize, mask);
+	if (!nosv_config.affinity_compat_support || bypass)
+		return next_sched_setaffinity(pid, cpusetsize, mask);
 
 	nosv_spin_lock(&lock);
 
@@ -419,7 +469,7 @@ int sched_setaffinity(pid_t pid, size_t cpusetsize, const cpu_set_t *mask)
 		return 0;
 	}
 
-	ret = bypass_sched_setaffinity(pid, cpusetsize, mask);
+	ret = next_sched_setaffinity(pid, cpusetsize, mask);
 	nosv_spin_unlock(&lock);
 	return ret;
 }
@@ -429,8 +479,8 @@ int sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask)
 	int ret;
 	nosv_worker_t *worker;
 
-	if (!nosv_config.affinity_compat_support)
-		return bypass_sched_getaffinity(pid, cpusetsize, mask);
+	if (!nosv_config.affinity_compat_support || bypass)
+		return next_sched_getaffinity(pid, cpusetsize, mask);
 
 	nosv_spin_lock(&lock);
 
@@ -448,7 +498,7 @@ int sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask)
 		return 0;
 	}
 
-	ret = bypass_sched_getaffinity(pid, cpusetsize, mask);
+	ret = next_sched_getaffinity(pid, cpusetsize, mask);
 	nosv_spin_unlock(&lock);
 	return ret;
 }
@@ -461,8 +511,8 @@ int pthread_setaffinity_np(
 	int ret;
 	nosv_worker_t *worker;
 
-	if (!nosv_config.affinity_compat_support)
-		return bypass_pthread_setaffinity_np(thread, cpusetsize, cpuset);
+	if (!nosv_config.affinity_compat_support || bypass)
+		return next_pthread_setaffinity_np(thread, cpusetsize, cpuset);
 
 	nosv_spin_lock(&lock);
 
@@ -479,7 +529,7 @@ int pthread_setaffinity_np(
 		return 0;
 	}
 
-	ret = bypass_pthread_setaffinity_np(thread, cpusetsize, cpuset);
+	ret = next_pthread_setaffinity_np(thread, cpusetsize, cpuset);
 	nosv_spin_unlock(&lock);
 	return ret;
 }
@@ -492,8 +542,8 @@ int pthread_getaffinity_np(
 	int ret;
 	nosv_worker_t *worker;
 
-	if (!nosv_config.affinity_compat_support)
-		return bypass_pthread_getaffinity_np(thread, cpusetsize, cpuset);
+	if (!nosv_config.affinity_compat_support || bypass)
+		return next_pthread_getaffinity_np(thread, cpusetsize, cpuset);
 
 	nosv_spin_lock(&lock);
 
@@ -510,10 +560,20 @@ int pthread_getaffinity_np(
 		return 0;
 	}
 
-	ret = bypass_pthread_getaffinity_np(thread, cpusetsize, cpuset);
+	ret = next_pthread_getaffinity_np(thread, cpusetsize, cpuset);
 	nosv_spin_unlock(&lock);
 	return ret;
 }
+
+// The bypass_* family of function wrappers can be called from anywhere within
+// the nosv code to invoke the real corresponding function calls without
+// triggering the fake affinity mechanism.
+//
+// These function wrappers call the corresponding original function to ensure
+// that the lookup scope order is respected at all times. If we called the
+// next_* family of function calls here, we would be skipping other symbol
+// interceptors found before the nosv library. For example, it would not call
+// libasan interceptors (if available).
 
 int bypass_pthread_create(
 	pthread_t *restrict thread,
@@ -521,20 +581,26 @@ int bypass_pthread_create(
 	void *(*start_routine)(void *),
 	void *restrict arg
 ) {
-	pthread_once(&once_control, affinity_support_init_once);
-	return _next_pthread_create(thread, attr, start_routine, arg);
+	bypass++;
+	int rc = pthread_create(thread, attr, start_routine, arg);
+	bypass--;
+	return rc;
 }
 
 int bypass_sched_setaffinity(pid_t pid, size_t cpusetsize, const cpu_set_t *mask)
 {
-	pthread_once(&once_control, affinity_support_init_once);
-	return _next_sched_setaffinity(pid, cpusetsize, mask);
+	bypass++;
+	int rc = sched_setaffinity(pid, cpusetsize, mask);
+	bypass--;
+	return rc;
 }
 
 int bypass_sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask)
 {
-	pthread_once(&once_control, affinity_support_init_once);
-	return _next_sched_getaffinity(pid, cpusetsize, mask);
+	bypass++;
+	int rc = sched_getaffinity(pid, cpusetsize, mask);
+	bypass--;
+	return rc;
 }
 
 int bypass_pthread_setaffinity_np(
@@ -542,8 +608,10 @@ int bypass_pthread_setaffinity_np(
 	size_t cpusetsize,
 	const cpu_set_t *cpuset
 ) {
-	pthread_once(&once_control, affinity_support_init_once);
-	return _next_pthread_setaffinity_np(thread, cpusetsize, cpuset);
+	bypass++;
+	int rc = pthread_setaffinity_np(thread, cpusetsize, cpuset);
+	bypass--;
+	return rc;
 }
 
 int bypass_pthread_getaffinity_np(
@@ -551,6 +619,8 @@ int bypass_pthread_getaffinity_np(
 	size_t cpusetsize,
 	cpu_set_t *cpuset
 ) {
-	pthread_once(&once_control, affinity_support_init_once);
-	return _next_pthread_getaffinity_np(thread, cpusetsize, cpuset);
+	bypass++;
+	int rc = pthread_getaffinity_np(thread, cpusetsize, cpuset);
+	bypass--;
+	return rc;
 }
