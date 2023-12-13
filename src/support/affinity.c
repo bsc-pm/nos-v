@@ -401,7 +401,7 @@ int sched_setaffinity(pid_t pid, size_t cpusetsize, const cpu_set_t *mask)
 	nosv_worker_t *worker;
 
 	if (!nosv_config.affinity_compat_support)
-		goto fallback;
+		return bypass_sched_setaffinity(pid, cpusetsize, mask);
 
 	nosv_spin_lock(&lock);
 
@@ -419,7 +419,6 @@ int sched_setaffinity(pid_t pid, size_t cpusetsize, const cpu_set_t *mask)
 		return 0;
 	}
 
-fallback:
 	ret = bypass_sched_setaffinity(pid, cpusetsize, mask);
 	nosv_spin_unlock(&lock);
 	return ret;
@@ -431,7 +430,7 @@ int sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask)
 	nosv_worker_t *worker;
 
 	if (!nosv_config.affinity_compat_support)
-		goto fallback;
+		return bypass_sched_getaffinity(pid, cpusetsize, mask);
 
 	nosv_spin_lock(&lock);
 
@@ -449,7 +448,6 @@ int sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask)
 		return 0;
 	}
 
-fallback:
 	ret = bypass_sched_getaffinity(pid, cpusetsize, mask);
 	nosv_spin_unlock(&lock);
 	return ret;
@@ -464,7 +462,7 @@ int pthread_setaffinity_np(
 	nosv_worker_t *worker;
 
 	if (!nosv_config.affinity_compat_support)
-		goto fallback;
+		return bypass_pthread_setaffinity_np(thread, cpusetsize, cpuset);
 
 	nosv_spin_lock(&lock);
 
@@ -481,7 +479,6 @@ int pthread_setaffinity_np(
 		return 0;
 	}
 
-fallback:
 	ret = bypass_pthread_setaffinity_np(thread, cpusetsize, cpuset);
 	nosv_spin_unlock(&lock);
 	return ret;
@@ -496,7 +493,7 @@ int pthread_getaffinity_np(
 	nosv_worker_t *worker;
 
 	if (!nosv_config.affinity_compat_support)
-		goto fallback;
+		return bypass_pthread_getaffinity_np(thread, cpusetsize, cpuset);
 
 	nosv_spin_lock(&lock);
 
@@ -513,7 +510,6 @@ int pthread_getaffinity_np(
 		return 0;
 	}
 
-fallback:
 	ret = bypass_pthread_getaffinity_np(thread, cpusetsize, cpuset);
 	nosv_spin_unlock(&lock);
 	return ret;
