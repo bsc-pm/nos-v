@@ -22,12 +22,12 @@
 #include "support/affinity.h"
 
 
-hash_table_t ht_tid;
-hash_table_t ht_pthread;
-cpu_set_t original_affinity;
-size_t original_affinity_size = sizeof(cpu_set_t);
-pthread_once_t once_control = PTHREAD_ONCE_INIT;
-thread_local int bypass;
+static hash_table_t ht_tid;
+static hash_table_t ht_pthread;
+static cpu_set_t original_affinity;
+static size_t original_affinity_size = sizeof(cpu_set_t);
+static pthread_once_t once_control = PTHREAD_ONCE_INIT;
+static thread_local int bypass;
 
 static int (*_next_sched_setaffinity)(pid_t, size_t, const cpu_set_t *);
 static int (*_next_sched_getaffinity)(pid_t, size_t, cpu_set_t *);
