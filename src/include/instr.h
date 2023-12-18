@@ -279,6 +279,7 @@ static inline void instr_thread_end(void)
 
 	// Flush the events to disk before killing the thread
 	ovni_flush();
+	ovni_thread_free();
 }
 
 static inline void instr_proc_init(const char *suffix)
@@ -366,6 +367,9 @@ static inline void instr_thread_detach(void)
 
 	// Flush the events to disk before detaching the thread
 	ovni_flush();
+
+	// This thread is not managed by nOS-V, so we avoid the call to
+	// ovni_thread_free().
 }
 
 #else // ENABLE_INSTRUMENTATION
