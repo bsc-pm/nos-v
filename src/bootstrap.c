@@ -24,6 +24,7 @@
 #include "system/tasks.h"
 
 __internal int32_t rt_refcount = 0;
+__internal thread_local int32_t th_refcount = 0;
 __internal bool rt_initialized = false;
 __internal pthread_mutex_t rt_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -48,8 +49,12 @@ static int nosv_init_impl(void)
 		task_affinity_init();
 
 		// Mark as initialized
+		assert(th_refcount == 0);
+		th_refcount++;
 		rt_initialized = true;
-	} else {
+	} else if (++th_refcount == 1 && !nosv_self()) {
+		// Emit instrumentation if the current thread is the first time
+		// that this thread calls nosv_init and it is not attached.
 		assert(rt_initialized);
 
 		instr_thread_init();
@@ -82,9 +87,14 @@ static int nosv_shutdown_impl(void)
 		locality_shutdown();
 		config_free();
 
+		assert(th_refcount == 1);
+		th_refcount--;
+
 		instr_thread_end();
 		instr_proc_fini();
-	} else {
+	} else if (--th_refcount == 0 && !nosv_self()) {
+		// Emit instrumentation if the current thread is the last thread
+		// calling nosv_shutdown and it is not attached.
 		instr_thread_end();
 	}
 	return NOSV_SUCCESS;
