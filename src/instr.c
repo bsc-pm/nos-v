@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2023 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2023-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #include "config.h"
@@ -30,6 +30,7 @@ static const uint64_t control_flags_mask[] = {
 	[INSTR_BIT_API_YIELD] 			= INSTR_FLAG_API_YIELD,
 	[INSTR_BIT_API_WAITFOR] 		= INSTR_FLAG_API_WAITFOR,
 	[INSTR_BIT_API_SCHEDPOINT] 		= INSTR_FLAG_API_SCHEDPOINT,
+	[INSTR_BIT_API_ATTACH] 			= INSTR_FLAG_API_ATTACH,
 	[INSTR_BIT_TASK] 				= INSTR_FLAG_TASK,
 	[INSTR_BIT_KERNEL] 				= INSTR_FLAG_KERNEL,
 	[INSTR_BIT_MAX] 				= ~(0ULL)
@@ -48,6 +49,7 @@ static const char *control_flags[] = {
 	[INSTR_BIT_API_YIELD] 			= "api_yield",
 	[INSTR_BIT_API_WAITFOR] 		= "api_waitfor",
 	[INSTR_BIT_API_SCHEDPOINT] 		= "api_schedpoint",
+	[INSTR_BIT_API_ATTACH]	 		= "api_attach",
 	[INSTR_BIT_TASK] 				= "task",
 	[INSTR_BIT_KERNEL] 				= "kernel",
 	[INSTR_BIT_MAX] 				= "all"
