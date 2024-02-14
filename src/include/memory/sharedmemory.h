@@ -21,7 +21,7 @@ __internal void smem_shutdown(void);
 typedef struct smem_config {
 	// Process Identifiers
 	process_identifier_t processes[MAX_PIDS];
-	nosv_mutex_t mutex;
+	nosv_sys_mutex_t mutex;
 	void *scheduler_ptr;
 	void *cpumanager_ptr;
 	void *pidmanager_ptr;

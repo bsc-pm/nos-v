@@ -32,7 +32,7 @@ typedef struct __attribute__((aligned(16))) page_metadata {
 
 typedef struct backbone_header {
 	list_head_t free_pages;
-	nosv_mutex_t mutex;
+	nosv_sys_mutex_t mutex;
 	cache_bucket_t buckets[SLAB_BUCKETS];
 } backbone_header_t;
 

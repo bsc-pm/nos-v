@@ -57,7 +57,7 @@ static void smem_config_initialize(smem_config_t *config)
 	config->scheduler_ptr = NULL;
 	config->pidmanager_ptr = NULL;
 	config->monitoring_ptr = NULL;
-	nosv_mutex_init(&config->mutex);
+	nosv_sys_mutex_init(&config->mutex);
 	config->count = 0;
 	memset(config->per_pid_structures, 0, MAX_PIDS * sizeof(void *));
 }

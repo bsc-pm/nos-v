@@ -21,7 +21,7 @@ BITSET_DEFINE(pid_bitset, MAX_PIDS)
 typedef struct pid_bitset pid_bitset_t;
 
 typedef struct pid_manager {
-	nosv_mutex_t lock;
+	nosv_sys_mutex_t lock;
 	pid_bitset_t pids;
 	pid_bitset_t pids_alloc;
 } pid_manager_t;

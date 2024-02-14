@@ -13,9 +13,9 @@
 	Lightweight wrapper for pthread_mutex_t with shared memory support
 */
 
-typedef pthread_mutex_t nosv_mutex_t;
+typedef pthread_mutex_t nosv_sys_mutex_t;
 
-static inline void nosv_mutex_init(nosv_mutex_t *mutex)
+static inline void nosv_sys_mutex_init(nosv_sys_mutex_t *mutex)
 {
 	pthread_mutexattr_t attr;
 	pthread_mutexattr_init(&attr);
@@ -24,17 +24,17 @@ static inline void nosv_mutex_init(nosv_mutex_t *mutex)
 	pthread_mutexattr_destroy(&attr);
 }
 
-static inline void nosv_mutex_destroy(nosv_mutex_t *mutex)
+static inline void nosv_sys_mutex_destroy(nosv_sys_mutex_t *mutex)
 {
 	pthread_mutex_destroy(mutex);
 }
 
-static inline void nosv_mutex_lock(nosv_mutex_t *mutex)
+static inline void nosv_sys_mutex_lock(nosv_sys_mutex_t *mutex)
 {
 	pthread_mutex_lock(mutex);
 }
 
-static inline void nosv_mutex_unlock(nosv_mutex_t *mutex)
+static inline void nosv_sys_mutex_unlock(nosv_sys_mutex_t *mutex)
 {
 	pthread_mutex_unlock(mutex);
 }
