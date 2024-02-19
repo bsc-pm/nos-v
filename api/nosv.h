@@ -39,6 +39,8 @@ typedef struct nosv_task *nosv_task_t;
 typedef struct nosv_affinity nosv_affinity_t;
 struct nosv_mutex;
 typedef struct nosv_mutex *nosv_mutex_t;
+struct nosv_barrier;
+typedef struct nosv_barrier *nosv_barrier_t;
 
 typedef void (*nosv_task_run_callback_t)(nosv_task_t);
 typedef void (*nosv_task_end_callback_t)(nosv_task_t);
@@ -234,6 +236,26 @@ int nosv_mutex_trylock(
 /* Unlock a mutex object */
 int nosv_mutex_unlock(
 	nosv_mutex_t mutex);
+
+/* Flags */
+#define NOSV_BARRIER_NONE __ZEROBITS
+
+/* Initialize the "barrier" object to wait for "count" threads. The attr object
+ * is currently not implemented, use NULL*/
+int nosv_barrier_init(
+	nosv_barrier_t *barrier,
+	nosv_flags_t flags,
+	unsigned count);
+
+/* Destroy the "barrier" object. It can be re-initialized afterwards */
+int nosv_barrier_destroy(
+	nosv_barrier_t barrier);
+
+/* Similar to pthread_barrier_wait, block until "count" threads have reached the
+ * barrier */
+/* Restriction: Can only be called from a task context */
+int nosv_barrier_wait(
+	nosv_barrier_t barrier);
 
 /* CPU Information API */
 /* Get number of CPUs leveraged by the nOS-V runtime */

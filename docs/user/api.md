@@ -161,6 +161,22 @@ int nosv_mutex_unlock(
 	nosv_mutex_t mutex);
 ```
 
+The nosv barrier API behaves as the pthread barrier, but with the same
+contention mechanics as the nosv mutex.
+
+```c
+int nosv_barrier_init(
+	nosv_barrier_t *barrier,
+	nosv_flags_t flags,
+	unsigned count);
+
+int nosv_barrier_destroy(
+	nosv_barrier_t barrier);
+
+int nosv_barrier_wait(
+	nosv_barrier_t barrier);
+```
+
 ### Helper functions
 ```c
 int nosv_get_num_cpus(void);
