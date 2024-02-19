@@ -23,8 +23,9 @@ typedef enum nosv_err {
 	NOSV_ERR_OUT_OF_MEMORY = -6,
 	NOSV_ERR_OUTSIDE_TASK = -7,
 	NOSV_ERR_UNKNOWN = -8,
+	NOSV_ERR_BUSY = -9,
 	/* Only used by the runtime, keep at the end */
-	NOSV_ERR_MAX = -9,
+	NOSV_ERR_MAX = -10,
 } nosv_err_t;
 
 /* Returns the error string corresponding to the error code. If not recognized,

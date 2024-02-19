@@ -134,6 +134,33 @@ int nosv_decrease_event_counter(
 	uint64_t increment);
 ```
 
+### Synchroniztion API
+
+The nosv mutex API is similar to the pthread mutex API; the difference is in
+the contended behaviour. When a `nosv_mutex_lock()` call cannot aquire the
+lock, the current task is paused and another task is scheduled in the current
+core. Instead, a contended `pthread_mutex_lock()` would block the current nosv
+worker thread without nosv noticing, which would lead to an idle core uncapable
+of running tasks until the `pthread_mutex_lock()` call returns.
+
+```c
+int nosv_mutex_init(
+	nosv_mutex_t *mutex,
+	nosv_flags_t flags);
+
+int nosv_mutex_destroy(
+	nosv_mutex_t mutex);
+
+int nosv_mutex_lock(
+	nosv_mutex_t mutex);
+
+int nosv_mutex_trylock(
+	nosv_mutex_t mutex);
+
+int nosv_mutex_unlock(
+	nosv_mutex_t mutex);
+```
+
 ### Helper functions
 ```c
 int nosv_get_num_cpus(void);
