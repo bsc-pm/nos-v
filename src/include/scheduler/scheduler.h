@@ -80,6 +80,7 @@ __internal void scheduler_shutdown(void);
 
 __internal int scheduler_should_yield(int pid, int cpu, uint64_t *timestamp);
 __internal void scheduler_reset_accounting(int pid, int cpu);
+__internal void scheduler_batch_submit(nosv_task_t task);
 __internal void scheduler_submit(nosv_task_t task);
 __internal task_execution_handle_t scheduler_get(int cpu, nosv_flags_t flags);
 __internal void scheduler_request_deadline_purge(void);

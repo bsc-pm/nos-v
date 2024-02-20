@@ -140,6 +140,9 @@ static inline void scheduler_pop_queue(scheduler_queue_t *queue, nosv_task_t tas
 		__maybe_unused list_head_t *head = list_pop_head(&queue->tasks);
 		assert(head == &task->list_hook);
 	}
+
+	// Make sure this hook is not linked to any other task
+	list_init(&(task->list_hook));
 }
 
 static inline int scheduler_get_from_queue(scheduler_queue_t *queue, nosv_task_t *task /*out*/, int *removed /*out*/)
@@ -267,6 +270,61 @@ static inline void scheduler_check_process_shutdowns(void)
 	}
 }
 
+static inline void scheduler_insert_ready_task(nosv_task_t task)
+{
+	int pid = task->type->pid;
+	process_scheduler_t *pidqueue = scheduler->queues_direct[pid];
+	int degree = task_get_degree(task);
+	assert(degree > 0);
+
+	if (!pidqueue)
+		pidqueue = scheduler_init_pid(pid);
+
+	if (task->yield) {
+		assert(!task->deadline);
+		// This yield task will be executed when either all
+		// tasks in the global scheduler have been run or when
+		// there is no more work to do other than yield tasks
+		task->yield = scheduler->served_tasks + scheduler->tasks;
+		list_add_tail(&pidqueue->yield_tasks.tasks, &task->list_hook);
+	} else if (task->deadline) {
+		deadline_state_t expected = NOSV_DEADLINE_PENDING;
+		deadline_state_t desired = NOSV_DEADLINE_WAITING;
+		if (atomic_compare_exchange_strong_explicit(&task->deadline_state, &expected, desired, memory_order_relaxed, memory_order_relaxed)) {
+			// Two tasks with the same deadline cannot exist inside the rb-tree.
+			// If this happens, increase the deadline and retry
+			while (RB_INSERT(deadline_tree, &pidqueue->deadline_tasks, task))
+				task->deadline++;
+		} else {
+			assert(expected == NOSV_DEADLINE_READY);
+			// the task has been lapsed, enqueue it directly
+			scheduler_add_queue(&pidqueue->queue, task);
+		}
+	} else {
+		// Add to general queue. If this is an affinity task, it will then be removed and
+		// added into one of the affine queues, but this way we don't give implicit priority
+		// to affine tasks
+		scheduler_add_queue(&pidqueue->queue, task);
+	}
+
+	pidqueue->tasks += degree;
+	scheduler->tasks += degree;
+}
+
+static inline void scheduler_process_ready_task_buffer(nosv_task_t first_task)
+{
+	assert(first_task != NULL);
+
+	nosv_task_t task = first_task;
+	list_head_t *lh = &(task->list_hook);
+	do {
+		task = list_elem(lh, struct nosv_task, list_hook);
+		lh = list_next(lh);
+		list_init(&(task->list_hook));
+		scheduler_insert_ready_task(task);
+	} while (lh != NULL);
+}
+
 // Must be called inside the dtlock
 static inline void scheduler_process_ready_tasks(void)
 {
@@ -277,44 +335,7 @@ static inline void scheduler_process_ready_tasks(void)
 	while ((cnt = mpsc_pop_batch(scheduler->in_queue, (void **) task_batch_buffer, batch_size))) {
 		for (size_t i = 0; i < cnt; ++i) {
 			assert(task_batch_buffer[i]);
-			nosv_task_t task = task_batch_buffer[i];
-			int pid = task->type->pid;
-			process_scheduler_t *pidqueue = scheduler->queues_direct[pid];
-			int32_t degree = task_get_degree(task);
-			assert(degree > 0);
-
-			if (!pidqueue)
-				pidqueue = scheduler_init_pid(pid);
-
-			if (task->yield) {
-				assert(!task->deadline);
-				// This yield task will be executed when either all
-				// tasks in the global scheduler have been run or when
-				// there is no more work to do other than yield tasks
-				task->yield = scheduler->served_tasks + scheduler->tasks;
-				list_add_tail(&pidqueue->yield_tasks.tasks, &task->list_hook);
-			} else if (task->deadline) {
-				deadline_state_t expected = NOSV_DEADLINE_PENDING;
-				deadline_state_t desired = NOSV_DEADLINE_WAITING;
-				if (atomic_compare_exchange_strong_explicit(&task->deadline_state, &expected, desired, memory_order_relaxed, memory_order_relaxed)) {
-					// Two tasks with the same deadline cannot exist inside the rb-tree.
-					// If this happens, increase the deadline and retry
-					while (RB_INSERT(deadline_tree, &pidqueue->deadline_tasks, task))
-						task->deadline++;
-				} else {
-					assert(expected == NOSV_DEADLINE_READY);
-					// the task has been lapsed, enqueue it directly
-					scheduler_add_queue(&pidqueue->queue, task);
-				}
-			} else {
-				// Add to general queue. If this is an affinity task, it will then be removed and
-				// added into one of the affine queues, but this way we don't give implicit priority
-				// to affine tasks
-				scheduler_add_queue(&pidqueue->queue, task);
-			}
-
-			pidqueue->tasks += degree;
-			scheduler->tasks += degree;
+			scheduler_process_ready_task_buffer(task_batch_buffer[i]);
 		}
 	}
 
@@ -363,6 +384,39 @@ static inline void scheduler_update_accounting(int pid, nosv_task_t task, int cp
 		scheduler->timestamps[cpu].pid = pid;
 		scheduler->timestamps[cpu].ts_ns = timestamp;
 		return;
+	}
+}
+
+void scheduler_batch_submit(nosv_task_t task)
+{
+	assert(task != NULL);
+
+	// The default behaviour is to take the fast path
+	uint8_t take_fast_path = 1;
+
+	nosv_task_t current_task = worker_current_task();
+
+	// If we are in a task, we can only take the fast path when there is no window and the submit_window_maxsize is 1
+	if(current_task)
+		take_fast_path = (current_task->submit_window_maxsize == 1) & (current_task->submit_window == NULL);
+
+	if (take_fast_path) {
+		scheduler_submit(task);
+		return;
+	}
+
+	if (current_task->submit_window == NULL) {
+		current_task->submit_window = task;
+		list_init(&(task->list_hook));
+		current_task->submit_window_size = 1;
+	} else {
+		list_init(&(task->list_hook));
+		list_add_tail(&(current_task->submit_window->list_hook), &(task->list_hook));
+		current_task->submit_window_size++;
+	}
+
+	if (current_task->submit_window_size >= current_task->submit_window_maxsize) {
+		nosv_flush_submit_window();
 	}
 }
 
@@ -755,7 +809,7 @@ static inline nosv_task_t scheduler_get_internal(int cpu)
 				return task;                                             \
 			}                                                            \
 		}                                                                \
-		it = list_next_circular(it, &scheduler->queues);	             \
+		it = list_next_circular(it, &scheduler->queues);                 \
 	} while (it != stop)
 
 	// Search for a ready task to run. If none is found in the current
