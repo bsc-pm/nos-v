@@ -31,6 +31,7 @@ table contains a full list of event categories and which level are they included
 | task             |     1 | Task creation/destruction, start and end |
 | scheduler        |     2 | Scheduler task obtention and serving |
 | scheduler_submit |     2 | Scheduler task submission |
+| api_attach       |     2 | Calls to `nosv_attach` and `nosv_detach` |
 | api_create       |     3 | Calls to `nosv_create` |
 | api_destroy      |     3 | Calls to `nosv_destroy` |
 | api_submit       |     3 | Calls to `nosv_submit` |

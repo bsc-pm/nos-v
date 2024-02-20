@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #include "generic/clock.h"
@@ -801,21 +801,27 @@ int nosv_attach(
 	const char * label,
 	nosv_flags_t flags)
 {
-	if (unlikely(!task))
+	instr_attach_enter();
+
+	if (unlikely(!task)) {
+		instr_attach_exit();
 		return NOSV_ERR_INVALID_PARAMETER;
+	}
 
 	// Mind nested nosv_attach and nosv_detach
-	if (rt_attach_refcount++)
+	if (rt_attach_refcount++) {
+		instr_attach_exit();
 		return NOSV_SUCCESS;
+	}
 
 	assert(!worker_current());
 
-	instr_thread_attach();
-
 	nosv_task_type_t type;
 	int ret = nosv_type_init(&type, NULL, NULL, NULL, label, NULL, NULL, NOSV_TYPE_INIT_EXTERNAL);
-	if (ret != NOSV_SUCCESS)
+	if (ret != NOSV_SUCCESS) {
+		instr_attach_exit();
 		return ret;
+	}
 
 	nosv_worker_t *worker = worker_create_external();
 	assert(worker);
@@ -823,6 +829,7 @@ int nosv_attach(
 	ret = nosv_create_internal(task, type, 0);
 	if (ret) {
 		worker_free_external(worker);
+		instr_attach_exit();
 		return ret;
 	}
 
@@ -860,6 +867,8 @@ int nosv_attach(
 	hwcounters_update_runtime_counters();
 	monitoring_task_changed_status(t, executing_status);
 
+	instr_attach_exit();
+
 	// Inform the instrumentation about the new task being in
 	// execution, as it won't pass via task_execute()
 	instr_task_execute((uint32_t)t->taskid);
@@ -891,6 +900,9 @@ int nosv_detach(
 
 	instr_task_end((uint32_t)task->taskid);
 
+	// Delay detach enter event, so we finish the "in task body" state first
+	instr_detach_enter();
+
 	// First, free both the task and the type
 	nosv_task_type_t type = task->type;
 	assert(type);
@@ -921,8 +933,7 @@ int nosv_detach(
 	task_execution_handle_t handle = EMPTY_TASK_EXECUTION_HANDLE;
 	worker_wake_idle(logic_pid, cpu, handle);
 
-	instr_thread_detach();
-
+	instr_detach_exit();
 	return NOSV_SUCCESS;
 }
 

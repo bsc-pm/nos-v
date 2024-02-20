@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef INSTR_H
@@ -29,6 +29,7 @@
 
 #ifdef ENABLE_INSTRUMENTATION
 __internal extern uint64_t instr_ovni_control;
+static thread_local int instr_require_done = 0;
 
 enum instr_bit {
 	INSTR_BIT_BASIC = 0,
@@ -43,6 +44,7 @@ enum instr_bit {
 	INSTR_BIT_API_YIELD,
 	INSTR_BIT_API_WAITFOR,
 	INSTR_BIT_API_SCHEDPOINT,
+	INSTR_BIT_API_ATTACH,
 	INSTR_BIT_TASK,
 	INSTR_BIT_KERNEL,
 	INSTR_BIT_MAX,
@@ -62,12 +64,14 @@ enum instr_bit {
 #define INSTR_FLAG_API_YIELD			BIT(INSTR_BIT_API_YIELD)
 #define INSTR_FLAG_API_WAITFOR			BIT(INSTR_BIT_API_WAITFOR)
 #define INSTR_FLAG_API_SCHEDPOINT		BIT(INSTR_BIT_API_SCHEDPOINT)
+#define INSTR_FLAG_API_ATTACH			BIT(INSTR_BIT_API_ATTACH)
 #define INSTR_FLAG_TASK					BIT(INSTR_BIT_TASK)
 #define INSTR_FLAG_KERNEL				BIT(INSTR_BIT_KERNEL)
 
 #define INSTR_LEVEL_0 (INSTR_FLAG_BASIC)
 #define INSTR_LEVEL_1 (INSTR_LEVEL_0 | INSTR_FLAG_WORKER | INSTR_FLAG_TASK)
-#define INSTR_LEVEL_2 (INSTR_LEVEL_1 | INSTR_FLAG_SCHEDULER | INSTR_FLAG_SCHEDULER_SUBMIT)
+#define INSTR_LEVEL_2 (INSTR_LEVEL_1 | INSTR_FLAG_SCHEDULER | INSTR_FLAG_SCHEDULER_SUBMIT \
+					 | INSTR_FLAG_API_ATTACH)
 #define INSTR_LEVEL_3 (INSTR_LEVEL_2 | INSTR_FLAG_API_CREATE | INSTR_FLAG_API_DESTROY \
 					 | INSTR_FLAG_API_SUBMIT | INSTR_FLAG_API_PAUSE | INSTR_FLAG_API_YIELD \
 					 | INSTR_FLAG_API_WAITFOR | INSTR_FLAG_API_SCHEDPOINT | INSTR_FLAG_KERNEL)
@@ -183,6 +187,8 @@ INSTR_0ARG(API_WAITFOR, instr_waitfor_enter, "VAw")
 INSTR_0ARG(API_WAITFOR, instr_waitfor_exit, "VAW")
 INSTR_0ARG(API_SCHEDPOINT, instr_schedpoint_enter, "VAc")
 INSTR_0ARG(API_SCHEDPOINT, instr_schedpoint_exit, "VAC")
+INSTR_0ARG(API_ATTACH, instr_attach_exit, "VAA")
+INSTR_0ARG(API_ATTACH, instr_detach_enter, "VAe")
 
 INSTR_2ARG(TASK, instr_task_create, "VTc", uint32_t, task_id, uint32_t, type_id)
 INSTR_1ARG(TASK, instr_task_execute, "VTx", uint32_t, task_id)
@@ -328,42 +334,54 @@ static inline void instr_gen_bursts(void)
 		instr_burst();
 }
 
+static inline void instr_thread_require(void)
+{
+	CHECK_INSTR_ENABLED(BASIC)
+	if (!instr_require_done) {
+		ovni_thread_require("nosv", "1.1.0");
+
+		if (instr_ovni_control & INSTR_FLAG_KERNEL)
+			ovni_thread_require("kernel", "1.0.0");
+
+		instr_require_done = 1;
+	}
+}
+
 static inline void instr_thread_init(void)
 {
 	CHECK_INSTR_ENABLED(BASIC)
 	ovni_thread_init(gettid());
-	ovni_thread_require("nosv", "1.0.0");
-
-	if (instr_ovni_control & INSTR_FLAG_KERNEL)
-		ovni_thread_require("kernel", "1.0.0");
+	instr_thread_require();
 }
 
-static inline void instr_thread_attach(void)
+static inline void instr_attach_enter(void)
 {
 	CHECK_INSTR_ENABLED(BASIC)
-	struct ovni_ev ev = {0};
 
 	if (!ovni_thread_isready())
 		nosv_abort("The current thread is not instrumented in nosv_attach()");
 
-	ovni_thread_require("nosv", "1.0.0");
+	// Set require here, even if API_ATTACH is not enabled
+	instr_thread_require();
 
-	if (instr_ovni_control & INSTR_FLAG_KERNEL)
-		ovni_thread_require("kernel", "1.0.0");
-
-	ovni_ev_set_clock(&ev, ovni_clock_now());
-	ovni_ev_set_mcv(&ev, "VHa");
-	ovni_ev_emit(&ev);
+	if (instr_ovni_control & INSTR_FLAG_API_ATTACH) {
+		struct ovni_ev ev = {0};
+		ovni_ev_set_clock(&ev, ovni_clock_now());
+		ovni_ev_set_mcv(&ev, "VAa");
+		ovni_ev_emit(&ev);
+	}
 }
 
-static inline void instr_thread_detach(void)
+static inline void instr_detach_exit(void)
 {
 	CHECK_INSTR_ENABLED(BASIC)
-	struct ovni_ev ev = {0};
 
-	ovni_ev_set_clock(&ev, ovni_clock_now());
-	ovni_ev_set_mcv(&ev, "VHA");
-	ovni_ev_emit(&ev);
+	if (instr_ovni_control & INSTR_FLAG_API_ATTACH) {
+		struct ovni_ev ev = {0};
+		ovni_ev_set_clock(&ev, ovni_clock_now());
+		ovni_ev_set_mcv(&ev, "VAE");
+		ovni_ev_emit(&ev);
+	}
 
 	// Flush the events to disk before detaching the thread
 	ovni_flush();
@@ -392,10 +410,13 @@ static inline void instr_gen_bursts(void)
 static inline void instr_thread_init(void)
 {
 }
-static inline void instr_thread_attach(void)
+static inline void instr_thread_require(void)
 {
 }
-static inline void instr_thread_detach(void)
+static inline void instr_attach_enter(void)
+{
+}
+static inline void instr_detach_exit(void)
 {
 }
 
