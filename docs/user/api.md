@@ -159,3 +159,9 @@ nosv_task_completed_callback_t nosv_get_task_type_completed_callback(nosv_task_t
 const char *nosv_get_task_type_label(nosv_task_type_t type);
 void *nosv_get_task_type_metadata(nosv_task_type_t type);
 ```
+
+### Batch Submit API
+```c
+int nosv_set_submit_window_size(size_t submit_window_size);
+int nosv_flush_submit_window(void);
+```

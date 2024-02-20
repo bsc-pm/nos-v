@@ -214,6 +214,16 @@ int nosv_get_current_logical_cpu(void);
 /* Restriction: Can only be called from a task context */
 int nosv_get_current_system_cpu(void);
 
+/* Batch Submit API */
+/* Set the maximum size of the submit window */
+/* submit_batch_size > 0 */
+/* Restriction: Can only be called from a task context */
+int nosv_set_submit_window_size(size_t submit_batch_size);
+
+/* Flush the current submit window */
+/* Restriction: Can only be called from a task context */
+int nosv_flush_submit_window(void);
+
 #ifdef __cplusplus
 }
 #endif

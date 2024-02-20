@@ -63,6 +63,12 @@ struct nosv_task {
 		RB_ENTRY(nosv_task) tree_hook;
 	};
 
+	// Submit Window (Parent task)
+	// Child tasks use the list_hook to link between them
+	struct nosv_task *submit_window;
+	size_t submit_window_size;
+	size_t submit_window_maxsize;
+
 	nosv_task_t wakeup;
 	uint64_t taskid;
 

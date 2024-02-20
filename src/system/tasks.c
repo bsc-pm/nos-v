@@ -239,6 +239,7 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	atomic_init(&res->blocking_count, 1);
 	res->affinity = default_affinity;
 	res->priority = 0;
+	list_init(&res->list_hook);
 
 	res->deadline = 0;
 	atomic_init(&res->deadline_state, NOSV_DEADLINE_NONE);
@@ -250,6 +251,10 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 
 	atomic_store_explicit(&(res->degree), 1, memory_order_relaxed);
 	res->scheduled_count = 0;
+
+	res->submit_window = NULL;
+	res->submit_window_size = 0;
+	res->submit_window_maxsize = 1;
 
 	// Initialize hardware counters and monitoring for the task
 	hwcounters_task_created(res, /* enabled */ 1);
@@ -389,8 +394,7 @@ int nosv_submit(
 		if (worker_get_immediate()) {
 			// Setting a new immediate successor, but there was already one.
 			// Place the new one and send the old one to the scheduler
-
-			scheduler_submit(worker_get_immediate());
+			scheduler_batch_submit(worker_get_immediate());
 		}
 
 		count = atomic_fetch_sub_explicit(&task->blocking_count, 1, memory_order_relaxed) - 1;
@@ -398,6 +402,8 @@ int nosv_submit(
 
 		worker_set_immediate(task);
 	} else if (is_inline) {
+		nosv_flush_submit_window();
+
 		nosv_worker_t *worker = worker_current();
 		assert(worker);
 
@@ -423,7 +429,7 @@ int nosv_submit(
 		count = atomic_fetch_sub_explicit(&task->blocking_count, 1, memory_order_relaxed) - 1;
 
 		if (count == 0)
-			scheduler_submit(task);
+			scheduler_batch_submit(task);
 	}
 
 	if (is_blocking)
@@ -447,6 +453,8 @@ int nosv_pause(
 	// We have to be inside a worker
 	if (!worker_is_in_task())
 		return NOSV_ERR_OUTSIDE_TASK;
+
+	nosv_flush_submit_window();
 
 	nosv_task_t task = worker_current_task();
 	assert(task);
@@ -507,6 +515,8 @@ int nosv_waitfor(
 	if (!worker_is_in_task())
 		return NOSV_ERR_OUTSIDE_TASK;
 
+	nosv_flush_submit_window();
+
 	nosv_task_t task = worker_current_task();
 	assert(task);
 
@@ -564,6 +574,8 @@ int nosv_yield(
 	if (!worker_is_in_task())
 		return NOSV_ERR_OUTSIDE_TASK;
 
+	nosv_flush_submit_window();
+
 	nosv_task_t task = worker_current_task();
 	assert(task);
 
@@ -606,6 +618,8 @@ int nosv_schedpoint(
 
 	if (!worker_is_in_task())
 		return NOSV_ERR_OUTSIDE_TASK;
+
+	nosv_flush_submit_window();
 
 	nosv_task_t task = worker_current_task();
 	assert(task);
@@ -717,6 +731,8 @@ void task_execute(task_execution_handle_t handle)
 		task->type->end_callback(task);
 		atomic_thread_fence(memory_order_release);
 	}
+
+	nosv_flush_submit_window();
 
 	// Task just completed, read and accumulate hardware counters for the task
 	hwcounters_update_task_counters(task);
@@ -980,4 +996,33 @@ nosv_affinity_t nosv_get_default_affinity(void)
 nosv_task_t nosv_self(void)
 {
 	return worker_current_task();
+}
+
+int nosv_flush_submit_window(void)
+{
+	nosv_task_t current_task = worker_current_task();
+	if (!current_task)
+		return NOSV_ERR_OUTSIDE_TASK;
+
+	if (current_task->submit_window != NULL) {
+		scheduler_submit(current_task->submit_window);
+		current_task->submit_window = NULL;
+		current_task->submit_window_size = 0;
+	}
+
+	return NOSV_SUCCESS;
+}
+
+int nosv_set_submit_window_size(size_t submit_window_size)
+{
+	if (unlikely(submit_window_size == 0))
+		return NOSV_ERR_INVALID_PARAMETER;
+
+	nosv_task_t current_task = worker_current_task();
+	if (!current_task)
+		return NOSV_ERR_OUTSIDE_TASK;
+
+	current_task->submit_window_maxsize = submit_window_size;
+
+	return NOSV_SUCCESS;
 }
