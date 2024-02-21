@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2023 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2023-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #include "test.h"
@@ -22,7 +22,6 @@ nosv_task_t tasks[NTASKS];
 
 test_t test;
 
-
 void task_run(nosv_task_t task)
 {
 	atomic_fetch_add(&started_tasks, 1);
@@ -38,38 +37,28 @@ void test1()
 	nosv_task_t task;
 	CHECK(nosv_create(&task, task_type, 0, NOSV_CREATE_NONE));
 	CHECK(nosv_submit(task, NOSV_SUBMIT_NONE));
-	//Wait 
-	int c = 0;
-	while ((atomic_load(&started_tasks) != 1) && (c++ < 100))
-		usleep(10000);
-	//Check 1
-	test_check(&test, atomic_load(&started_tasks) == 1, "Could submit the task (Default)");
+	// Check 1
+	test_check_waitfor(&test, atomic_load(&started_tasks) == 1, 1000, "Could submit the task (Default)");
 	CHECK(nosv_destroy(task, NOSV_DESTROY_NONE));
 }
 
-// When the submit window size (maximum size) is bigger than 1, the tasks are added to the submit window 
+// When the submit window size (maximum size) is bigger than 1, the tasks are added to the submit window
 // and are only submitted when the window reaches the maximum size, then all the tasks are submitted
 void test2()
 {
 	CHECK(nosv_set_submit_window_size(NTASKS));
 
-	for (int t = 0; t < NTASKS-1; ++t) {
+	for (int t = 0; t < NTASKS - 1; ++t) {
 		CHECK(nosv_create(&tasks[t], task_type, 0, NOSV_CREATE_NONE));
 		CHECK(nosv_submit(tasks[t], NOSV_SUBMIT_NONE));
 	}
-	// Wait
-	usleep(10000);
 	// Check 0
-	test_check(&test, atomic_load(&started_tasks) == 0, "Added %d tasks to the submit window only", NTASKS-1);
+	test_check_waitfor(&test, atomic_load(&started_tasks) == 0, 10, "Added %d tasks to the submit window only", NTASKS - 1);
 	// Submit last
-	CHECK(nosv_create(&tasks[NTASKS-1], task_type, 0, NOSV_CREATE_NONE));
-	CHECK(nosv_submit(tasks[NTASKS-1], NOSV_SUBMIT_NONE));
-	// Wait
-	int c = 0;
-	while ((atomic_load(&started_tasks) != NTASKS) && (c++ < 100))
-		usleep(10000);
+	CHECK(nosv_create(&tasks[NTASKS - 1], task_type, 0, NOSV_CREATE_NONE));
+	CHECK(nosv_submit(tasks[NTASKS - 1], NOSV_SUBMIT_NONE));
 	// Check NTASKS
-	test_check(&test, atomic_load(&started_tasks) == NTASKS, "Flushed the submit window after submitting one more");
+	test_check_waitfor(&test, atomic_load(&started_tasks) == NTASKS, 1000, "Flushed the submit window after submitting one more");
 
 	for (int t = 0; t < NTASKS; ++t)
 		CHECK(nosv_destroy(tasks[t], NOSV_DESTROY_NONE));
@@ -81,27 +70,20 @@ void test3()
 	// Already set in the previous test
 	CHECK(nosv_set_submit_window_size(NTASKS));
 
-	for (int t = 0; t < NTASKS-1; ++t) {
+	for (int t = 0; t < NTASKS - 1; ++t) {
 		CHECK(nosv_create(&tasks[t], task_type, 0, NOSV_CREATE_NONE));
 		CHECK(nosv_submit(tasks[t], NOSV_SUBMIT_NONE));
 	}
-	// Wait
-	usleep(10000);
 	// Check 0
-	test_check(&test, atomic_load(&started_tasks) == 0, "Added %d tasks to the submit window only", NTASKS-1);
+	test_check_waitfor(&test, atomic_load(&started_tasks) == 0, 10, "Added %d tasks to the submit window only", NTASKS - 1);
 
-	//Flush Window
+	// Flush Window
 	CHECK(nosv_flush_submit_window());
-	// Wait
-	int c = 0;
-	while ((atomic_load(&started_tasks) != NTASKS-1) && (c++ < 100))
-		usleep(10000);
 	// Check NTASKS-1
-	test_check(&test, atomic_load(&started_tasks) == NTASKS-1, "Flushed the submit window explicitly");
+	test_check_waitfor(&test, atomic_load(&started_tasks) == NTASKS - 1, 1000, "Flushed the submit window explicitly");
 
-	for (int t = 0; t < NTASKS-1; ++t)
+	for (int t = 0; t < NTASKS - 1; ++t)
 		CHECK(nosv_destroy(tasks[t], NOSV_DESTROY_NONE));
-	
 }
 
 // The submit window never reaches the maximum size, therefore there is no flush.
@@ -112,25 +94,19 @@ void test4()
 	CHECK(nosv_create(&tasks[0], task_type, 0, NOSV_CREATE_NONE));
 	CHECK(nosv_submit(tasks[0], NOSV_SUBMIT_NONE));
 
-	for (int t = 1; t < NTASKS-1; ++t) {
-		CHECK(nosv_set_submit_window_size(t+2));
+	for (int t = 1; t < NTASKS - 1; ++t) {
+		CHECK(nosv_set_submit_window_size(t + 2));
 		CHECK(nosv_create(&tasks[t], task_type, 0, NOSV_CREATE_NONE));
 		CHECK(nosv_submit(tasks[t], NOSV_SUBMIT_NONE));
 	}
-	// Wait
-	usleep(10000);
 	// Check 0
-	test_check(&test, atomic_load(&started_tasks) == 0, "Added %d tasks to the submit window only", NTASKS-1);
+	test_check_waitfor(&test, atomic_load(&started_tasks) == 0, 10, "Added %d tasks to the submit window only", NTASKS - 1);
 
 	// Submit last
-	CHECK(nosv_create(&tasks[NTASKS-1], task_type, 0, NOSV_CREATE_NONE));
-	CHECK(nosv_submit(tasks[NTASKS-1], NOSV_SUBMIT_NONE));
-	// Wait
-	int c = 0;
-	while ((atomic_load(&started_tasks) != NTASKS) && (c++ < 100))
-		usleep(10000);
+	CHECK(nosv_create(&tasks[NTASKS - 1], task_type, 0, NOSV_CREATE_NONE));
+	CHECK(nosv_submit(tasks[NTASKS - 1], NOSV_SUBMIT_NONE));
 	// Check NTASKS
-	test_check(&test, atomic_load(&started_tasks) == NTASKS, "Flushed the submit window after submitting one more");
+	test_check_waitfor(&test, atomic_load(&started_tasks) == NTASKS, 1000, "Flushed the submit window after submitting one more");
 
 	for (int t = 0; t < NTASKS; ++t)
 		CHECK(nosv_destroy(tasks[t], NOSV_DESTROY_NONE));
@@ -142,32 +118,27 @@ void test5()
 {
 	CHECK(nosv_set_submit_window_size(NTASKS));
 
-	for (int t = 0; t < NTASKS/2; ++t) {
+	for (int t = 0; t < NTASKS / 2; ++t) {
 		CHECK(nosv_create(&tasks[t], task_type, 0, NOSV_CREATE_NONE));
 		CHECK(nosv_submit(tasks[t], NOSV_SUBMIT_NONE));
 	}
-	// Wait
-	usleep(10000);
 	// Check 0
-	test_check(&test, atomic_load(&started_tasks) == 0, "Added %d tasks to the submit window only", NTASKS/2);
+	test_check_waitfor(&test, atomic_load(&started_tasks) == 0, 10, "Added %d tasks to the submit window only", NTASKS / 2);
 
 	CHECK(nosv_set_submit_window_size(1));
 
 	// Submit last
-	CHECK(nosv_create(&tasks[NTASKS-1], task_type, 0, NOSV_CREATE_NONE));
-	CHECK(nosv_submit(tasks[NTASKS-1], NOSV_SUBMIT_NONE));
-	// Wait
-	int c = 0;
-	while ((atomic_load(&started_tasks) != (NTASKS/2+1)) && (c++ < 100))
-		usleep(10000);
+	CHECK(nosv_create(&tasks[NTASKS - 1], task_type, 0, NOSV_CREATE_NONE));
+	CHECK(nosv_submit(tasks[NTASKS - 1], NOSV_SUBMIT_NONE));
 	// Check NTASKS
-	test_check(&test, atomic_load(&started_tasks) == (NTASKS/2+1), "Flushed the submit window after submitting one task");
+	test_check_waitfor(&test, atomic_load(&started_tasks) == (NTASKS / 2 + 1), 1000, "Flushed the submit window after submitting one task");
 
 	for (int t = 0; t < NTASKS; ++t)
 		CHECK(nosv_destroy(tasks[t], NOSV_DESTROY_NONE));
 }
 
-int main() {
+int main()
+{
 	test_init(&test, 9);
 
 	CHECK(nosv_init());
