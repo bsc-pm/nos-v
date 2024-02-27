@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef LIST_H
@@ -82,6 +82,9 @@ static inline list_head_t *list_pop_head(list_head_t *head)
 		} else {
 			head->next->prev = NULL;
 		}
+
+		// Clean up list pointers
+		list_init(first);
 	}
 
 	return first;

@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef NOSV_H
@@ -150,7 +150,9 @@ int nosv_waitfor(
 	uint64_t *actual_ns /* out */);
 
 /* Flags */
-#define NOSV_YIELD_NONE __ZEROBITS
+#define NOSV_YIELD_NONE 	__ZEROBITS
+/* Do not flush the submit window when yielding */
+#define NOSV_YIELD_NOFLUSH 	__BIT(0)
 
 /* Yield operation */
 /* Restriction: Can only be called from a task context */
