@@ -3,11 +3,11 @@
 
 #	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 #
-#	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
+#	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 
 # nOS-V Version and Copyright
 
-m4_define([nosv_version], [2.1.2])
+m4_define([nosv_version], [2.1.3])
 m4_define([nosv_license], ["GPL3"])
 m4_define([nosv_copyright], ["2021-2023 Barcelona Supercomputing Center (BSC)"])
 

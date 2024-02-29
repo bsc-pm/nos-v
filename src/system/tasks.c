@@ -515,14 +515,14 @@ int nosv_waitfor(
 	if (!worker_is_in_task())
 		return NOSV_ERR_OUTSIDE_TASK;
 
-	nosv_flush_submit_window();
-
 	nosv_task_t task = worker_current_task();
 	assert(task);
 
 	// Parallel tasks cannot be blocked
 	if (task_is_parallel(task))
 		return NOSV_ERR_INVALID_OPERATION;
+
+	nosv_flush_submit_window();
 
 	// Thread is gonna yield, read and accumulate hardware counters for the task
 	hwcounters_update_task_counters(task);
@@ -574,7 +574,8 @@ int nosv_yield(
 	if (!worker_is_in_task())
 		return NOSV_ERR_OUTSIDE_TASK;
 
-	nosv_flush_submit_window();
+	if (!(flags & NOSV_YIELD_NOFLUSH))
+		nosv_flush_submit_window();
 
 	nosv_task_t task = worker_current_task();
 	assert(task);
