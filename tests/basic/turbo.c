@@ -1,0 +1,151 @@
+/*
+	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
+
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
+*/
+
+#include "test.h"
+#include "common/utils.h"
+
+#include <nosv.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+#include <xmmintrin.h>
+#include <pmmintrin.h>
+
+static inline void check() {
+    if (! _MM_GET_FLUSH_ZERO_MODE() ) {
+        printf("USER: FTZ is not set.\n");
+    } else {
+        printf("USER: FTZ is set.\n");
+    }
+
+/* Test the control register for denormals mode */
+
+    if (! _MM_GET_DENORMALS_ZERO_MODE() ) {
+         printf("USER: DAZ is not set.\n");
+    } else {
+         printf("USER: DAZ is set.\n");
+    }
+}
+
+static inline void set() {
+  _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
+  _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+}
+
+static inline void unset() {
+  _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_OFF);
+  _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_OFF);
+}
+
+// This test expects turbo to be enabled in the .toml
+void exec_child_crash() {
+	CHECK(nosv_init());
+	nosv_task_t task;
+
+	CHECK(nosv_attach(&task, NULL, "main", NOSV_ATTACH_NONE));
+	// Turbo enabled in main thread
+
+	unset();
+
+	// exit(1) here
+	CHECK(nosv_detach(NOSV_DETACH_NONE));
+	CHECK(nosv_shutdown());
+	exit(0);
+}
+
+void exec_child_crash1() {
+	CHECK(nosv_init());
+	nosv_task_t task;
+
+	CHECK(nosv_attach(&task, NULL, "main", NOSV_ATTACH_NONE));
+	// Turbo enabled in main thread
+
+	unset();
+
+	// exit(1) here
+	CHECK(nosv_attach(&task, NULL, "main", NOSV_ATTACH_NONE));
+
+
+	CHECK(nosv_detach(NOSV_DETACH_NONE));
+	CHECK(nosv_detach(NOSV_DETACH_NONE));
+	CHECK(nosv_shutdown());
+	exit(0);
+}
+
+void exec_child_crash2() {
+	CHECK(nosv_init());
+	nosv_task_t task;
+
+	CHECK(nosv_attach(&task, NULL, "main", NOSV_ATTACH_NONE));
+	// Turbo enabled in main thread
+
+	CHECK(nosv_attach(&task, NULL, "main", NOSV_ATTACH_NONE));
+	CHECK(nosv_detach(NOSV_DETACH_NONE));
+
+	unset();
+
+	// exit(1) here
+	CHECK(nosv_detach(NOSV_DETACH_NONE));
+	CHECK(nosv_shutdown());
+	exit(0);
+}
+
+void exec_child_nocrash() {
+	CHECK(nosv_init());
+	nosv_task_t task;
+
+	CHECK(nosv_attach(&task, NULL, "main", NOSV_ATTACH_NONE));
+	// Turbo enabled in main thread
+
+	CHECK(nosv_detach(NOSV_DETACH_NONE));
+	CHECK(nosv_shutdown());
+	exit(0);
+}
+
+int main() {
+	test_t test;
+
+	test_init(&test, 4);
+	// Disable parallel testing for this
+	test_option(&test, TEST_OPTION_PARALLEL, 0);
+
+	pid_t pid;
+	int wstatus;
+	fflush(stdout);
+	pid = fork();
+
+	if (pid == 0)
+		exec_child_crash();
+
+	waitpid(pid, &wstatus, 0);
+	test_check(&test, WIFEXITED(wstatus) && WEXITSTATUS(wstatus) == 1, "Got an turbo change between nosv_attach and nosv_detach");
+
+	fflush(stdout);
+	pid = fork();
+	if (pid == 0)
+		exec_child_crash1();
+
+	waitpid(pid, &wstatus, 0);
+	test_check(&test, WIFEXITED(wstatus) && WEXITSTATUS(wstatus) == 1, "Got an turbo change between nosv_attach and nosv_attach");
+
+	fflush(stdout);
+	pid = fork();
+	if (pid == 0)
+		exec_child_crash2();
+
+	waitpid(pid, &wstatus, 0);
+	test_check(&test, WIFEXITED(wstatus) && WEXITSTATUS(wstatus) == 1, "Got an turbo change between nosv_detach and nosv_detach");
+
+	fflush(stdout);
+	pid = fork();
+	if (pid == 0)
+		exec_child_nocrash();
+
+	waitpid(pid, &wstatus, 0);
+	test_check(&test, WIFEXITED(wstatus) && WEXITSTATUS(wstatus) == 0, "Cleaned up and exited normally");
+}

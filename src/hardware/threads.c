@@ -271,9 +271,8 @@ static inline void *worker_start_routine(void *arg)
 	// Register thread in affinity support subsystem
 	affinity_support_register_worker(current_worker, 1);
 
-	// Set turbo settings if enabled
-	if (nosv_config.turbo_enabled)
-		arch_enable_turbo();
+	// Configure turbo
+	arch_configure_turbo();
 
 	instr_thread_init();
 	instr_thread_execute(current_worker->cpu->logic_id, current_worker->creator_tid, (uint64_t) arg);
@@ -366,6 +365,10 @@ static inline void *worker_start_routine(void *arg)
 
 	instr_worker_exit();
 	instr_thread_end();
+
+	// Verify before finish that turbo config
+	// has not been modified
+	arch_check_turbo();
 
 	return NULL;
 }
@@ -548,9 +551,8 @@ nosv_worker_t *worker_create_external(void)
 	// Initialize hardware counters for the thread
 	hwcounters_thread_initialize(worker);
 
-	// Set turbo settings if enabled
-	if (nosv_config.turbo_enabled)
-		arch_enable_turbo();
+	// Configure turbo
+	arch_configure_turbo();
 
 	return worker;
 }

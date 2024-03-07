@@ -43,9 +43,11 @@ static inline void spin_wait_release(void)
 }
 
 #ifdef ARCH_HAS_TURBO
-#define arch_enable_turbo() __arch_enable_turbo()
+#define arch_configure_turbo() __arch_configure_turbo()
+#define arch_check_turbo() __arch_check_turbo()
 #else
-#define arch_enable_turbo() do {} while (0)
+#define arch_configure_turbo() do {} while (0)
+#define arch_check_turbo() do {} while (0)
 #endif
 
 #endif // ARCH_H

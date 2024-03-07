@@ -44,11 +44,35 @@ __extension__ ({																								\
 
 #include <pmmintrin.h>
 #include <xmmintrin.h>
+#include "common.h"
+#include "config/config.h"
 
-static inline void __arch_enable_turbo(void)
+static inline void __arch_configure_turbo(void)
 {
-	_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
-	_MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+	if (nosv_config.turbo_enabled)
+	{
+		_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
+		_MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+	} else {
+		_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_OFF);
+		_MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_OFF);
+	}
+}
+
+static inline void __arch_check_turbo(void)
+{
+	if (nosv_config.turbo_enabled && (!_MM_GET_FLUSH_ZERO_MODE() || !_MM_GET_DENORMALS_ZERO_MODE()))
+	{
+		nosv_abort("Found inconsistency between nOS-V turbo config setting and the thread configuration\n"
+				"Turbo is enabled in nOS-V configuration, but in the worker thread it is not.\n"
+				"This usually means the user's code has manually disabled it.");
+	}
+	if (!nosv_config.turbo_enabled && (_MM_GET_FLUSH_ZERO_MODE() || _MM_GET_DENORMALS_ZERO_MODE()))
+	{
+		nosv_abort("Found inconsistency between nOS-V turbo config setting and the thread configuration\n"
+				"Turbo is disabled in nOS-V configuration, but in the worker thread it is.\n"
+				"This usually means the user's code has been compiled with -ffast-math or similar.");
+	}
 }
 #endif // __SSE2__
 
