@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef ARCH_H
@@ -43,11 +43,17 @@ static inline void spin_wait_release(void)
 }
 
 #ifdef ARCH_HAS_TURBO
-#define arch_configure_turbo() __arch_configure_turbo()
-#define arch_check_turbo() __arch_check_turbo()
+#define arch_enable_turbo() __arch_enable_turbo()
 #else
-#define arch_configure_turbo() do {} while (0)
-#define arch_check_turbo() do {} while (0)
+// Always succeed turbo check
+static inline int __arch_check_turbo(__attribute__((unused)) int enabled)
+{
+	return 0;
+}
+
+#define arch_enable_turbo() do {} while (0)
 #endif
+
+#define arch_check_turbo(enabled) __arch_check_turbo(enabled)
 
 #endif // ARCH_H

@@ -828,7 +828,7 @@ int nosv_attach(
 	// Mind nested nosv_attach and nosv_detach
 	if (rt_attach_refcount++) {
 		// Check that between nosv_attaches turbo has not changed
-		arch_check_turbo();
+		worker_check_turbo();
 		instr_attach_exit();
 		return NOSV_SUCCESS;
 	}
@@ -909,7 +909,7 @@ int nosv_detach(
 
 	// Check that between nosv_detaches or between
 	// attach/detach turbo has not changed
-	arch_check_turbo();
+	worker_check_turbo();
 
 	// Mind nested nosv_attach and nosv_detach
 	if (--rt_attach_refcount)
