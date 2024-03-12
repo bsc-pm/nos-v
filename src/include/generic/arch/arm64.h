@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef ARCH_ARM64_H
@@ -41,5 +41,27 @@
 #else
 #warning "Building on arm64 without LSE support is discouraged. Use CPPFLAGS to set the appropiate -march flag"
 #endif // __ARM_FEATURE_ATOMICS
+
+#ifndef __SOFTFP__
+#define ARCH_HAS_TURBO
+#define ARM_FPSCR_FZ		(1 << 24)
+
+static inline void __arch_enable_turbo()
+{
+	unsigned int fpscr_save;
+	__asm__("vmrs %0, fpscr" : "=r" (fpscr_save));
+	fpscr_save |= ARM_FPSCR_FZ;
+	__asm__("vmsr fpscr, %0" : : "r" (fpscr_save));
+}
+
+static inline int __arch_check_turbo(int enabled)
+{
+	unsigned int fpscr;
+	__asm__("vmrs %0, fpscr" : "=r" (fpscr));
+
+	return (!!(enabled) == !!(fpscr & ARM_FPSCR_FZ));
+}
+
+#endif // __SOFTFP__
 
 #endif // ARCH_ARM64_H
