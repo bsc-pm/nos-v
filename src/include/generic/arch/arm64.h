@@ -46,11 +46,16 @@
 #define ARCH_HAS_TURBO
 #define ARM_FPSCR_FZ		(1 << 24)
 
-static inline void __arch_enable_turbo()
+static inline void __arch_configure_turbo(int enabled)
 {
 	unsigned int fpscr_save;
 	__asm__("vmrs %0, fpscr" : "=r" (fpscr_save));
-	fpscr_save |= ARM_FPSCR_FZ;
+
+	if (enabled)
+		fpscr_save |= ARM_FPSCR_FZ;
+	else
+		fpscr_save &= ~ARM_FPSCR_FZ;
+
 	__asm__("vmsr fpscr, %0" : : "r" (fpscr_save));
 }
 

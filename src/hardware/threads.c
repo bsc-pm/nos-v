@@ -272,8 +272,7 @@ static inline void *worker_start_routine(void *arg)
 	affinity_support_register_worker(current_worker, 1);
 
 	// Configure turbo
-	if (nosv_config.turbo_enabled)
-		arch_enable_turbo();
+	arch_configure_turbo(nosv_config.turbo_enabled);
 
 	instr_thread_init();
 	instr_thread_execute(current_worker->cpu->logic_id, current_worker->creator_tid, (uint64_t) arg);
@@ -553,8 +552,7 @@ nosv_worker_t *worker_create_external(void)
 	hwcounters_thread_initialize(worker);
 
 	// Configure turbo
-	if (nosv_config.turbo_enabled)
-		arch_enable_turbo();
+	arch_configure_turbo(nosv_config.turbo_enabled);
 
 	return worker;
 }

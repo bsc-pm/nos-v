@@ -45,10 +45,15 @@ __extension__ ({																								\
 #include <pmmintrin.h>
 #include <xmmintrin.h>
 
-static inline void __arch_enable_turbo(void)
+static inline void __arch_configure_turbo(int enabled)
 {
-	_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
-	_MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+	if (enabled) {
+		_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
+		_MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+	} else {
+		_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_OFF);
+		_MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_OFF);
+	}
 }
 
 static inline int __arch_check_turbo(int enabled)

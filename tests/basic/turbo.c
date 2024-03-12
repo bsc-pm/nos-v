@@ -13,34 +13,9 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include <xmmintrin.h>
-#include <pmmintrin.h>
+#include "generic/arch.h"
 
-static inline void check() {
-    if (! _MM_GET_FLUSH_ZERO_MODE() ) {
-        printf("USER: FTZ is not set.\n");
-    } else {
-        printf("USER: FTZ is set.\n");
-    }
-
-/* Test the control register for denormals mode */
-
-    if (! _MM_GET_DENORMALS_ZERO_MODE() ) {
-         printf("USER: DAZ is not set.\n");
-    } else {
-         printf("USER: DAZ is set.\n");
-    }
-}
-
-static inline void set() {
-  _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
-  _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
-}
-
-static inline void unset() {
-  _MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_OFF);
-  _MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_OFF);
-}
+#ifdef ARCH_HAS_TURBO
 
 // This test expects turbo to be enabled in the .toml
 void exec_child_crash() {
@@ -50,7 +25,7 @@ void exec_child_crash() {
 	CHECK(nosv_attach(&task, NULL, "main", NOSV_ATTACH_NONE));
 	// Turbo enabled in main thread
 
-	unset();
+	arch_configure_turbo(0);
 
 	// exit(1) here
 	CHECK(nosv_detach(NOSV_DETACH_NONE));
@@ -65,7 +40,7 @@ void exec_child_crash1() {
 	CHECK(nosv_attach(&task, NULL, "main", NOSV_ATTACH_NONE));
 	// Turbo enabled in main thread
 
-	unset();
+	arch_configure_turbo(0);
 
 	// exit(1) here
 	CHECK(nosv_attach(&task, NULL, "main", NOSV_ATTACH_NONE));
@@ -87,7 +62,7 @@ void exec_child_crash2() {
 	CHECK(nosv_attach(&task, NULL, "main", NOSV_ATTACH_NONE));
 	CHECK(nosv_detach(NOSV_DETACH_NONE));
 
-	unset();
+	arch_configure_turbo(0);
 
 	// exit(1) here
 	CHECK(nosv_detach(NOSV_DETACH_NONE));
@@ -149,3 +124,11 @@ int main() {
 	waitpid(pid, &wstatus, 0);
 	test_check(&test, WIFEXITED(wstatus) && WEXITSTATUS(wstatus) == 0, "Cleaned up and exited normally");
 }
+
+#else // ARCH_HAS_TURBO
+
+int main() {
+	return 0;
+}
+
+#endif  // ARCH_HAS_TURBO

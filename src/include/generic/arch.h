@@ -43,7 +43,7 @@ static inline void spin_wait_release(void)
 }
 
 #ifdef ARCH_HAS_TURBO
-#define arch_enable_turbo() __arch_enable_turbo()
+#define arch_configure_turbo(enabled) __arch_configure_turbo(enabled)
 #else
 // Always succeed turbo check
 static inline int __arch_check_turbo(__attribute__((unused)) int enabled)
@@ -51,7 +51,7 @@ static inline int __arch_check_turbo(__attribute__((unused)) int enabled)
 	return 0;
 }
 
-#define arch_enable_turbo() do {} while (0)
+#define arch_configure_turbo(enabled) do {} while (0)
 #endif
 
 #define arch_check_turbo(enabled) __arch_check_turbo(enabled)
