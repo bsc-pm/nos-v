@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef ARCH_X86_H
@@ -45,10 +45,23 @@ __extension__ ({																								\
 #include <pmmintrin.h>
 #include <xmmintrin.h>
 
-static inline void __arch_enable_turbo(void)
+static inline void __arch_configure_turbo(int enabled)
 {
-	_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
-	_MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+	if (enabled) {
+		_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_ON);
+		_MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_ON);
+	} else {
+		_MM_SET_FLUSH_ZERO_MODE(_MM_FLUSH_ZERO_OFF);
+		_MM_SET_DENORMALS_ZERO_MODE(_MM_DENORMALS_ZERO_OFF);
+	}
+}
+
+static inline int __arch_check_turbo(int enabled)
+{
+	if (enabled)
+		return (!_MM_GET_FLUSH_ZERO_MODE() || !_MM_GET_DENORMALS_ZERO_MODE());
+	else
+		return (_MM_GET_FLUSH_ZERO_MODE() || _MM_GET_DENORMALS_ZERO_MODE());
 }
 #endif // __SSE2__
 

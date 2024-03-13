@@ -1,11 +1,13 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef ARCH_ARM64_H
 #define ARCH_ARM64_H
+
+#include <stdint.h>
 
 #define ARCH_ARM64
 #define ARCH_SUPPORTED
@@ -41,5 +43,29 @@
 #else
 #warning "Building on arm64 without LSE support is discouraged. Use CPPFLAGS to set the appropiate -march flag"
 #endif // __ARM_FEATURE_ATOMICS
+
+#define ARCH_HAS_TURBO
+#define ARM_FPCR_FZ		(0x1000000ULL)
+
+static inline void __arch_configure_turbo(int enabled)
+{
+	uint64_t fpcr = 0;
+
+	if (enabled)
+		fpcr = ARM_FPCR_FZ;
+
+	__asm__("msr fpcr, %0" : : "r" (fpcr));
+}
+
+static inline int __arch_check_turbo(int enabled)
+{
+	uint64_t fpcr;
+	__asm__("mrs %0, fpcr" : "=r" (fpcr));
+
+	if (enabled)
+		return !(fpcr & ARM_FPCR_FZ);
+	else
+		return (fpcr & ARM_FPCR_FZ);
+}
 
 #endif // ARCH_ARM64_H

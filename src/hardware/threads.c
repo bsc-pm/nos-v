@@ -271,9 +271,8 @@ static inline void *worker_start_routine(void *arg)
 	// Register thread in affinity support subsystem
 	affinity_support_register_worker(current_worker, 1);
 
-	// Set turbo settings if enabled
-	if (nosv_config.turbo_enabled)
-		arch_enable_turbo();
+	// Configure turbo
+	arch_configure_turbo(nosv_config.turbo_enabled);
 
 	instr_thread_init();
 	instr_thread_execute(current_worker->cpu->logic_id, current_worker->creator_tid, (uint64_t) arg);
@@ -366,6 +365,10 @@ static inline void *worker_start_routine(void *arg)
 
 	instr_worker_exit();
 	instr_thread_end();
+
+	// Verify before finish that turbo config
+	// has not been modified
+	worker_check_turbo();
 
 	return NULL;
 }
@@ -548,9 +551,8 @@ nosv_worker_t *worker_create_external(void)
 	// Initialize hardware counters for the thread
 	hwcounters_thread_initialize(worker);
 
-	// Set turbo settings if enabled
-	if (nosv_config.turbo_enabled)
-		arch_enable_turbo();
+	// Configure turbo
+	arch_configure_turbo(nosv_config.turbo_enabled);
 
 	return worker;
 }
@@ -613,4 +615,19 @@ nosv_task_t worker_get_immediate(void)
 void worker_set_immediate(nosv_task_t task)
 {
 	current_worker->immediate_successor = task;
+}
+
+void worker_check_turbo(void)
+{
+	if (arch_check_turbo(nosv_config.turbo_enabled)) {
+		if (nosv_config.turbo_enabled) {
+			nosv_abort("Found inconsistency between nOS-V turbo config setting and the thread configuration\n"
+				"Turbo is enabled in nOS-V configuration, but in the worker thread it is not.\n"
+				"This usually means the user's code has manually disabled it.");
+		} else {
+			nosv_abort("Found inconsistency between nOS-V turbo config setting and the thread configuration\n"
+				"Turbo is disabled in nOS-V configuration, but in the worker thread it is.\n"
+				"This usually means the user's code has been compiled with -ffast-math or similar.");
+		}
+	}
 }

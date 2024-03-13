@@ -127,7 +127,7 @@
 # causing a significant performance increase in floating-point applications, but disabling IEEE-754
 # compatibility.
 [turbo]
-	enabled = false
+	enabled = true
 
 # Monitoring cappabilities and configuration.
 [monitoring]

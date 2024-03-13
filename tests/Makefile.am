@@ -17,6 +17,7 @@ basic_tests = basic-error-code.test \
 	basic-init-procs.test \
 	basic-mix.test \
 	basic-crash.test \
+	basic-turbo.test \
 	basic-inline.test \
 	basic-affinity-support.test \
 	basic-attach.test \
@@ -67,6 +68,10 @@ basic_mix_test_LDFLAGS = $(AM_LDFLAGS)
 basic_crash_test_SOURCES = basic/crash.c
 basic_crash_test_CFLAGS = $(AM_CFLAGS)
 basic_crash_test_LDFLAGS = $(AM_LDFLAGS)
+
+basic_turbo_test_SOURCES = basic/turbo.c
+basic_turbo_test_CFLAGS = $(AM_CFLAGS)
+basic_turbo_test_LDFLAGS = $(AM_LDFLAGS)
 
 basic_inline_test_SOURCES = basic/inline.c
 basic_inline_test_CFLAGS = $(AM_CFLAGS)

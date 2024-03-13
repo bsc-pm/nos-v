@@ -827,6 +827,8 @@ int nosv_attach(
 
 	// Mind nested nosv_attach and nosv_detach
 	if (rt_attach_refcount++) {
+		// Check that between nosv_attaches turbo has not changed
+		worker_check_turbo();
 		instr_attach_exit();
 		return NOSV_SUCCESS;
 	}
@@ -904,6 +906,10 @@ int nosv_detach(
 	nosv_worker_t *worker = worker_current();
 	if (!worker || !worker->handle.task)
 		return NOSV_ERR_OUTSIDE_TASK;
+
+	// Check that between nosv_detaches or between
+	// attach/detach turbo has not changed
+	worker_check_turbo();
 
 	// Mind nested nosv_attach and nosv_detach
 	if (--rt_attach_refcount)
