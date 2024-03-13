@@ -7,6 +7,8 @@
 #ifndef ARCH_ARM64_H
 #define ARCH_ARM64_H
 
+#include <stdint.h>
+
 #define ARCH_ARM64
 #define ARCH_SUPPORTED
 
@@ -42,31 +44,28 @@
 #warning "Building on arm64 without LSE support is discouraged. Use CPPFLAGS to set the appropiate -march flag"
 #endif // __ARM_FEATURE_ATOMICS
 
-#ifndef __SOFTFP__
 #define ARCH_HAS_TURBO
-#define ARM_FPSCR_FZ		(1 << 24)
+#define ARM_FPCR_FZ		(0x1000000ULL)
 
 static inline void __arch_configure_turbo(int enabled)
 {
-	unsigned int fpscr_save;
-	__asm__("vmrs %0, fpscr" : "=r" (fpscr_save));
+	uint64_t fpcr = 0;
 
 	if (enabled)
-		fpscr_save |= ARM_FPSCR_FZ;
-	else
-		fpscr_save &= ~ARM_FPSCR_FZ;
+		fpcr = ARM_FPCR_FZ;
 
-	__asm__("vmsr fpscr, %0" : : "r" (fpscr_save));
+	__asm__("msr fpcr, %0" : : "r" (fpcr));
 }
 
 static inline int __arch_check_turbo(int enabled)
 {
-	unsigned int fpscr;
-	__asm__("vmrs %0, fpscr" : "=r" (fpscr));
+	uint64_t fpcr;
+	__asm__("mrs %0, fpcr" : "=r" (fpcr));
 
-	return (!!(enabled) == !!(fpscr & ARM_FPSCR_FZ));
+	if (enabled)
+		return !(fpcr & ARM_FPCR_FZ);
+	else
+		return (fpcr & ARM_FPCR_FZ);
 }
-
-#endif // __SOFTFP__
 
 #endif // ARCH_ARM64_H
