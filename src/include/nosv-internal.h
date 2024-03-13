@@ -78,6 +78,7 @@ struct nosv_task {
 
 	// Current scheduled count
 	uint32_t scheduled_count;
+	nosv_flags_t flags;
 
 	// Hardware counters
 	task_hwcounters_t *counters;

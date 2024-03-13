@@ -33,7 +33,7 @@ void task_comp(nosv_task_t task)
 {
 	atomic_int *m = nosv_get_task_metadata(task);
 	int res = atomic_load(m);
-	test_check(&test, res == DEGREE, "Task has been executed %d times", DEGREE);
+	test_check(&test, res == DEGREE, "Task has been executed %d times (instead %d)", DEGREE, res);
 
 	int total = atomic_fetch_add(&nr_completed_tasks, 1);
 	if (total == NTASKS - 1) {
@@ -53,7 +53,7 @@ int main() {
 
 	// The submitted tasks will execute after we yield, since they also are on CPU 0
 	for (int t = 0; t < NTASKS; ++t) {
-		CHECK(nosv_create(&tasks[t], task_type, sizeof(atomic_int), NOSV_CREATE_NONE));
+		CHECK(nosv_create(&tasks[t], task_type, sizeof(atomic_int), NOSV_CREATE_PARALLEL));
 		atomic_int *m = nosv_get_task_metadata(tasks[t]);
 		atomic_store(m, 0);
 		nosv_set_task_degree(tasks[t], DEGREE);

@@ -219,7 +219,8 @@ int nosv_type_destroy(
 
 static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	nosv_task_type_t type,
-	size_t metadata_size)
+	size_t metadata_size,
+	nosv_flags_t flags)
 {
 	nosv_task_t res = salloc(
 		sizeof(struct nosv_task) +   /* Size of the struct itself */
@@ -251,6 +252,7 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 
 	atomic_store_explicit(&(res->degree), 1, memory_order_relaxed);
 	res->scheduled_count = 0;
+	res->flags = flags;
 
 	res->submit_window = NULL;
 	res->submit_window_size = 0;
@@ -262,7 +264,10 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 
 	*task = res;
 
-	instr_task_create((uint32_t)res->taskid, res->type->typeid);
+	if (flags & NOSV_CREATE_PARALLEL)
+		instr_task_create_par((uint32_t)res->taskid, res->type->typeid);
+	else
+		instr_task_create((uint32_t)res->taskid, res->type->typeid);
 
 	return NOSV_SUCCESS;
 }
@@ -294,7 +299,7 @@ int nosv_create(
 		monitoring_task_changed_status(current_task, paused_status);
 	}
 
-	int ret = nosv_create_internal(task, type, metadata_size);
+	int ret = nosv_create_internal(task, type, metadata_size, flags);
 
 	if (current_task) {
 		hwcounters_update_runtime_counters();
@@ -413,11 +418,16 @@ int nosv_submit(
 		task_execution_handle_t old_handle = worker->handle;
 		assert(old_handle.task);
 
+		uint32_t old_bodyid = instr_get_bodyid(old_handle);
+		instr_task_pause((uint32_t)old_handle.task->taskid, old_bodyid);
+
 		task_execution_handle_t handle = {
 			.task = task,
 			.execution_id = 1
 		};
 		task_execute(handle);
+
+		instr_task_resume((uint32_t)old_handle.task->taskid, old_bodyid);
 
 		// Restore old task
 		worker->handle = old_handle;
@@ -451,7 +461,8 @@ int nosv_pause(
 	nosv_flags_t flags)
 {
 	// We have to be inside a worker
-	if (!worker_is_in_task())
+	nosv_worker_t *worker = worker_current();
+	if (!worker || !worker->handle.task)
 		return NOSV_ERR_OUTSIDE_TASK;
 
 	nosv_flush_submit_window();
@@ -468,7 +479,8 @@ int nosv_pause(
 	monitoring_task_changed_status(task, paused_status);
 
 	instr_pause_enter();
-	instr_task_pause((uint32_t)task->taskid);
+	uint32_t bodyid = instr_get_bodyid(worker->handle);
+	instr_task_pause((uint32_t)task->taskid, bodyid);
 
 	uint32_t count = atomic_fetch_add_explicit(&task->blocking_count, 1, memory_order_relaxed) + 1;
 
@@ -480,7 +492,7 @@ int nosv_pause(
 	hwcounters_update_runtime_counters();
 	monitoring_task_changed_status(task, executing_status);
 
-	instr_task_resume((uint32_t)task->taskid);
+	instr_task_resume((uint32_t)task->taskid, bodyid);
 	instr_pause_exit();
 
 	return NOSV_SUCCESS;
@@ -512,11 +524,11 @@ int nosv_waitfor(
 	uint64_t *actual_ns /* out */)
 {
 	// We have to be inside a worker
-	if (!worker_is_in_task())
+	nosv_worker_t *worker = worker_current();
+	if (!worker || !worker->handle.task)
 		return NOSV_ERR_OUTSIDE_TASK;
 
-	nosv_task_t task = worker_current_task();
-	assert(task);
+	nosv_task_t task = worker->handle.task;
 
 	// Parallel tasks cannot be blocked
 	if (task_is_parallel(task))
@@ -529,7 +541,8 @@ int nosv_waitfor(
 	monitoring_task_changed_status(task, ready_status);
 
 	instr_waitfor_enter();
-	instr_task_pause((uint32_t)task->taskid);
+	uint32_t bodyid = instr_get_bodyid(worker->handle);
+	instr_task_pause((uint32_t)task->taskid, bodyid);
 
 	const uint64_t start_ns = clock_ns();
 	task->deadline = start_ns + target_ns;
@@ -557,7 +570,7 @@ int nosv_waitfor(
 	hwcounters_update_runtime_counters();
 	monitoring_task_changed_status(task, executing_status);
 
-	instr_task_resume((uint32_t)task->taskid);
+	instr_task_resume((uint32_t)task->taskid, bodyid);
 	instr_waitfor_exit();
 
 	return NOSV_SUCCESS;
@@ -568,7 +581,7 @@ int nosv_waitfor(
 int nosv_yield(
 	nosv_flags_t flags)
 {
-	if(kinstr)
+	if (kinstr)
 		instr_kernel_flush(kinstr);
 
 	if (!worker_is_in_task())
@@ -614,7 +627,7 @@ int nosv_schedpoint(
 	int pid, yield, cpuid;
 	uint64_t ts;
 
-	if(kinstr)
+	if (kinstr)
 		instr_kernel_flush(kinstr);
 
 	if (!worker_is_in_task())
@@ -718,7 +731,9 @@ void task_execute(task_execution_handle_t handle)
 	monitoring_task_changed_status(task, executing_status);
 
 	const uint32_t taskid = (uint32_t) task->taskid;
-	instr_task_execute(taskid);
+	const uint32_t bodyid = instr_get_bodyid(handle);
+	instr_task_execute(taskid, bodyid);
+
 	worker->in_task_body = 1;
 
 	atomic_thread_fence(memory_order_acquire);
@@ -754,7 +769,7 @@ void task_execute(task_execution_handle_t handle)
 	}
 	// Warning: from this point forward, "task" may have been freed, and thus it is not safe to access
 
-	instr_task_end(taskid);
+	instr_task_end(taskid, bodyid);
 }
 
 /* Events API */
@@ -845,7 +860,7 @@ int nosv_attach(
 	nosv_worker_t *worker = worker_create_external();
 	assert(worker);
 
-	ret = nosv_create_internal(task, type, 0);
+	ret = nosv_create_internal(task, type, 0, NOSV_CREATE_NONE);
 	if (ret) {
 		worker_free_external(worker);
 		instr_attach_exit();
@@ -890,7 +905,7 @@ int nosv_attach(
 
 	// Inform the instrumentation about the new task being in
 	// execution, as it won't pass via task_execute()
-	instr_task_execute((uint32_t)t->taskid);
+	instr_task_execute((uint32_t)t->taskid, instr_get_bodyid(handle));
 
 	return NOSV_SUCCESS;
 }
@@ -921,7 +936,7 @@ int nosv_detach(
 	hwcounters_update_task_counters(task);
 	monitoring_task_completed(task);
 
-	instr_task_end((uint32_t)task->taskid);
+	instr_task_end((uint32_t)task->taskid, instr_get_bodyid(worker->handle));
 
 	// Delay detach enter event, so we finish the "in task body" state first
 	instr_detach_enter();
@@ -976,6 +991,7 @@ void nosv_set_task_degree(nosv_task_t task, int32_t degree)
 {
 	assert(degree > 0);
 	assert(task);
+	assert(task->flags & NOSV_CREATE_PARALLEL);
 	atomic_store_explicit(&(task->degree), degree, memory_order_relaxed);
 }
 

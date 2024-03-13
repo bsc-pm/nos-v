@@ -27,7 +27,7 @@ nosv_task_type_t task_type_second;
 void task_run(nosv_task_t task)
 {
 	nosv_task_t new_task;
-	CHECK(nosv_create(&new_task, task_type_second, 0, NOSV_CREATE_NONE));
+	CHECK(nosv_create(&new_task, task_type_second, 0, NOSV_CREATE_PARALLEL));
 	nosv_set_task_degree(new_task, DEGREE);
 	CHECK(nosv_submit(new_task, NOSV_SUBMIT_IMMEDIATE));
 	atomic_fetch_add(&run, 1);
