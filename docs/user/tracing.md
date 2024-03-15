@@ -42,5 +42,6 @@ table contains a full list of event categories and which level are they included
 | api_mutex_lock   |     3 | Calls to `nosv_mutex_lock` |
 | api_mutex_trylock|     3 | Calls to `nosv_mutex_trylock` |
 | api_mutex_unlock |     3 | Calls to `nosv_mutex_unlock` |
+| api_barrier_wait |     3 | Calls to `nosv_barrier_wait` |
 | kernel           |     3 | Linux thread preemption events |
 | memory           |     4 | Calls to the internal memory allocator |

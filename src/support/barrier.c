@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 #include "common.h"
+#include "instr.h"
 #include "nosv.h"
 #include "nosv-internal.h"
 #include "generic/list.h"
@@ -63,6 +64,8 @@ int nosv_barrier_wait(nosv_barrier_t barrier)
 	if (!current_task)
 		return NOSV_ERR_OUTSIDE_TASK;
 
+	instr_barrier_wait_enter();
+
 	nosv_spin_lock(&barrier->lock);
 	barrier->towait--;
 	if (barrier->towait) {
@@ -91,6 +94,8 @@ int nosv_barrier_wait(nosv_barrier_t barrier)
 			nosv_submit(task, NOSV_SUBMIT_UNLOCKED);
 		}
 	}
+
+	instr_barrier_wait_exit();
 
 	return NOSV_SUCCESS;
 }
