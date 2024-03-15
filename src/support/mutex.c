@@ -2,6 +2,7 @@
 #include <stdlib.h>
 
 #include "common.h"
+#include "instr.h"
 #include "nosv.h"
 #include "nosv-internal.h"
 #include "generic/list.h"
@@ -53,6 +54,8 @@ int nosv_mutex_lock(nosv_mutex_t mutex)
 	if (!current_task)
 		return NOSV_ERR_OUTSIDE_TASK;
 
+	instr_mutex_lock_enter();
+
 	// Try to take the mutex
 	nosv_spin_lock(&mutex->lock);
 	if (mutex->taken) {
@@ -69,6 +72,8 @@ int nosv_mutex_lock(nosv_mutex_t mutex)
 		nosv_spin_unlock(&mutex->lock);
 	}
 
+	instr_mutex_lock_exit();
+
 	return NOSV_SUCCESS;
 }
 
@@ -83,6 +88,8 @@ int nosv_mutex_trylock(nosv_mutex_t mutex)
 	if (!current_task)
 		return NOSV_ERR_OUTSIDE_TASK;
 
+	instr_mutex_trylock_enter();
+
 	// Try to take the mutex
 	nosv_spin_lock(&mutex->lock);
 	if (mutex->taken) {
@@ -96,6 +103,8 @@ int nosv_mutex_trylock(nosv_mutex_t mutex)
 		rc = NOSV_SUCCESS;
 	}
 
+	instr_mutex_trylock_exit();
+
 	return rc;
 }
 
@@ -106,6 +115,8 @@ int nosv_mutex_unlock(nosv_mutex_t mutex)
 
 	if (!mutex)
 		return NOSV_ERR_INVALID_PARAMETER;
+
+	instr_mutex_unlock_enter();
 
 	// Unlock the mutex
 	nosv_spin_lock(&mutex->lock);
@@ -124,6 +135,8 @@ int nosv_mutex_unlock(nosv_mutex_t mutex)
 		task = list_elem(elem, struct nosv_task, list_hook);
 		nosv_submit(task, NOSV_SUBMIT_UNLOCKED);
 	}
+
+	instr_mutex_unlock_exit();
 
 	return NOSV_SUCCESS;
 }
