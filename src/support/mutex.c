@@ -112,9 +112,13 @@ int nosv_mutex_unlock(nosv_mutex_t mutex)
 {
 	nosv_task_t task;
 	list_head_t *elem;
+	nosv_task_t current_task = worker_current_task();
 
 	if (!mutex)
 		return NOSV_ERR_INVALID_PARAMETER;
+
+	if (!current_task)
+		return NOSV_ERR_OUTSIDE_TASK;
 
 	instr_mutex_unlock_enter();
 
@@ -130,10 +134,17 @@ int nosv_mutex_unlock(nosv_mutex_t mutex)
 		// There is at least one waiting tasks to get the mutex. Unblock
 		// the task and transfer the mutex ownership to it (we keep the
 		// mutex flagged as "taken").
-		// TODO yield if task can run in the current core
 		nosv_spin_unlock(&mutex->lock);
+
+		// If the next task to run can run in the current core, switch
+		// the current task for the next task in order to speed up
+		// unlocking contended tasks
 		task = list_elem(elem, struct nosv_task, list_hook);
-		nosv_submit(task, NOSV_SUBMIT_UNLOCKED);
+		if (!worker_yield_if_affine(current_task, task)) {
+			// The task was not affine, so we only submit it and
+			// expect that someone else will run it.
+			nosv_submit(task, NOSV_SUBMIT_UNLOCKED);
+		}
 	}
 
 	instr_mutex_unlock_exit();

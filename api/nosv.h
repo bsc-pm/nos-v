@@ -234,6 +234,7 @@ int nosv_mutex_trylock(
 	nosv_mutex_t mutex);
 
 /* Unlock a mutex object */
+/* Restriction: Can only be called from a task context */
 int nosv_mutex_unlock(
 	nosv_mutex_t mutex);
 
