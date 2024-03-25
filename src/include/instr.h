@@ -54,8 +54,12 @@ enum instr_bit {
 	INSTR_BIT_API_ATTACH,
 	INSTR_BIT_TASK,
 	INSTR_BIT_KERNEL,
+	INSTR_BIT_BREAKDOWN,
 	INSTR_BIT_MAX,
 };
+
+_Static_assert (INSTR_BIT_MAX <= sizeof(instr_ovni_control) * 8,
+        "too many bits to fit in instr_ovni_control");
 
 #define BIT(n) (1ULL<<(n))
 
@@ -79,19 +83,38 @@ enum instr_bit {
 #define INSTR_FLAG_API_ATTACH			BIT(INSTR_BIT_API_ATTACH)
 #define INSTR_FLAG_TASK					BIT(INSTR_BIT_TASK)
 #define INSTR_FLAG_KERNEL				BIT(INSTR_BIT_KERNEL)
+#define INSTR_FLAG_BREAKDOWN			BIT(INSTR_BIT_BREAKDOWN)
 
-#define INSTR_LEVEL_0 (INSTR_FLAG_BASIC)
-#define INSTR_LEVEL_1 (INSTR_LEVEL_0 | INSTR_FLAG_WORKER | INSTR_FLAG_TASK)
-#define INSTR_LEVEL_2 (INSTR_LEVEL_1 | INSTR_FLAG_SCHEDULER | INSTR_FLAG_SCHEDULER_HUNGRY \
-					 | INSTR_FLAG_SCHEDULER_SUBMIT | INSTR_FLAG_API_ATTACH )
-#define INSTR_LEVEL_3 (INSTR_LEVEL_2 | INSTR_FLAG_API_CREATE | INSTR_FLAG_API_DESTROY \
-					 | INSTR_FLAG_API_SUBMIT | INSTR_FLAG_API_PAUSE | INSTR_FLAG_API_YIELD \
-					 | INSTR_FLAG_API_WAITFOR | INSTR_FLAG_API_SCHEDPOINT \
-					 | INSTR_FLAG_API_MUTEX_LOCK | INSTR_FLAG_API_MUTEX_TRYLOCK \
-					 | INSTR_FLAG_API_MUTEX_UNLOCK \
-					 | INSTR_FLAG_API_BARRIER_WAIT \
-					 | INSTR_FLAG_KERNEL )
-#define INSTR_LEVEL_4 (INSTR_LEVEL_3 | INSTR_FLAG_MEMORY)
+#define INSTR_LEVEL_0 (0ULL \
+		| INSTR_FLAG_BASIC)
+
+#define INSTR_LEVEL_1 (INSTR_LEVEL_0 \
+		| INSTR_FLAG_WORKER \
+		| INSTR_FLAG_TASK)
+
+#define INSTR_LEVEL_2 (INSTR_LEVEL_1 \
+		| INSTR_FLAG_SCHEDULER \
+		| INSTR_FLAG_SCHEDULER_HUNGRY \
+		| INSTR_FLAG_SCHEDULER_SUBMIT \
+		| INSTR_FLAG_API_ATTACH)
+
+#define INSTR_LEVEL_3 (INSTR_LEVEL_2 \
+		| INSTR_FLAG_API_CREATE \
+		| INSTR_FLAG_API_DESTROY \
+		| INSTR_FLAG_API_SUBMIT \
+		| INSTR_FLAG_API_PAUSE \
+		| INSTR_FLAG_API_YIELD \
+		| INSTR_FLAG_API_WAITFOR \
+		| INSTR_FLAG_API_SCHEDPOINT \
+		| INSTR_FLAG_API_MUTEX_LOCK \
+		| INSTR_FLAG_API_MUTEX_TRYLOCK \
+		| INSTR_FLAG_API_MUTEX_UNLOCK \
+		| INSTR_FLAG_API_BARRIER_WAIT \
+		| INSTR_FLAG_KERNEL \
+		| INSTR_FLAG_BREAKDOWN)
+
+#define INSTR_LEVEL_4 (INSTR_LEVEL_3 \
+		| INSTR_FLAG_MEMORY)
 
 #define CHECK_INSTR_ENABLED(name) 						 \
 	if (!(instr_ovni_control & INSTR_FLAG_##name))     \
@@ -222,28 +245,37 @@ INSTR_2ARG(TASK, instr_task_pause, "VTp", uint32_t, task_id, uint32_t, body_id)
 INSTR_2ARG(TASK, instr_task_resume, "VTr", uint32_t, task_id, uint32_t, body_id)
 INSTR_2ARG(TASK, instr_task_end, "VTe", uint32_t, task_id, uint32_t, body_id)
 
-INSTR_0ARG(instr_worker_progressing_internal, "VPp")
-INSTR_0ARG(instr_worker_resting_internal, "VPr")
-
 #ifdef ENABLE_INSTRUMENTATION
 __internal extern thread_local int thread_resting;
 
 static inline void instr_worker_progressing(void)
 {
-	CHECK_INSTR_ENABLED
-	if (thread_resting) {
-		thread_resting = 0;
-		instr_worker_progressing_internal();
-	}
+	CHECK_INSTR_ENABLED(BREAKDOWN)
+
+	if (!thread_resting)
+		return;
+
+	thread_resting = 0;
+
+	struct ovni_ev ev = {0};
+	ovni_ev_set_clock(&ev, ovni_clock_now());
+	ovni_ev_set_mcv(&ev, "VPp");
+	ovni_ev_emit(&ev);
 }
 
 static inline void instr_worker_resting(void)
 {
-	CHECK_INSTR_ENABLED
-	if (!thread_resting) {
-		thread_resting = 1;
-		instr_worker_resting_internal();
-	}
+	CHECK_INSTR_ENABLED(BREAKDOWN)
+
+	if (thread_resting)
+		return;
+
+	thread_resting = 1;
+
+	struct ovni_ev ev = {0};
+	ovni_ev_set_clock(&ev, ovni_clock_now());
+	ovni_ev_set_mcv(&ev, "VPr");
+	ovni_ev_emit(&ev);
 }
 
 // A jumbo event is needed to encode a large label
