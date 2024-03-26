@@ -84,5 +84,6 @@ __internal void scheduler_batch_submit(nosv_task_t task);
 __internal void scheduler_submit(nosv_task_t task);
 __internal task_execution_handle_t scheduler_get(int cpu, nosv_flags_t flags);
 __internal void scheduler_request_deadline_purge(void);
+__internal int task_affine(nosv_task_t task, cpu_t *cpu);
 
 #endif // SCHEDULER_H

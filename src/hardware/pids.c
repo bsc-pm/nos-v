@@ -27,7 +27,7 @@ void pidmanager_register(void)
 	BIT_FILL(MAX_PIDS, &set);
 	system_pid = getpid();
 
-	nosv_mutex_lock(&pidmanager->lock);
+	nosv_sys_mutex_lock(&pidmanager->lock);
 
 	// Xor with all ones to get the "not set" bits to be one.
 	BIT_XOR(MAX_PIDS, &set, &pidmanager->pids_alloc);
@@ -57,12 +57,12 @@ void pidmanager_register(void)
 		free_cpu = cpu_pop_free(logic_pid);
 	}
 
-	nosv_mutex_unlock(&pidmanager->lock);
+	nosv_sys_mutex_unlock(&pidmanager->lock);
 }
 
 void pidmanager_shutdown(void)
 {
-	nosv_mutex_lock(&pidmanager->lock);
+	nosv_sys_mutex_lock(&pidmanager->lock);
 
 	// Unregister this process, and make it available
 	BIT_CLR(MAX_PIDS, logic_pid, &pidmanager->pids);
@@ -71,7 +71,7 @@ void pidmanager_shutdown(void)
 	assert(local);
 	PID_STR(logic_pid) = NULL;
 
-	nosv_mutex_unlock(&pidmanager->lock);
+	nosv_sys_mutex_unlock(&pidmanager->lock);
 
 	// Notify all threads they have to shut down and wait until they do
 	// Each thread will pass its CPU during the shutdown process
@@ -79,9 +79,9 @@ void pidmanager_shutdown(void)
 
 	// Now deallocate the PID. We do this in two phases to prevent an ABA problem
 	// with logical PIDs
-	nosv_mutex_lock(&pidmanager->lock);
+	nosv_sys_mutex_lock(&pidmanager->lock);
 	BIT_CLR(MAX_PIDS, logic_pid, &pidmanager->pids_alloc);
-	nosv_mutex_unlock(&pidmanager->lock);
+	nosv_sys_mutex_unlock(&pidmanager->lock);
 }
 
 void pidmanager_init(int initialize)
@@ -93,7 +93,7 @@ void pidmanager_init(int initialize)
 	}
 
 	pidmanager = (pid_manager_t *)salloc(sizeof(pid_manager_t), 0);
-	nosv_mutex_init(&pidmanager->lock);
+	nosv_sys_mutex_init(&pidmanager->lock);
 	BIT_ZERO(MAX_PIDS, &pidmanager->pids);
 	BIT_ZERO(MAX_PIDS, &pidmanager->pids_alloc);
 	st_config.config->pidmanager_ptr = pidmanager;
@@ -109,7 +109,7 @@ void pidmanager_transfer_to_idle(cpu_t *cpu)
 	// Find an active PID and transfer the CPU there
 	// Called on shutdown of a process
 
-	nosv_mutex_lock(&pidmanager->lock);
+	nosv_sys_mutex_lock(&pidmanager->lock);
 	int pid = BIT_FFS(MAX_PIDS, &pidmanager->pids) - 1;
 
 	assert(pid != logic_pid);
@@ -126,5 +126,5 @@ void pidmanager_transfer_to_idle(cpu_t *cpu)
 		cpu_mark_free(cpu);
 	}
 
-	nosv_mutex_unlock(&pidmanager->lock);
+	nosv_sys_mutex_unlock(&pidmanager->lock);
 }

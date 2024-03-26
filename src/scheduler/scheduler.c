@@ -511,7 +511,7 @@ void scheduler_request_deadline_purge(void)
 	atomic_fetch_add_explicit(&scheduler->deadline_purge, 1, memory_order_release);
 }
 
-static inline int task_affine(nosv_task_t task, cpu_t *cpu)
+int task_affine(nosv_task_t task, cpu_t *cpu)
 {
 	switch (task->affinity.level) {
 		case NOSV_AFFINITY_LEVEL_CPU:

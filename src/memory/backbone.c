@@ -64,13 +64,13 @@ void backbone_alloc_init(void *start, size_t size, int initialize)
 		page++;
 	}
 
-	nosv_mutex_init(&backbone_header->mutex);
+	nosv_sys_mutex_init(&backbone_header->mutex);
 }
 
 page_metadata_t *balloc(void)
 {
 	page_metadata_t *ret = NULL;
-	nosv_mutex_lock(&backbone_header->mutex);
+	nosv_sys_mutex_lock(&backbone_header->mutex);
 
 	list_head_t *first = list_pop_head(&backbone_header->free_pages);
 
@@ -78,16 +78,16 @@ page_metadata_t *balloc(void)
 		ret = list_elem(first, page_metadata_t, list_hook);
 	}
 
-	nosv_mutex_unlock(&backbone_header->mutex);
+	nosv_sys_mutex_unlock(&backbone_header->mutex);
 
 	return ret;
 }
 
 void bfree(page_metadata_t *block)
 {
-	nosv_mutex_lock(&backbone_header->mutex);
+	nosv_sys_mutex_lock(&backbone_header->mutex);
 
 	list_add(&backbone_header->free_pages, &block->list_hook);
 
-	nosv_mutex_unlock(&backbone_header->mutex);
+	nosv_sys_mutex_unlock(&backbone_header->mutex);
 }

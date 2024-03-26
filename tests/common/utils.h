@@ -40,9 +40,9 @@ static inline int *get_cpu_array(void)
 	int seen = 0;
 
 	while (seen < cnt) {
-			if (CPU_ISSET(i, &set))
-					array[seen++] = i;
-			++i;
+		if (CPU_ISSET(i, &set))
+			array[seen++] = i;
+		++i;
 	}
 
 	assert(seen == cnt);

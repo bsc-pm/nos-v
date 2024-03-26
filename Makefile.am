@@ -56,6 +56,8 @@ libnosv_la_SOURCES = \
 	src/scheduler/governor.c \
 	src/scheduler/scheduler.c \
 	src/support/affinity.c \
+	src/support/barrier.c \
+	src/support/mutex.c \
 	src/system/tasks.c
 
 if HAVE_OVNI

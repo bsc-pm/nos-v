@@ -37,6 +37,10 @@ typedef struct nosv_task_type *nosv_task_type_t;
 struct nosv_task;
 typedef struct nosv_task *nosv_task_t;
 typedef struct nosv_affinity nosv_affinity_t;
+struct nosv_mutex;
+typedef struct nosv_mutex *nosv_mutex_t;
+struct nosv_barrier;
+typedef struct nosv_barrier *nosv_barrier_t;
 
 typedef void (*nosv_task_run_callback_t)(nosv_task_t);
 typedef void (*nosv_task_end_callback_t)(nosv_task_t);
@@ -204,6 +208,55 @@ int nosv_attach(
 /* Called from attached thread */
 int nosv_detach(
 	nosv_flags_t flags);
+
+/* Flags */
+#define NOSV_MUTEX_NONE __ZEROBITS
+
+/* Initialize a nosv_mutex_t object. The attr object is currently not
+ * implemented, use NULL */
+int nosv_mutex_init(
+	nosv_mutex_t *mutex,
+	nosv_flags_t flags);
+
+/* Destroys a nosv_mutex_t object */
+int nosv_mutex_destroy(
+	nosv_mutex_t mutex);
+
+/* Similar to pthread_mutex_lock, locks a mutex but calls nosv_pause if the lock
+ * is contended */
+/* Restriction: Can only be called from a task context */
+int nosv_mutex_lock(
+	nosv_mutex_t mutex);
+
+/* Lock the mutex or return immediately if contended */
+/* Restriction: Can only be called from a task context */
+int nosv_mutex_trylock(
+	nosv_mutex_t mutex);
+
+/* Unlock a mutex object */
+/* Restriction: Can only be called from a task context */
+int nosv_mutex_unlock(
+	nosv_mutex_t mutex);
+
+/* Flags */
+#define NOSV_BARRIER_NONE __ZEROBITS
+
+/* Initialize the "barrier" object to wait for "count" threads. The attr object
+ * is currently not implemented, use NULL*/
+int nosv_barrier_init(
+	nosv_barrier_t *barrier,
+	nosv_flags_t flags,
+	unsigned count);
+
+/* Destroy the "barrier" object. It can be re-initialized afterwards */
+int nosv_barrier_destroy(
+	nosv_barrier_t barrier);
+
+/* Similar to pthread_barrier_wait, block until "count" threads have reached the
+ * barrier */
+/* Restriction: Can only be called from a task context */
+int nosv_barrier_wait(
+	nosv_barrier_t barrier);
 
 /* CPU Information API */
 /* Get number of CPUs leveraged by the nOS-V runtime */
