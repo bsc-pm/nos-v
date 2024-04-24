@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
@@ -299,7 +299,7 @@ static inline void *worker_start_routine(void *arg)
 
 				if (candidate.task) {
 					assert(candidate.task->type->pid != pid);
-					scheduler_submit(current_worker->immediate_successor);
+					scheduler_submit_single(current_worker->immediate_successor);
 					handle = candidate;
 				} else {
 					handle.task = current_worker->immediate_successor;
@@ -430,7 +430,7 @@ int worker_yield_if_needed(nosv_task_t current_task)
 	instr_task_pause((uint32_t)current_task->taskid, bodyid);
 
 	// We retrieved a ready task, so submit the current one
-	scheduler_submit(current_task);
+	scheduler_submit_single(current_task);
 
 	// Wake up the corresponding thread to execute the task
 	worker_execute_or_delegate(handle, cpu, /* busy thread */ 1);
@@ -464,7 +464,7 @@ int worker_yield_if_affine(nosv_task_t current_task, nosv_task_t task)
 	instr_task_pause((uint32_t)current_task->taskid, bodyid);
 
 	// We have a new task to run, so submit the current one
-	scheduler_submit(current_task);
+	scheduler_submit_single(current_task);
 
 	// Wake up the corresponding thread to execute the task
 	worker_execute_or_delegate(handle, cpu, /* busy thread */ 1);

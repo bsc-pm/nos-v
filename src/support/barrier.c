@@ -1,3 +1,9 @@
+/*
+	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
+
+	Copyright (C) 2024 Barcelona Supercomputing Center (BSC)
+*/
+
 #include <stdbool.h>
 #include <stdlib.h>
 
@@ -8,10 +14,11 @@
 #include "generic/list.h"
 #include "generic/spinlock.h"
 #include "hardware/threads.h"
-
+#include "scheduler/scheduler.h"
+#include "system/taskgroup.h"
 
 struct nosv_barrier {
-	list_head_t list;
+	task_group_t waiting_tasks;
 	nosv_spinlock_t lock;
 	unsigned count;
 	unsigned towait;
@@ -35,7 +42,7 @@ int nosv_barrier_init(
 	bptr = malloc(sizeof(*bptr));
 	if (!bptr)
 		return NOSV_ERR_OUT_OF_MEMORY;
-	list_init(&bptr->list);
+	task_group_init(&bptr->waiting_tasks);
 	nosv_spin_init(&bptr->lock);
 	bptr->count = count;
 	bptr->towait = count;
@@ -54,9 +61,6 @@ int nosv_barrier_destroy(nosv_barrier_t barrier)
 int nosv_barrier_wait(nosv_barrier_t barrier)
 {
 	nosv_task_t current_task = worker_current_task();
-	nosv_task_t task;
-	list_head_t head;
-	list_head_t *elem;
 
 	if (!barrier)
 		return NOSV_ERR_INVALID_PARAMETER;
@@ -71,28 +75,22 @@ int nosv_barrier_wait(nosv_barrier_t barrier)
 	if (barrier->towait) {
 		// We are not the last one
 		// Wait for the other tasks
-		list_add_tail(&barrier->list, &current_task->list_hook);
+		task_group_add(&barrier->waiting_tasks, current_task);
 		nosv_spin_unlock(&barrier->lock);
 		nosv_pause(NOSV_PAUSE_NONE);
 		// We have been unblocked, we can return immediately
 	} else {
 		// We are the last task
 		// First, restore the internal barrier state
-		head = barrier->list;
-		list_init(&barrier->list);
+		task_group_t waiting_tasks = barrier->waiting_tasks;
+		task_group_init(&barrier->waiting_tasks);
 		barrier->towait = barrier->count;
 		nosv_spin_unlock(&barrier->lock);
 		// After this point, the barrier is safe to be reused
 
-		// Second, wake up all waiting tasks. All tasks to be awaken are
-		// linked between them. By submitting the first one, the batch
-		// scheduler will add them all at once.
-
-		// If count=1, there will be no waiting tasks
-		if ((elem = list_front(&head))) {
-			task = list_elem(elem, struct nosv_task, list_hook);
-			nosv_submit(task, NOSV_SUBMIT_UNLOCKED);
-		}
+		// Second, wake up all waiting tasks.
+		if(!task_group_empty(&waiting_tasks))
+			scheduler_submit_group(&waiting_tasks);
 	}
 
 	instr_barrier_wait_exit();

@@ -136,6 +136,7 @@ noinst_HEADERS = \
 	src/include/scheduler/scheduler.h \
 	src/include/scheduler/spsc.h \
 	src/include/support/affinity.h \
+	src/include/system/taskgroup.h \
 	src/include/system/tasks.h \
 	tests/common/tap.h \
 	tests/common/utils.h \
