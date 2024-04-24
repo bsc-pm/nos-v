@@ -152,6 +152,6 @@
 	# and the token "!" disables event types.
 	# Thus, a list of ["all", "!task" ] enables everything and then disables only task-related events.
 	# Note that with this option uncommented the instrumentation level will be ignored
-	## events = ["basic", "worker", "scheduler", "scheduler_submit", "memory", "api_attach", "api_create",
-	##           "api_destroy", "api_submit", "api_pause", "api_yield", "api_waitfor", "api_schedpoint",
+	## events = ["basic", "worker", "scheduler", "scheduler_submit", "scheduler_hungry", "memory", "api_attach",
+	##           "api_create", "api_destroy", "api_submit", "api_pause", "api_yield", "api_waitfor", "api_schedpoint",
 	##           "api_mutex_lock", "api_mutex_trylock", "api_mutex_unlock", "api_barrier_wait", "task", "kernel" ]
