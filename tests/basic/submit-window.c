@@ -33,7 +33,7 @@ void task_comp(nosv_task_t task)
 }
 
 // The default submit window size is 1, therefore it should submit (and execute) the task directly
-void test1()
+void test1(void)
 {
 	nosv_task_t task;
 	CHECK(nosv_create(&task, task_type, 0, NOSV_CREATE_NONE));
@@ -46,7 +46,7 @@ void test1()
 
 // When the submit window size (maximum size) is bigger than 1, the tasks are added to the submit window
 // and are only submitted when the window reaches the maximum size, then all the tasks are submitted
-void test2()
+void test2(void)
 {
 	CHECK(nosv_set_submit_window_size(NTASKS));
 
@@ -67,7 +67,7 @@ void test2()
 }
 
 // Alternatively, the window can be flushed anytime using nosv_flush_submit_window()
-void test3()
+void test3(void)
 {
 	// Already set in the previous test
 	CHECK(nosv_set_submit_window_size(NTASKS));
@@ -90,7 +90,7 @@ void test3()
 
 // The submit window never reaches the maximum size, therefore there is no flush.
 // Until we stop incrementing the submit window size.
-void test4()
+void test4(void)
 {
 	CHECK(nosv_set_submit_window_size(2));
 	CHECK(nosv_create(&tasks[0], task_type, 0, NOSV_CREATE_NONE));
@@ -116,7 +116,7 @@ void test4()
 
 // If we set the submit window size to a lower value than the current number of tasks in the window,
 // the flush will be executed in the next submit.
-void test5()
+void test5(void)
 {
 	CHECK(nosv_set_submit_window_size(NTASKS));
 

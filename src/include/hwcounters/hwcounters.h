@@ -56,7 +56,7 @@ __internal bool hwcounters_backend_enabled(enum backends_t backend);
 __internal const bool *hwcounters_get_status_counters(void);
 
 // Get an array of enabled counter types
-__internal const enum counters_t *hwcounters_get_enabled_counters();
+__internal const enum counters_t *hwcounters_get_enabled_counters(void);
 
 // Get the number of supported and enabled counters
 __internal size_t hwcounters_get_num_enabled_counters(void);

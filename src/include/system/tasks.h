@@ -48,9 +48,9 @@ typedef struct task_execution_handle {
 #define EMPTY_TASK_EXECUTION_HANDLE ((task_execution_handle_t){ 0 })
 
 __internal void task_execute(task_execution_handle_t handle);
-__internal void task_type_manager_init();
-__internal void task_type_manager_shutdown();
-__internal void task_affinity_init();
-__internal list_head_t *task_type_manager_get_list();
+__internal void task_type_manager_init(void);
+__internal void task_type_manager_shutdown(void);
+__internal void task_affinity_init(void);
+__internal list_head_t *task_type_manager_get_list(void);
 
 #endif // TASKS_H
