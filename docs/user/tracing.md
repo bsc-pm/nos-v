@@ -30,6 +30,7 @@ table contains a full list of event categories and which level are they included
 | worker           |     1 | Worker thread start and stop |
 | task             |     1 | Task creation/destruction, start and end |
 | scheduler        |     2 | Scheduler task obtention and serving |
+| scheduler_hungry |     2 | Signals when threads enter the scheduler and are looking for work (hungry) or cease to be looking for work |
 | scheduler_submit |     2 | Scheduler task submission |
 | api_attach       |     2 | Calls to `nosv_attach` and `nosv_detach` |
 | api_create       |     3 | Calls to `nosv_create` |
