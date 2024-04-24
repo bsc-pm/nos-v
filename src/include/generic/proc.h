@@ -21,7 +21,7 @@ typedef struct process_identifier {
 	pid_t pid;
 } process_identifier_t;
 
-static inline void parse_proc_stat(process_identifier_t *pi, FILE *fp)
+static inline int parse_proc_stat(process_identifier_t *pi, FILE *fp)
 {
 	// Extracted from "man procfs"
 	// We only get the first field, which is the PID, and then the start time, which is the 20th field
@@ -32,11 +32,12 @@ static inline void parse_proc_stat(process_identifier_t *pi, FILE *fp)
 
 	int ret = fscanf(fp, "%d", &pi->pid);
 	if (ret != 1)
-		nosv_abort("Error trying to parse procfs");
-	// TODO: This function should try to fail gracefully, since crashing here leaves the shared memory inoperable
+		return 1;
 
 	long pos = 0;
-	rewind(fp);
+	ret = fseek(fp, 0, SEEK_SET);
+	if (ret)
+		return 1;
 
 	while (!feof(fp)) {
 		char c = (char) fgetc(fp);
@@ -48,13 +49,17 @@ static inline void parse_proc_stat(process_identifier_t *pi, FILE *fp)
 	assert(pos > 0);
 	ret = fseek(fp, pos + 1, SEEK_SET);
 	if (ret)
-		nosv_abort("Could not seek in /proc/%d/stat", pi->pid);
+		return 1;
 
 	ret = fscanf(fp, "%*c %*d %*d %*d %*d %*d %*u %*u %*u %*u %*u %*u %*u %*u %*d %*d %*d %*d %*d %llu",
 		&pi->start_time);
 	if (ret != 1)
-		nosv_abort("Could not parse /proc/%d/stat", pi->pid);
-	assert(pi->start_time);
+		return 1;
+
+	if (!pi->start_time)
+		return 1;
+
+	return 0;
 }
 
 static inline process_identifier_t get_process(pid_t pid)
@@ -76,7 +81,13 @@ static inline process_identifier_t get_process(pid_t pid)
 	// Note that fp being NULL is not a problem here, as it just means that the process we are inspecting died some time
 	// ago. In that case, we just return pi.pid = -1.
 	if (fp != NULL) {
-		parse_proc_stat(&pi, fp);
+		int ret = parse_proc_stat(&pi, fp);
+		if (ret) {
+			// Could not parse process data
+			nosv_warn("Could not parse /proc/%d/stat\n", pid);
+			pi.pid = -1;
+		}
+
 		fclose(fp);
 	}
 
