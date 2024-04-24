@@ -136,7 +136,7 @@ static inline int dtlock_lock_or_delegate(
 {
 	union dtlock_signal prev_signal, signal;
 	void *recv_item;
-	int recv_count;
+	uint32_t recv_count;
 
 	assert(dtlock);
 	assert(cpu_index < dtlock->size);

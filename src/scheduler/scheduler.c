@@ -883,7 +883,7 @@ task_execution_handle_t scheduler_get(int cpu, nosv_flags_t flags)
 
 	// Whether the thread can block serving tasks
 	const int blocking = !(flags & SCHED_GET_NONBLOCKING);
-	const int external = (flags & SCHED_GET_EXTERNAL);
+	const int external = !!(flags & SCHED_GET_EXTERNAL);
 	task_execution_handle_t handle = EMPTY_TASK_EXECUTION_HANDLE;
 
 	if (!dtlock_lock_or_delegate(&scheduler->dtlock, (uint64_t) cpu, (void **) &handle.task, &handle.execution_id, blocking, external)) {

@@ -42,11 +42,11 @@ static inline void chrono_stop(chrono_t *timer)
 	struct timespec end;
 	clock_gettime(CLOCK_MONOTONIC, &end);
 
-	uint64_t end_time = (end.tv_sec * 1e9) + end.tv_nsec;
-	uint64_t begin_time = (timer->begin.tv_sec * 1e9) + timer->begin.tv_nsec;
+	double end_time = (end.tv_sec * 1e9) + end.tv_nsec;
+	double begin_time = (timer->begin.tv_sec * 1e9) + timer->begin.tv_nsec;
 	assert(end_time >= begin_time);
 
-	timer->elapsed += (double) ((end_time - begin_time) / (double) 1e9);
+	timer->elapsed += (end_time - begin_time) / 1e9;
 }
 
 static inline void chrono_continue_at(chrono_t *timer, chrono_t *other)
