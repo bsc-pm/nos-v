@@ -37,7 +37,7 @@ static nosv_affinity_t default_affinity;
 #define LABEL_MAX_CHAR 128
 
 //! \brief Initialize the manager of task types
-void task_type_manager_init()
+void task_type_manager_init(void)
 {
 	task_type_manager = (task_type_manager_t *) malloc(sizeof(task_type_manager_t));
 	assert(task_type_manager != NULL);
@@ -47,7 +47,7 @@ void task_type_manager_init()
 	nosv_spin_init(&task_type_manager->lock);
 }
 
-static inline nosv_affinity_t parse_affinity_from_config()
+static inline nosv_affinity_t parse_affinity_from_config(void)
 {
 	nosv_affinity_t ret;
 
@@ -86,7 +86,7 @@ static inline nosv_affinity_t parse_affinity_from_config()
 }
 
 // Initialize the task default affinity parsing the configuration
-void task_affinity_init()
+void task_affinity_init(void)
 {
 	if (!strcmp(nosv_config.affinity_default, "all")) {
 		default_affinity.index = default_affinity.level = default_affinity.type = 0;
@@ -95,13 +95,13 @@ void task_affinity_init()
 	}
 }
 
-list_head_t *task_type_manager_get_list()
+list_head_t *task_type_manager_get_list(void)
 {
 	return &(task_type_manager->types);
 }
 
 //! \brief Shutdown the manager of task types
-void task_type_manager_shutdown()
+void task_type_manager_shutdown(void)
 {
 	// Destroy the spinlock and the manager
 	nosv_spin_destroy(&task_type_manager->lock);

@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
@@ -45,7 +45,7 @@ void load_configuration(void)
 	string_list_t hwcounters_list = nosv_config.hwcounters_papi_events;
 	if (hwcounters_list.num_strings > 0) {
 		for (int i = 0; i < hwcounters_list.num_strings; ++i) {
-			for (short j = HWC_PAPI_MIN_EVENT; j <= HWC_PAPI_MAX_EVENT; ++j) {
+			for (int j = HWC_PAPI_MIN_EVENT; j <= HWC_PAPI_MAX_EVENT; ++j) {
 				if (!strcmp(counter_descriptions[j - HWC_PAPI_MIN_EVENT].descr, hwcounters_list.strings[i])) {
 					counter_added = 1;
 					hwcbackend.status_counters[j] = 1;

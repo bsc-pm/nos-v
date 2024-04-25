@@ -1,7 +1,7 @@
 /*
 	This file is part of Nanos6 and nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2020-2023 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2020-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
@@ -494,7 +494,7 @@ static inline int config_parse_array_internal(
 
 	if (dimensions_left == 1) {
 		// Parse directly
-		parsed_array->items = malloc(nelem * config_spec_type_size[spec->type]);
+		parsed_array->items = calloc(nelem, config_spec_type_size[spec->type]);
 
 		for (int i = 0; i < nelem; ++i) {
 			switch (spec->type) {

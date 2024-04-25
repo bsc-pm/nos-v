@@ -58,7 +58,7 @@ AC_DEFUN([AX_PREPARE_CC_FLAGS], [
 	AC_ARG_ENABLE([debug], [AS_HELP_STRING([--enable-debug],
 		[Adds compiler debug flags and enables additional internal debugging mechanisms @<:@default=disabled@:>@])])
 
-	nosv_COMMON_CFLAGS="-D_GNU_SOURCE -Wall -Wpedantic -Wimplicit-fallthrough -Werror-implicit-function-declaration"
+	nosv_COMMON_CFLAGS="-D_GNU_SOURCE -Wall -Wpedantic -Wimplicit-fallthrough -Werror-implicit-function-declaration -Wstrict-prototypes"
 
 	AS_IF([test "$enable_debug" = yes],[
 		# Debug is enabled

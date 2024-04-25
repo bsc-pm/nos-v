@@ -18,7 +18,7 @@
 #ifdef ARCH_HAS_TURBO
 
 // This test expects turbo to be enabled in the .toml
-void exec_child_crash() {
+void exec_child_crash(void) {
 	CHECK(nosv_init());
 	nosv_task_t task;
 
@@ -33,7 +33,7 @@ void exec_child_crash() {
 	exit(0);
 }
 
-void exec_child_crash1() {
+void exec_child_crash1(void) {
 	CHECK(nosv_init());
 	nosv_task_t task;
 
@@ -52,7 +52,7 @@ void exec_child_crash1() {
 	exit(0);
 }
 
-void exec_child_crash2() {
+void exec_child_crash2(void) {
 	CHECK(nosv_init());
 	nosv_task_t task;
 
@@ -70,7 +70,7 @@ void exec_child_crash2() {
 	exit(0);
 }
 
-void exec_child_nocrash() {
+void exec_child_nocrash(void) {
 	CHECK(nosv_init());
 	nosv_task_t task;
 

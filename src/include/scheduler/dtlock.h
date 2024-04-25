@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef DTLOCK_H
@@ -136,7 +136,7 @@ static inline int dtlock_lock_or_delegate(
 {
 	union dtlock_signal prev_signal, signal;
 	void *recv_item;
-	int recv_count;
+	uint32_t recv_count;
 
 	assert(dtlock);
 	assert(cpu_index < dtlock->size);
