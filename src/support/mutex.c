@@ -1,3 +1,9 @@
+/*
+	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
+
+	Copyright (C) 2024 Barcelona Supercomputing Center (BSC)
+*/
+
 #include <stdbool.h>
 #include <stdlib.h>
 
@@ -14,7 +20,6 @@ struct nosv_mutex {
 	nosv_spinlock_t lock;
 	bool taken;
 };
-
 
 int nosv_mutex_init(nosv_mutex_t *mutex, nosv_flags_t flags)
 {

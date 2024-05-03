@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef SCHEDULER_H
@@ -80,8 +80,18 @@ __internal void scheduler_shutdown(void);
 
 __internal int scheduler_should_yield(int pid, int cpu, uint64_t *timestamp);
 __internal void scheduler_reset_accounting(int pid, int cpu);
+
+// Submit a task to the nOS-V scheduler, but add it to the current task's batch
+// if there is one
 __internal void scheduler_batch_submit(nosv_task_t task);
-__internal void scheduler_submit(nosv_task_t task);
+
+// Submit a task to the scheduler ignoring batch submission. Can be used to circumvent
+// batch scheduling if needed
+__internal void scheduler_submit_single(nosv_task_t task);
+
+// Submit a task group to the scheduler
+__internal void scheduler_submit_group(task_group_t *group);
+
 __internal task_execution_handle_t scheduler_get(int cpu, nosv_flags_t flags);
 __internal void scheduler_request_deadline_purge(void);
 __internal int task_affine(nosv_task_t task, cpu_t *cpu);

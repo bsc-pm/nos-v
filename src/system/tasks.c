@@ -16,6 +16,7 @@
 #include "scheduler/scheduler.h"
 #include "support/affinity.h"
 #include "system/tasks.h"
+#include "system/taskgroup.h"
 
 #include <stdbool.h>
 #include <stdlib.h>
@@ -254,8 +255,7 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	res->scheduled_count = 0;
 	res->flags = flags;
 
-	res->submit_window = NULL;
-	res->submit_window_size = 0;
+	task_group_init(&res->submit_window);
 	res->submit_window_maxsize = 1;
 
 	// Initialize hardware counters and monitoring for the task
@@ -552,7 +552,8 @@ int nosv_waitfor(
 	deadline_state_t desired = NOSV_DEADLINE_PENDING;
 	if (atomic_compare_exchange_strong_explicit(&task->deadline_state, &expected, desired, memory_order_relaxed, memory_order_relaxed)) {
 		// Submit the task to re-schedule when the deadline is done
-		scheduler_submit(task);
+		// Forego the current
+		scheduler_submit_single(task);
 		// Block until the deadline expires
 		worker_yield();
 	} else {
@@ -891,7 +892,7 @@ int nosv_attach(
 	monitoring_task_changed_status(t, ready_status);
 
 	// Submit task for scheduling at an actual CPU
-	scheduler_submit(t);
+	scheduler_submit_single(t);
 
 	// Block the worker
 	worker_block();
@@ -1027,10 +1028,9 @@ int nosv_flush_submit_window(void)
 	if (!current_task)
 		return NOSV_ERR_OUTSIDE_TASK;
 
-	if (current_task->submit_window != NULL) {
-		scheduler_submit(current_task->submit_window);
-		current_task->submit_window = NULL;
-		current_task->submit_window_size = 0;
+	if (!task_group_empty(&current_task->submit_window)) {
+		scheduler_submit_group(&current_task->submit_window);
+		task_group_clear(&current_task->submit_window);
 	}
 
 	return NOSV_SUCCESS;
@@ -1046,6 +1046,9 @@ int nosv_set_submit_window_size(size_t submit_window_size)
 		return NOSV_ERR_OUTSIDE_TASK;
 
 	current_task->submit_window_maxsize = submit_window_size;
+
+	if (submit_window_size == 1)
+		nosv_flush_submit_window();
 
 	return NOSV_SUCCESS;
 }

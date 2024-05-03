@@ -43,6 +43,11 @@ struct nosv_task_type {
 	list_head_t list_hook;
 };
 
+typedef struct nosv_task_group {
+	struct nosv_task *head_task;
+	size_t count;
+} task_group_t;
+
 struct nosv_task {
 	atomic_uint32_t event_count;
 	atomic_uint32_t blocking_count;
@@ -64,9 +69,7 @@ struct nosv_task {
 	};
 
 	// Submit Window (Parent task)
-	// Child tasks use the list_hook to link between them
-	struct nosv_task *submit_window;
-	size_t submit_window_size;
+	task_group_t submit_window;
 	size_t submit_window_maxsize;
 
 	nosv_task_t wakeup;

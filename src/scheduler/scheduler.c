@@ -19,6 +19,7 @@
 #include "instr.h"
 #include "memory/sharedmemory.h"
 #include "scheduler/scheduler.h"
+#include "system/taskgroup.h"
 #include "system/tasks.h"
 
 __internal scheduler_t *scheduler;
@@ -391,36 +392,19 @@ void scheduler_batch_submit(nosv_task_t task)
 {
 	assert(task != NULL);
 
-	// The default behaviour is to take the fast path
-	uint8_t take_fast_path = 1;
-
 	nosv_task_t current_task = worker_current_task();
 
-	// If we are in a task, we can only take the fast path when there is no window and the submit_window_maxsize is 1
-	if(current_task)
-		take_fast_path = (current_task->submit_window_maxsize == 1) & (current_task->submit_window == NULL);
-
-	if (take_fast_path) {
-		scheduler_submit(task);
+	if (!current_task || current_task->submit_window_maxsize == 1) {
+		scheduler_submit_single(task);
 		return;
 	}
 
-	if (current_task->submit_window == NULL) {
-		current_task->submit_window = task;
-		list_init(&(task->list_hook));
-		current_task->submit_window_size = 1;
-	} else {
-		list_init(&(task->list_hook));
-		list_add_tail(&(current_task->submit_window->list_hook), &(task->list_hook));
-		current_task->submit_window_size++;
-	}
-
-	if (current_task->submit_window_size >= current_task->submit_window_maxsize) {
+	task_group_add(&current_task->submit_window, task);
+	if (task_group_count(&current_task->submit_window) >= current_task->submit_window_maxsize)
 		nosv_flush_submit_window();
-	}
 }
 
-void scheduler_submit(nosv_task_t task)
+static inline void scheduler_submit_internal(nosv_task_t task)
 {
 	assert(task);
 	assert(scheduler);
@@ -441,6 +425,20 @@ void scheduler_submit(nosv_task_t task)
 	}
 
 	instr_sched_submit_exit();
+}
+
+void scheduler_submit_single(nosv_task_t task)
+{
+	assert(task);
+	assert(!list_front(&task->list_hook));
+	scheduler_submit_internal(task);
+}
+
+void scheduler_submit_group(task_group_t *group)
+{
+	assert(group);
+	assert(!task_group_empty(group));
+	scheduler_submit_internal(task_group_head(group));
 }
 
 static inline void scheduler_deadline_purge_internal(int count)
