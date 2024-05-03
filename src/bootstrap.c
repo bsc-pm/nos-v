@@ -28,6 +28,8 @@ __internal thread_local int32_t th_refcount = 0;
 __internal bool rt_initialized = false;
 __internal pthread_mutex_t rt_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+static void configure_fork_hooks(void);
+
 //! \brief Perform the runtime initialization if required
 static int nosv_init_impl(void)
 {
@@ -47,6 +49,7 @@ static int nosv_init_impl(void)
 		pidmanager_register();
 		task_type_manager_init();
 		task_affinity_init();
+		configure_fork_hooks();
 
 		// Mark as initialized
 		assert(th_refcount == 0);
@@ -60,6 +63,7 @@ static int nosv_init_impl(void)
 		instr_thread_init();
 		instr_thread_execute(-1, -1, 0);
 	}
+
 	return 0;
 }
 
@@ -125,4 +129,24 @@ void __destructor __nosv_destruct_library(void)
 	if (rt_refcount > 0) {
 		nosv_warn("nosv_shutdown() was not called to correctly shutdown the library.");
 	}
+}
+
+static void child_fork_hook(void)
+{
+	// In case of a process which has initialized nOS-V and then is forked, we have to behave
+	// as if the child was never initialized, in order to allow it to initialize at a later point
+	// if need be.
+
+	if (rt_initialized) {
+		rt_initialized = false;
+		rt_refcount = 0;
+		th_refcount = 0;
+
+		munmap(nosv_config.shm_start, nosv_config.shm_size);
+	}
+}
+
+static void configure_fork_hooks(void)
+{
+	pthread_atfork(NULL, NULL, child_fork_hook);
 }
