@@ -92,15 +92,14 @@ The development of nOS-V is based on a few simple principles that are maintained
 
 ## Citing
 
-If you use nOS-V in your research, we ask that you cite the following [preprint](https://arxiv.org/abs/2204.10768):
+If you use nOS-V in your research, we ask that you cite the following [article pending publication](https://arxiv.org/abs/2204.10768):
 
 ```
 @misc{alvarez2022nosv,
-      title={nOS-V: Co-Executing HPC Applications Using System-Wide Task Scheduling},
-      author={David Álvarez and Kevin Sala and Vicenç Beltran},
-      year={2022},
-      eprint={2204.10768},
-      archivePrefix={arXiv},
-      primaryClass={cs.DC}
+	title={nOS-V: Co-Executing HPC Applications Using System-Wide Task Scheduling},
+	booktitle={2024 IEEE International Parallel and Distributed Processing Symposium},
+	author={David Álvarez and Kevin Sala and Vicenç Beltran},
+	year={2024},
+	note={Accepted, to be published}
 }
 ```

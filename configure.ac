@@ -9,7 +9,7 @@
 
 m4_define([nosv_version], [2.2.0])
 m4_define([nosv_license], ["GPL3"])
-m4_define([nosv_copyright], ["2021-2023 Barcelona Supercomputing Center (BSC)"])
+m4_define([nosv_copyright], ["2021-2024 Barcelona Supercomputing Center (BSC)"])
 
 AC_PREREQ([2.69])
 AC_INIT([nOS-V], [nosv_version], [david.alvarez@bsc.es])
