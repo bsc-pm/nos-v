@@ -16,6 +16,7 @@
 
 #include <nosv.h>
 #include <nosv/affinity.h>
+#include <nosv/hwinfo.h>
 
 #include "test.h"
 #include "common/utils.h"
@@ -146,7 +147,7 @@ int main()
 	CHECK(nosv_type_init(&type, &run, NULL /* end */, &completed, NULL, NULL, NULL, NOSV_TYPE_INIT_NONE));
 
 	// Number of available CPUs
-	int cpus = get_cpus();
+	int cpus = nosv_get_num_cpus();
 	// Array containing all the system CPU ids
 	int *cpu_indexes = get_cpu_array();
 

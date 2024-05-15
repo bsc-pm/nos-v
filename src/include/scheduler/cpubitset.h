@@ -8,6 +8,7 @@
 #define CPU_BITSET_H
 
 #include <assert.h>
+#include <sched.h>
 #include <stdbool.h>
 #include <stdio.h>
 
@@ -74,6 +75,12 @@ static inline void cpu_bitset_and(cpu_bitset_t *dest, const cpu_bitset_t *b)
 	BIT_AND(dest->size, &dest->bits, &b->bits);
 }
 
+static inline void cpu_bitset_xor(cpu_bitset_t *dest, const cpu_bitset_t *b)
+{
+	assert(dest->size == b->size);
+	BIT_XOR(dest->size, &dest->bits, &b->bits);
+}
+
 // Returns true if bitset a is different from bitset b
 static inline bool cpu_bitset_cmp(const cpu_bitset_t *a, const cpu_bitset_t *b)
 {
@@ -86,6 +93,18 @@ static inline bool cpu_bitset_overlap(const cpu_bitset_t *a, const cpu_bitset_t 
 {
 	assert(a->size == b->size);
 	return BIT_OVERLAP(a->size, &a->bits, &b->bits);
+}
+
+static inline void cpu_bitset_from_cpuset(cpu_bitset_t *dst, const cpu_set_t *src)
+{
+	assert(CPU_COUNT(src) <= NR_CPUS);
+	cpu_bitset_init(dst, NR_CPUS);
+
+	for (int cpu = 0; cpu < NR_CPUS; ++cpu) {
+		if (CPU_ISSET(cpu, src)) {
+			cpu_bitset_set(dst, cpu);
+		}
+	}
 }
 
 // Returns 0 if success, 1 otherwise.
@@ -140,7 +159,7 @@ failed:
 
 static inline void cpu_bitset_to_cpuset(cpu_set_t *dst, cpu_bitset_t *src)
 {
-	assert(CPU_COUNT(dst) >= cpu_bitset_count(src));
+	CPU_ZERO(dst);
 
 	int cpu;
 	CPU_BITSET_FOREACH (src, cpu) {

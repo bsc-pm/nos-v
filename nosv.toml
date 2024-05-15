@@ -77,7 +77,8 @@
 # Topology config
 [topology]
 	# CPU binding for the execution. The valid values are "inherit" which inherits the cpu mask of the
-	# first process that initializes the runtime, or a CPU mask in hexadecimal with the format "0xFFFF"
+	# first process that initializes the runtime, "all" for every cpu in the system, "cores" for every physical
+	# core, but preventing the use of SMT, and then any taskset-like list expression (for example, "0-7,10-11,15-23:2")
 	binding = "inherit"
 	# It is also possible to define the composition of the NUMA Nodes, which will override the autodiscovered
 	# composition that nOS-V can do through libnuma.
@@ -110,12 +111,13 @@
 	# startup resources, such as OpenMP or MPI threads.
 	compat_support = true
 
-
 # Debug options
 [debug]
 	# Dump all the configuration options nOS-V is running with, its final parsed values and the
 	# path of the config file being used
 	dump_config = false
+	# Print explicitely the used cpu binding
+	print_binding = false
 
 # Hardware Counters configuration
 [hwcounters]
