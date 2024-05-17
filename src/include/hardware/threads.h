@@ -39,6 +39,9 @@ typedef struct thread_manager {
 	// TID of the thread that created the delegate
 	// (only used for instrumentation)
 	pid_t delegate_creator_tid;
+
+	nosv_condvar_t condvar;
+	atomic_int leader_shutdown_cpu;
 } thread_manager_t;
 
 typedef struct nosv_worker {

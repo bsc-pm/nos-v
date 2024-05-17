@@ -34,6 +34,7 @@ __internal thread_manager_t *pidmanager_get_threadmanager(int pid);
 __internal void pidmanager_transfer_to_idle(cpu_t *cpu);
 
 __internal void pidmanager_register(void);
+__internal void pidmanager_unregister(void);
 __internal void pidmanager_shutdown(void);
 
 #endif // PID_STRUCTURES_H
