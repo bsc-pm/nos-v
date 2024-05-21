@@ -148,6 +148,7 @@ void threadmanager_init(thread_manager_t *threadmanager)
 	threadmanager->delegate_creator_tid = gettid();
 	nosv_condvar_init(&threadmanager->condvar);
 	atomic_init(&threadmanager->leader_shutdown_cpu, -1);
+	threadmanager->delegate_joined = 0;
 
 	current_process_manager = threadmanager;
 
@@ -177,9 +178,6 @@ static void killer_task_run_callback(nosv_task_t task)
 	creation_event_t event;
 	event.type = Shutdown;
 	event_queue_put(&current_process_manager->thread_creation_queue, &event);
-
-	// Join the delegate thread
-	pthread_join(current_process_manager->delegate_thread, NULL);
 
 	// Threads should shutdown at this moment
 	atomic_store_explicit(&threads_shutdown_signal, 1, memory_order_relaxed);
@@ -265,6 +263,7 @@ void threadmanager_shutdown(thread_manager_t *threadmanager)
 
 static inline void worker_coordinate_shutdown(void)
 {
+	char join = 0;
 	nosv_worker_t *idle_worker;
 
 	// Add this worker to the list of workers to be freed
@@ -301,12 +300,26 @@ retry:
 		if (leader_shutdown_cpu) {
 			// The leader shutdown core remains active until all
 			// other workers have finished.
-			nosv_spin_lock(&current_process_manager->shutdown_spinlock);
-			size_t destroyed = clist_count(&current_process_manager->shutdown_threads);
-			int threads = atomic_load_explicit(&current_process_manager->created, memory_order_acquire);
-			char join = (threads == destroyed);
-			assert(threads >= destroyed);
-			nosv_spin_unlock(&current_process_manager->shutdown_spinlock);
+
+			// Try to join the delegation thread
+			if (!current_process_manager->delegate_joined) {
+				int ret = pthread_tryjoin_np(current_process_manager->delegate_thread, NULL);
+				if (ret == 0) {
+					current_process_manager->delegate_joined = 1;
+				} else if (ret != EBUSY) {
+					nosv_abort("Error: Joining delegation thread");
+				}
+			}
+
+			// If the delegate has joined, check if all workers have been joined
+			if (current_process_manager->delegate_joined) {
+				nosv_spin_lock(&current_process_manager->shutdown_spinlock);
+				size_t destroyed = clist_count(&current_process_manager->shutdown_threads);
+				int threads = atomic_load_explicit(&current_process_manager->created, memory_order_acquire);
+				join = (threads == destroyed);
+				assert(threads >= destroyed);
+				nosv_spin_unlock(&current_process_manager->shutdown_spinlock);
+			}
 
 			if (!join) {
 				// We need to wait for other workers to end

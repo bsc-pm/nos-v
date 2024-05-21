@@ -35,6 +35,7 @@ typedef struct thread_manager {
 	atomic_int created;
 	event_queue_t thread_creation_queue;
 	pthread_t delegate_thread;
+	char delegate_joined;
 
 	// TID of the thread that created the delegate
 	// (only used for instrumentation)
