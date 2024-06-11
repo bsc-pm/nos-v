@@ -442,7 +442,7 @@ static inline void instr_thread_require(void)
 {
 	CHECK_INSTR_ENABLED(BASIC)
 	if (!instr_require_done) {
-		ovni_thread_require("nosv", "2.1.0");
+		ovni_thread_require("nosv", "2.2.0");
 
 		if (instr_ovni_control & INSTR_FLAG_KERNEL)
 			ovni_thread_require("kernel", "1.0.0");
