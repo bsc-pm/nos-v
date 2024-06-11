@@ -107,28 +107,20 @@ static inline void worker_wake_internal(nosv_worker_t *worker, cpu_t *cpu)
 	assert(worker);
 	assert(worker->tid != 0);
 	assert(worker != current_worker);
+	assert(cpu);
 
 	worker->new_cpu = cpu;
 
-	// CPU may be NULL
-	if (cpu) {
-		// if we are waking up a thread of a different process, keep
-		// track of the new running process in the cpumanager
-		if (worker->logic_pid != logic_pid)
-			cpu_set_pid(cpu, worker->logic_pid);
+	// if we are waking up a thread of a different process, keep
+	// track of the new running process in the cpumanager
+	if (worker->logic_pid != logic_pid)
+		cpu_set_pid(cpu, worker->logic_pid);
 
-		// if the worker was not previously bound to the core where it
-		// is going to wake up now, bind it remotely now
-		if (worker->cpu != cpu) {
-			instr_affinity_remote(cpu->logic_id, worker->tid);
-			if (unlikely(bypass_sched_setaffinity(worker->tid, sizeof(cpu->cpuset), &cpu->cpuset)))
-				nosv_abort("Cannot change thread affinity");
-		}
-	} else {
-		// We're waking up a thread without a CPU, which may happen on nOS-V shutdown
-		// Reset its affinity to the original CPU mask
-		instr_affinity_remote(-1, worker->tid);
-		if (unlikely(bypass_sched_setaffinity(worker->tid, sizeof(cpumanager->all_cpu_set), &cpumanager->all_cpu_set)))
+	// if the worker was not previously bound to the core where it
+	// is going to wake up now, bind it remotely now
+	if (worker->cpu != cpu) {
+		instr_affinity_remote(cpu->logic_id, worker->tid);
+		if (unlikely(bypass_sched_setaffinity(worker->tid, sizeof(cpu->cpuset), &cpu->cpuset)))
 			nosv_abort("Cannot change thread affinity");
 	}
 
@@ -251,7 +243,6 @@ void threadmanager_shutdown(thread_manager_t *threadmanager)
 
 	// We don't really need locking anymore
 	list_head_t *head = clist_pop_head(&threadmanager->shutdown_threads);
-
 	while (head) {
 		nosv_worker_t *worker = list_elem(head, nosv_worker_t, list_hook);
 		worker_join(worker);
@@ -614,15 +605,11 @@ void worker_block(void)
 
 	// Update CPU in case of migration
 	// We use a different variable to detect cpu changes and prevent races
-	cpu_t *oldcpu = current_worker->cpu;
 	current_worker->cpu = current_worker->new_cpu;
 	cpu_t *cpu = current_worker->cpu;
 
-	if (!cpu) {
-		cpu_set_current(-1);
-	} else if (cpu != oldcpu) {
-		cpu_set_current(cpu->logic_id);
-	}
+	assert(cpu);
+	cpu_set_current(cpu->logic_id);
 
 	instr_thread_resume();
 }
