@@ -15,6 +15,7 @@
 #include "common.h"
 #include "compiler.h"
 #include "defaults.h"
+#include "instr.h"
 #include "generic/arch.h"
 #include "generic/bitset.h"
 #include "generic/futex.h"
@@ -75,6 +76,30 @@ typedef struct delegation_lock {
 
 } delegation_lock_t;
 
+#define DTLOCK_SPIN(a, b, cmp)                                              \
+	{                                                                       \
+		int __spins = 0;                                                    \
+		typeof((a)) __a = atomic_load_explicit(&(a), memory_order_relaxed); \
+		while (__a cmp(b)                                                   \
+			   && __spins++ < IDLE_SPINS_THRESHOLD) {                       \
+			spin_wait();                                                    \
+			__a = atomic_load_explicit(&(a), memory_order_relaxed);         \
+		}                                                                   \
+		spin_wait_release();                                                \
+		if (__a cmp(b)) {                                                   \
+			instr_worker_resting();                                         \
+			__a = atomic_load_explicit(&(a), memory_order_relaxed);         \
+			while (__a cmp(b)) {                                            \
+				spin_wait();                                                \
+				__a = atomic_load_explicit(&(a), memory_order_relaxed);     \
+			}                                                               \
+			spin_wait_release();                                            \
+		}                                                                   \
+	}
+
+#define DTLOCK_SPIN_EQ(a, b) DTLOCK_SPIN((a), (b), !=)
+#define DTLOCK_SPIN_LT(a, b) DTLOCK_SPIN((a), (b), <)
+
 static inline void dtlock_init(delegation_lock_t *dtlock, int size)
 {
 	assert(dtlock);
@@ -119,9 +144,7 @@ static inline void dtlock_lock(delegation_lock_t *dtlock)
 	const uint64_t id = head % dtlock->size;
 
 	// Wait until its our turn
-	while (atomic_load_explicit(&dtlock->waitqueue[id].ticket, memory_order_relaxed) != head)
-		spin_wait();
-	spin_wait_release();
+	DTLOCK_SPIN_EQ(dtlock->waitqueue[id].ticket, head);
 
 	atomic_thread_fence(memory_order_acquire);
 }
@@ -156,9 +179,7 @@ static inline int dtlock_lock_or_delegate(
 		wait_cpu.flags |= external ? DTLOCK_FLAGS_NONE : DTLOCK_FLAGS_EXTERNAL;
 		atomic_store_explicit(&dtlock->waitqueue[id].cpu, wait_cpu.raw_val, memory_order_relaxed);
 
-		while (atomic_load_explicit(&dtlock->waitqueue[id].ticket, memory_order_relaxed) < head)
-			spin_wait();
-		spin_wait_release();
+		DTLOCK_SPIN_LT(dtlock->waitqueue[id].ticket, head);
 
 		atomic_thread_fence(memory_order_acquire);
 
@@ -175,15 +196,19 @@ static inline int dtlock_lock_or_delegate(
 		// Either we are served an item, or we have to go to sleep
 		// We may miss a signal in between, that's why we use the signal_cnt instead of a single bit
 		signal.raw_val = atomic_load_explicit(&dtlock->items[cpu_index].signal, memory_order_relaxed);
-		while (signal.signal_cnt == prev_signal.signal_cnt) {
-			spin_wait();
-			signal.raw_val = atomic_load_explicit(&dtlock->items[cpu_index].signal, memory_order_relaxed);
-		}
 
-		spin_wait_release();
+		if (signal.signal_cnt == prev_signal.signal_cnt) {
+			instr_worker_resting();
+			while (signal.signal_cnt == prev_signal.signal_cnt) {
+				spin_wait();
+				signal.raw_val = atomic_load_explicit(&dtlock->items[cpu_index].signal, memory_order_relaxed);
+			}
+			spin_wait_release();
+		}
 
 		// Check if we have been asked to sleep or not
 		if (unlikely(signal.signal_flags & DTLOCK_SIGNAL_SLEEP)) {
+			instr_worker_resting();
 			assert(blocking);
 			nosv_futex_wait(&dtlock->cpu_sleep_vars[cpu_index]);
 		} else {
