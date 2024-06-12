@@ -32,8 +32,6 @@
 #define DTLOCK_FLAGS_NONBLOCK 	1
 #define DTLOCK_FLAGS_EXTERNAL 	2
 
-#define IDLE_SPINS_THRESHOLD 1
-
 // Union to decode the bits forming the dtlock_node.cpu field
 union dtlock_node_cpu {
 	uint64_t raw_val;
