@@ -107,28 +107,20 @@ static inline void worker_wake_internal(nosv_worker_t *worker, cpu_t *cpu)
 	assert(worker);
 	assert(worker->tid != 0);
 	assert(worker != current_worker);
+	assert(cpu);
 
 	worker->new_cpu = cpu;
 
-	// CPU may be NULL
-	if (cpu) {
-		// if we are waking up a thread of a different process, keep
-		// track of the new running process in the cpumanager
-		if (worker->logic_pid != logic_pid)
-			cpu_set_pid(cpu, worker->logic_pid);
+	// if we are waking up a thread of a different process, keep
+	// track of the new running process in the cpumanager
+	if (worker->logic_pid != logic_pid)
+		cpu_set_pid(cpu, worker->logic_pid);
 
-		// if the worker was not previously bound to the core where it
-		// is going to wake up now, bind it remotely now
-		if (worker->cpu != cpu) {
-			instr_affinity_remote(cpu->logic_id, worker->tid);
-			if (unlikely(bypass_sched_setaffinity(worker->tid, sizeof(cpu->cpuset), &cpu->cpuset)))
-				nosv_abort("Cannot change thread affinity");
-		}
-	} else {
-		// We're waking up a thread without a CPU, which may happen on nOS-V shutdown
-		// Reset its affinity to the original CPU mask
-		instr_affinity_remote(-1, worker->tid);
-		if (unlikely(bypass_sched_setaffinity(worker->tid, sizeof(cpumanager->all_cpu_set), &cpumanager->all_cpu_set)))
+	// if the worker was not previously bound to the core where it
+	// is going to wake up now, bind it remotely now
+	if (worker->cpu != cpu) {
+		instr_affinity_remote(cpu->logic_id, worker->tid);
+		if (unlikely(bypass_sched_setaffinity(worker->tid, sizeof(cpu->cpuset), &cpu->cpuset)))
 			nosv_abort("Cannot change thread affinity");
 	}
 
@@ -146,10 +138,45 @@ void threadmanager_init(thread_manager_t *threadmanager)
 	nosv_spin_init(&threadmanager->shutdown_spinlock);
 	event_queue_init(&threadmanager->thread_creation_queue);
 	threadmanager->delegate_creator_tid = gettid();
+	nosv_condvar_init(&threadmanager->condvar);
+	atomic_init(&threadmanager->leader_shutdown_cpu, -1);
+	threadmanager->delegate_joined = 0;
 
 	current_process_manager = threadmanager;
 
 	delegate_thread_create(threadmanager);
+}
+
+static inline nosv_worker_t *get_idle_worker(thread_manager_t *threadmanager)
+{
+	nosv_spin_lock(&threadmanager->idle_spinlock);
+	list_head_t *head = list_pop_head(&threadmanager->idle_threads);
+	nosv_spin_unlock(&threadmanager->idle_spinlock);
+	return (head) ? list_elem(head, nosv_worker_t, list_hook) : NULL;
+}
+
+static void killer_task_run_callback(nosv_task_t task)
+{
+	// Unregister this process, and make it available
+	pidmanager_unregister();
+
+	// The core running this task becomes the leader shutdown cpu
+	assert(current_worker);
+	assert(current_worker->cpu);
+	assert(current_process_manager);
+	atomic_store_explicit(&current_process_manager->leader_shutdown_cpu, current_worker->cpu->logic_id, memory_order_relaxed);
+
+	// Ask the delegate thread to shutdown as well
+	creation_event_t event;
+	event.type = Shutdown;
+	event_queue_put(&current_process_manager->thread_creation_queue, &event);
+
+	// Threads should shutdown at this moment
+	atomic_store_explicit(&threads_shutdown_signal, 1, memory_order_relaxed);
+
+	// Notify the scheduler to release all threads corresponding to this process since
+	// we are shutting down
+	scheduler_wake(logic_pid);
 }
 
 void threadmanager_shutdown(thread_manager_t *threadmanager)
@@ -158,55 +185,146 @@ void threadmanager_shutdown(thread_manager_t *threadmanager)
 	// This should happen outside of a worker
 	assert(worker_current() == NULL);
 
-	// Threads should shutdown at this moment
-	atomic_store_explicit(&threads_shutdown_signal, 1, memory_order_relaxed);
+	// This thread coordinates the shutdown of all workers in this process.
+	// The objective is to alert all active workers to exit the scheduler
+	// and finish the idle workers. To end the idle workers in a coordinated
+	// maner we need to give them a core to run. To schedule idle workers to
+	// cores we need an active worker (a worker that owns a core) to
+	// relinquish its own core in favor of the idle thread. However, it
+	// could happen that all cores are owned by workers that belong to
+	// another process. Therfore, our idle workers have no chance of being
+	// scheduled. To fix this, we spawn a special task called "killer" task,
+	// that will force a worker of this process to run it.  At the same
+	// turn, the code of the killer task signals this process to start the
+	// shutdown. This is needed to ensure that the killer task is run by
+	// somebody before the shutdown starts.
 
-	// Ask the delegate thread to shutdown as well
-	creation_event_t event;
-	event.type = Shutdown;
-	event_queue_put(&threadmanager->thread_creation_queue, &event);
+	// Create killer task
+	nosv_task_t killer_task;
+	nosv_task_type_t type;
+	int ret = nosv_type_init(&type, killer_task_run_callback, NULL, NULL, "killer", NULL, NULL, NOSV_TYPE_INIT_EXTERNAL);
+	if (ret != NOSV_SUCCESS) {
+		nosv_abort("Error: Cannot create killer task type\n");
+	}
+	ret = nosv_create(&killer_task, type, 0, NOSV_CREATE_NONE);
+	if (ret != NOSV_SUCCESS) {
+		nosv_abort("Error: Cannot create killer task\n");
+	}
 
-	// Join the delegate *first*, to prevent any races
-	pthread_join(threadmanager->delegate_thread, NULL);
+	// Submit killer task
+	ret = nosv_submit(killer_task, NOSV_SUBMIT_NONE);
+	if (ret != NOSV_SUCCESS) {
+		nosv_abort("Error: Cannot submit killer task\n");
+	}
 
-	int join = 0;
-	while (!join) {
-		nosv_spin_lock(&threadmanager->idle_spinlock);
-		list_head_t *head = list_pop_head(&threadmanager->idle_threads);
-		while (head) {
-			nosv_worker_t *worker = list_elem(head, nosv_worker_t, list_hook);
-			worker_wake_internal(worker, NULL);
+	// wait until all worker threads have finished
+	nosv_condvar_wait(&threadmanager->condvar);
 
-			head = list_pop_head(&threadmanager->idle_threads);
-		}
-		nosv_spin_unlock(&threadmanager->idle_spinlock);
+	// Ensure that no more threads have been created
+	char join;
+	nosv_spin_lock(&current_process_manager->shutdown_spinlock);
+	size_t destroyed = clist_count(&current_process_manager->shutdown_threads);
+	int threads = atomic_load_explicit(&current_process_manager->created, memory_order_acquire);
+	join = (threads == destroyed);
+	assert(threads >= destroyed);
+	nosv_spin_unlock(&current_process_manager->shutdown_spinlock);
+	if (!join)
+		nosv_abort("Error: Shutdown failed to take down all worker threads.\n");
 
-		// Notify the scheduler to release all threads corresponding to this process since
-		// we are shutting down
-		scheduler_wake(logic_pid);
-
-		nosv_spin_lock(&threadmanager->shutdown_spinlock);
-		size_t destroyed = clist_count(&threadmanager->shutdown_threads);
-		int threads = atomic_load_explicit(&threadmanager->created, memory_order_acquire);
-
-		join = (threads == destroyed);
-		assert(threads >= destroyed);
-		nosv_spin_unlock(&threadmanager->shutdown_spinlock);
-
-		// Sleep for a ms
-		if (!join)
-			usleep(1000);
+	// Free killer task structures
+	ret = nosv_destroy(killer_task, NOSV_DESTROY_NONE);
+	if (ret != NOSV_SUCCESS) {
+		nosv_abort("Error: Cannot destroy the killer task\n");
+	}
+	ret = nosv_type_destroy(type, NOSV_TYPE_DESTROY_NONE);
+	if (ret != NOSV_SUCCESS) {
+		nosv_abort("Error: Cannot destroy the killer task' type\n");
 	}
 
 	// We don't really need locking anymore
 	list_head_t *head = clist_pop_head(&threadmanager->shutdown_threads);
-
 	while (head) {
 		nosv_worker_t *worker = list_elem(head, nosv_worker_t, list_hook);
 		worker_join(worker);
 		nosv_condvar_destroy(&worker->condvar);
 		sfree(worker, sizeof(nosv_worker_t), -1);
 		head = clist_pop_head(&threadmanager->shutdown_threads);
+	}
+}
+
+static inline void worker_coordinate_shutdown(void)
+{
+	char join = 0;
+	nosv_worker_t *idle_worker;
+
+	// Add this worker to the list of workers to be freed
+	nosv_spin_lock(&current_process_manager->shutdown_spinlock);
+	clist_add(&current_process_manager->shutdown_threads, &current_worker->list_hook);
+	nosv_spin_unlock(&current_process_manager->shutdown_spinlock);
+
+	// Figure out if this is the shutdown leader core.
+	int leader_id = atomic_load_explicit(&current_process_manager->leader_shutdown_cpu, memory_order_relaxed);
+	char leader_shutdown_cpu = current_worker->cpu->logic_id == leader_id;
+
+	// This core participates in a coordinated effort to shutdown all idle
+	// workers. To do so, the current worker will attempt to wake an idle
+	// worker in this core. If the wake is sucessful, the current worker
+	// exits this function, the thread ends, and the woken worker repeats
+	// the same procedure once it reaches this function.
+	//
+	// However, if the wake if not successful, we need to distinguish
+	// between the regular and the leader core roles. A worker in a regular
+	// core simply transfers the core ownership to another active process
+	// and exits. Instead, a worker in the leader shutdown core loops until
+	// it sees that all workers have reached this function. This is needed
+	// to counter races of workers in a transitive state (they are about to
+	// enter the idle list or the dtlock). If the leader finds another idle
+	// thread, it wakes it and exits, allowing the awoken worker to run in
+	// the leader core. If the leader finds out that all workers are done,
+	// it notifies the main thread coordinating the shutdown and exits.
+retry:
+	idle_worker = get_idle_worker(current_process_manager);
+	if (idle_worker) {
+		instr_affinity_set(-1);
+		worker_wake_internal(idle_worker, current_worker->cpu);
+	} else {
+		if (leader_shutdown_cpu) {
+			// The leader shutdown core remains active until all
+			// other workers have finished.
+
+			// Try to join the delegation thread
+			if (!current_process_manager->delegate_joined) {
+				int ret = pthread_tryjoin_np(current_process_manager->delegate_thread, NULL);
+				if (ret == 0) {
+					current_process_manager->delegate_joined = 1;
+				} else if (ret != EBUSY) {
+					nosv_abort("Error: Joining delegation thread");
+				}
+			}
+
+			// If the delegate has joined, check if all workers have been joined
+			if (current_process_manager->delegate_joined) {
+				nosv_spin_lock(&current_process_manager->shutdown_spinlock);
+				size_t destroyed = clist_count(&current_process_manager->shutdown_threads);
+				int threads = atomic_load_explicit(&current_process_manager->created, memory_order_acquire);
+				join = (threads == destroyed);
+				assert(threads >= destroyed);
+				nosv_spin_unlock(&current_process_manager->shutdown_spinlock);
+			}
+
+			if (!join) {
+				// We need to wait for other workers to end
+				scheduler_wake(logic_pid);
+				usleep(1000);
+				goto retry;
+			} else {
+				// All workers have finished, notify the thread
+				// that called "nosv_shutdown"
+				nosv_condvar_signal(&current_process_manager->condvar);
+			}
+		}
+		// This process is done with this core, transfer it to another pid
+		pidmanager_transfer_to_idle(current_worker->cpu);
 	}
 }
 
@@ -264,6 +382,7 @@ static inline void *worker_start_routine(void *arg)
 	cpu_set_current(current_worker->cpu->logic_id);
 	current_worker->tid = gettid();
 	pid = current_worker->logic_pid;
+	assert(current_process_manager);
 
 	// Initialize hardware counters for the thread
 	hwcounters_thread_initialize(current_worker);
@@ -350,17 +469,11 @@ static inline void *worker_start_routine(void *arg)
 
 	affinity_support_unregister_worker(current_worker, 0);
 
-	// Before shutting down, we have to transfer our active CPU if we still have one
-	// We don't have one if we were woken up from the idle thread pool direcly
-	// Before transfering it, update runtime counters
-	if (current_worker->cpu) {
-		hwcounters_update_runtime_counters();
-		pidmanager_transfer_to_idle(current_worker->cpu);
-	}
+	hwcounters_update_runtime_counters();
 
-	nosv_spin_lock(&current_process_manager->shutdown_spinlock);
-	clist_add(&current_process_manager->shutdown_threads, &current_worker->list_hook);
-	nosv_spin_unlock(&current_process_manager->shutdown_spinlock);
+	worker_coordinate_shutdown();
+	// After this point, we no longer own the current core. However, the
+	// worker struct will not be freed until the current thread is joined.
 
 	hwcounters_thread_shutdown(current_worker);
 
@@ -492,15 +605,11 @@ void worker_block(void)
 
 	// Update CPU in case of migration
 	// We use a different variable to detect cpu changes and prevent races
-	cpu_t *oldcpu = current_worker->cpu;
 	current_worker->cpu = current_worker->new_cpu;
 	cpu_t *cpu = current_worker->cpu;
 
-	if (!cpu) {
-		cpu_set_current(-1);
-	} else if (cpu != oldcpu) {
-		cpu_set_current(cpu->logic_id);
-	}
+	assert(cpu);
+	cpu_set_current(cpu->logic_id);
 
 	instr_thread_resume();
 }

@@ -241,8 +241,7 @@ int nosv_mutex_unlock(
 /* Flags */
 #define NOSV_BARRIER_NONE __ZEROBITS
 
-/* Initialize the "barrier" object to wait for "count" threads. The attr object
- * is currently not implemented, use NULL*/
+/* Initialize the "barrier" object to wait for "count" threads */
 int nosv_barrier_init(
 	nosv_barrier_t *barrier,
 	nosv_flags_t flags,

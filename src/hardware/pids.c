@@ -60,22 +60,21 @@ void pidmanager_register(void)
 	nosv_sys_mutex_unlock(&pidmanager->lock);
 }
 
-void pidmanager_shutdown(void)
+void pidmanager_unregister(void)
 {
 	nosv_sys_mutex_lock(&pidmanager->lock);
-
-	// Unregister this process, and make it available
 	BIT_CLR(MAX_PIDS, logic_pid, &pidmanager->pids);
-
-	pid_structures_t *local = (pid_structures_t *)PID_STR(logic_pid);
-	assert(local);
 	PID_STR(logic_pid) = NULL;
-
 	nosv_sys_mutex_unlock(&pidmanager->lock);
+}
+
+void pidmanager_shutdown(void)
+{
+	thread_manager_t *threadmanager = pidmanager_get_threadmanager(logic_pid);
 
 	// Notify all threads they have to shut down and wait until they do
 	// Each thread will pass its CPU during the shutdown process
-	threadmanager_shutdown(&local->threadmanager);
+	threadmanager_shutdown(threadmanager);
 
 	// Now deallocate the PID. We do this in two phases to prevent an ABA problem
 	// with logical PIDs
