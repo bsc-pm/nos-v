@@ -24,6 +24,7 @@
 #include "compat.h"
 #include "compiler.h"
 #include "config/config.h"
+#include "defaults.h"
 #include "hardware/pids.h"
 #include "hardware/threads.h"
 #include "system/tasks.h"
@@ -453,6 +454,7 @@ static inline void instr_thread_require(void)
 	uint64_t mask = INSTR_LEVEL_2 | INSTR_FLAG_BREAKDOWN;
 	int can_breakdown = (instr_ovni_control & mask) == mask;
 	ovni_attr_set_boolean("nosv.can_breakdown", can_breakdown);
+	ovni_attr_set_str("nosv.lib_version", PACKAGE_VERSION);
 
 	instr_require_done = 1;
 }
