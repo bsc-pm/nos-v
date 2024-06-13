@@ -156,7 +156,8 @@ subinclude_HEADERS = \
 	api/nosv/affinity.h \
 	api/nosv/alpi.h \
 	api/nosv/error.h \
-	api/nosv/hwinfo.h
+	api/nosv/hwinfo.h \
+	api/nosv/memory.h
 
 # Install config file
 data_DATA = nosv.toml

@@ -31,7 +31,7 @@ typedef struct __attribute__((aligned(16))) page_metadata {
 } page_metadata_t;
 
 typedef struct backbone_header {
-	list_head_t free_pages;
+	clist_head_t free_pages;
 	nosv_sys_mutex_t mutex;
 	cache_bucket_t buckets[SLAB_BUCKETS];
 } backbone_header_t;
