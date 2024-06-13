@@ -40,7 +40,8 @@ regression_tests = regression-attach-is.test \
 	regression-parallel-tasks-yield.test \
 	regression-parallel-tasks-submission.test
 
-unit_tests = unit-dtlock.test \
+unit_tests = unit-backbone-pressure.test \
+	unit-dtlock.test \
 	unit-ring-buffer.test \
 	unit-heap.test
 
@@ -154,6 +155,10 @@ regression_parallel_tasks_cross_process_test_LDFLAGS = $(AM_LDFLAGS)
 regression_parallel_tasks_yield_test_SOURCES = regression/parallel-tasks-yield.c
 regression_parallel_tasks_yield_test_CFLAGS = $(AM_CFLAGS)
 regression_parallel_tasks_yield_test_LDFLAGS = $(AM_LDFLAGS)
+
+unit_backbone_pressure_test_SOURCES = unit/test-backbone-pressure.c $(top_srcdir)/src/memory/backbone.c $(unit_SOURCES)
+unit_backbone_pressure_test_CFLAGS = $(unit_CFLAGS)
+unit_backbone_pressure_test_LDFLAGS = $(unit_LIBS)
 
 unit_dtlock_test_SOURCES = unit/test-dtlock.c $(unit_SOURCES)
 unit_dtlock_test_CFLAGS = $(unit_CFLAGS)
