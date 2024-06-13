@@ -445,7 +445,9 @@ static inline void instr_thread_require(void)
 	if (instr_require_done)
 		return;
 
-	ovni_thread_require("nosv", "2.2.0");
+	/* This nosv model version has no relation to libnosv.so version, it
+	 * just covers the events and the metadata in the trace. */
+	ovni_thread_require("nosv", "2.3.0");
 
 	if (instr_ovni_control & INSTR_FLAG_KERNEL)
 		ovni_thread_require("kernel", "1.0.0");
