@@ -7,6 +7,8 @@
 #include <assert.h>
 #include <stdint.h>
 
+#include <nosv/memory.h>
+
 #include "memory/asan.h"
 #include "memory/backbone.h"
 
@@ -44,7 +46,6 @@ void backbone_alloc_init(void *start, size_t size, int initialize)
 	// Re-compute the number of pages based on the needed padding
 
 	uint64_t space_left = (uint64_t)((((char *)start) + backbone_size) - pages_start);
-	assert((space_left % PAGE_SIZE) == 0);
 	backbone_pages = space_left / PAGE_SIZE;
 	backbone_header = (backbone_header_t *)start;
 
@@ -52,10 +53,12 @@ void backbone_alloc_init(void *start, size_t size, int initialize)
 	if (!initialize)
 		return;
 
+	clist_init(&backbone_header->free_pages);
+
 	page_t *page = (page_t *)pages_start;
 
 	for (size_t i = 0; i < backbone_pages; ++i) {
-		list_add(&backbone_header->free_pages, &(backbone_metadata_start[i].list_hook));
+		clist_add(&backbone_header->free_pages, &(backbone_metadata_start[i].list_hook));
 		backbone_metadata_start[i].addr = (void *)page;
 		asan_poison(page, PAGE_SIZE);
 #ifndef ARCH_HAS_DWCAS
@@ -72,7 +75,7 @@ page_metadata_t *balloc(void)
 	page_metadata_t *ret = NULL;
 	nosv_sys_mutex_lock(&backbone_header->mutex);
 
-	list_head_t *first = list_pop_head(&backbone_header->free_pages);
+	list_head_t *first = clist_pop_head(&backbone_header->free_pages);
 
 	if (first) {
 		ret = list_elem(first, page_metadata_t, list_hook);
@@ -87,7 +90,48 @@ void bfree(page_metadata_t *block)
 {
 	nosv_sys_mutex_lock(&backbone_header->mutex);
 
-	list_add(&backbone_header->free_pages, &block->list_hook);
+	clist_add(&backbone_header->free_pages, &block->list_hook);
 
 	nosv_sys_mutex_unlock(&backbone_header->mutex);
+}
+
+// Implementation of public API functions to gauge memory pressure
+
+static inline size_t backbone_used_memory(void)
+{
+	// Total size subtracting the free pages (this already accounts for headers)
+	return backbone_size - clist_count(&backbone_header->free_pages) * PAGE_SIZE;
+}
+
+int nosv_memory_get_used(size_t *used)
+{
+	if (!used)
+		return NOSV_ERR_INVALID_PARAMETER;
+
+	if (!backbone_header)
+		return NOSV_ERR_NOT_INITIALIZED;
+
+	*used = backbone_used_memory();
+	return NOSV_SUCCESS;
+}
+
+int nosv_memory_get_size(size_t *size)
+{
+	if (!size)
+		return NOSV_ERR_INVALID_PARAMETER;
+
+	*size = backbone_size;
+	return NOSV_SUCCESS;
+}
+
+int nosv_memory_get_pressure(float *pressure)
+{
+	if (!pressure)
+		return NOSV_ERR_INVALID_PARAMETER;
+
+	if (!backbone_header)
+		return NOSV_ERR_NOT_INITIALIZED;
+
+	*pressure = ((float) backbone_used_memory()) / ((float) backbone_size);
+	return NOSV_SUCCESS;
 }
