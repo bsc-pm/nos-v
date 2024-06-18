@@ -24,6 +24,7 @@
 #include "compat.h"
 #include "compiler.h"
 #include "config/config.h"
+#include "defaults.h"
 #include "hardware/pids.h"
 #include "hardware/threads.h"
 #include "system/tasks.h"
@@ -441,14 +442,23 @@ static inline void instr_gen_bursts(void)
 static inline void instr_thread_require(void)
 {
 	CHECK_INSTR_ENABLED(BASIC)
-	if (!instr_require_done) {
-		ovni_thread_require("nosv", "2.2.0");
+	if (instr_require_done)
+		return;
 
-		if (instr_ovni_control & INSTR_FLAG_KERNEL)
-			ovni_thread_require("kernel", "1.0.0");
+	/* This nosv model version has no relation to libnosv.so version, it
+	 * just covers the events and the metadata in the trace. */
+	ovni_thread_require("nosv", "2.3.0");
 
-		instr_require_done = 1;
-	}
+	if (instr_ovni_control & INSTR_FLAG_KERNEL)
+		ovni_thread_require("kernel", "1.0.0");
+
+	/* Ensure enough events are enabled for breakdown */
+	uint64_t mask = INSTR_LEVEL_2 | INSTR_FLAG_BREAKDOWN;
+	int can_breakdown = (instr_ovni_control & mask) == mask;
+	ovni_attr_set_boolean("nosv.can_breakdown", can_breakdown);
+	ovni_attr_set_str("nosv.lib_version", PACKAGE_VERSION);
+
+	instr_require_done = 1;
 }
 
 static inline void instr_thread_init(void)
