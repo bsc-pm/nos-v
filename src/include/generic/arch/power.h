@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef ARCH_POWER_H
@@ -10,7 +10,7 @@
 #define ARCH_POWER9
 #define ARCH_SUPPORTED
 
-#if defined(ARCH_X86) || defined(ARCH_ARM64)
+#if defined(ARCH_X86) || defined(ARCH_ARM64) || defined(ARCH_RISCV)
 #error "Multiple architecture definitions"
 #endif
 

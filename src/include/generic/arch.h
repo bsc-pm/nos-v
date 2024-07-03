@@ -28,6 +28,10 @@
 #include "arch/arm64.h"
 #endif
 
+#if defined(__riscv) || defined(__riscv64)
+#include "arch/riscv.h"
+#endif
+
 #ifndef ARCH_SUPPORTED
 #error "Unsupported architecture"
 #endif
