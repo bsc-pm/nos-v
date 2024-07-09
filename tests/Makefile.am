@@ -13,6 +13,7 @@ unit_SOURCES = unit/main.c
 
 basic_tests = basic-error-code.test \
 	basic-init.test \
+	basic-reinit.test \
 	basic-init-multicall.test \
 	basic-init-procs.test \
 	basic-mix.test \
@@ -55,6 +56,10 @@ basic_error_code_test_LDFLAGS = $(AM_LDFLAGS)
 basic_init_test_SOURCES = basic/init.c
 basic_init_test_CFLAGS = $(AM_CFLAGS)
 basic_init_test_LDFLAGS = $(AM_LDFLAGS)
+
+basic_reinit_test_SOURCES = basic/reinit.c
+basic_reinit_test_CFLAGS = $(AM_CFLAGS)
+basic_reinit_test_LDFLAGS = $(AM_LDFLAGS)
 
 basic_init_multicall_test_SOURCES = basic/init-multicall.c
 basic_init_multicall_test_CFLAGS = $(AM_CFLAGS)

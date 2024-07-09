@@ -43,7 +43,7 @@ int main()
 	int err;
 	pthread_t pthread;
 
-	test_init(&test, 16);
+	test_init(&test, 17);
 
 	err = nosv_init();
 	test_check(&test, !err, "Valid nosv_init (1): initialize");
@@ -89,5 +89,8 @@ int main()
 	test_check(&test, err, "Invalid nosv_shutdown (4), unmatching");
 
 	err = nosv_init();
-	test_check(&test, err, "Invalid nosv_init (5): re-initialize not allowed");
+	test_check(&test, !err, "Valid nosv_init (5): re-initialize allowed");
+
+	err = nosv_shutdown();
+	test_check(&test, !err, "Valid nosv_shutdown (6): re-shutdown allowed");
 }
