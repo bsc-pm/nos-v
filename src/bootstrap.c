@@ -34,9 +34,6 @@ static void configure_fork_hooks(void);
 //! \brief Perform the runtime initialization if required
 static int nosv_init_impl(void)
 {
-	// Re-initializing the runtime is not supported
-	if (rt_refcount == 0 && rt_initialized)
-		return NOSV_ERR_INVALID_OPERATION;
 	if (rt_refcount < 0)
 		return NOSV_ERR_UNKNOWN;
 
@@ -94,6 +91,7 @@ static int nosv_shutdown_impl(void)
 
 		assert(th_refcount == 1);
 		th_refcount--;
+		rt_initialized = false;
 
 		instr_thread_end();
 		instr_proc_fini();
