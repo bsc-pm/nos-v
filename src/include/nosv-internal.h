@@ -75,6 +75,7 @@ struct nosv_task {
 	struct nosv_worker *worker;
 	struct nosv_affinity affinity;
 
+	int had_events;
 	int priority;
 	list_head_t list_hook;
 
