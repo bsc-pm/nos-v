@@ -25,6 +25,8 @@ AC_DEFUN([AX_PREPARE_ASAN_FLAGS], [
 	AC_ARG_ENABLE([asan], [AS_HELP_STRING([--enable-asan],
 		[Enables address sanitizing @<:@default=disabled@:>@])])
 
+	AM_CONDITIONAL(USE_ASAN, test x"${enable_asan}" = x"yes")
+
 	AS_IF([test "$enable_asan" = yes],[
 		# ASAN enabled
 		asan_CPPFLAGS="-fsanitize=address"
