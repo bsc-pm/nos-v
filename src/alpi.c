@@ -1,13 +1,14 @@
 /*
 	This file is part of Nanos6 and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2023 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2023-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
 
 #include "common.h"
 #include "error.h"
+#include "generic/clock.h"
 #include "hardware/cpus.h"
 #include "hardware/threads.h"
 #include "nosv.h"
@@ -143,7 +144,19 @@ int alpi_task_events_decrease(struct alpi_task *handle, uint64_t decrement)
 
 int alpi_task_waitfor_ns(uint64_t target_ns, uint64_t *actual_ns)
 {
-	int err = nosv_waitfor(target_ns, actual_ns);
+	int err;
+	if (target_ns == 0) {
+		// Perform a scheduling point if required
+		uint64_t start_ns;
+		if (actual_ns)
+			start_ns = clock_ns();
+		err = nosv_schedpoint(NOSV_SCHEDPOINT_NONE);
+		if (actual_ns)
+			*actual_ns = clock_ns() - start_ns;
+	} else {
+		err = nosv_waitfor(target_ns, actual_ns);
+	}
+
 	if (err)
 		return translate_error(err);
 
