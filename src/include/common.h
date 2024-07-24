@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef COMMON_H
@@ -45,7 +45,7 @@
 
 static inline size_t next_power_of_two(uint64_t n)
 {
-	return 64 - __builtin_clzll(n - 1);
+	return 8*sizeof(uint64_t) - count_leading_zeros(n - 1);
 }
 
 #define round_up_div(x, y) (((x) + (y) - 1) / (y))

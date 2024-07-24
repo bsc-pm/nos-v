@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef HEAP_H
@@ -134,7 +134,8 @@ static inline int heap_get_move(size_t *node /*out*/)
 {
 	size_t aux_node = *node;
 	// Round to previous po2
-	size_t base = (1ULL) << (sizeof(size_t) * 8 - __builtin_clzll(aux_node) - 1);
+	int shift = sizeof(size_t) * 8 - count_leading_zeros(aux_node) - 1;
+	size_t base = 1ULL << shift;
 	aux_node -= base / 2;
 
 	if (aux_node < base) {
