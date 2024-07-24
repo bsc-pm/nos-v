@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef COMPILER_H
@@ -58,5 +58,11 @@ _Static_assert(sizeof(atomic_int64_t) == 8, "atomic_int64_t must be 64-bit");
 typedef atomic_int_least32_t atomic_int32_t;
 _Static_assert(sizeof(atomic_int32_t) == 4, "atomic_int32_t must be 32-bit");
 
+// Define generic routines for intrinsic leading-zero counting
+#define count_leading_zeros(x) _Generic((x), \
+    unsigned int: __builtin_clz, \
+    unsigned long: __builtin_clzl, \
+    unsigned long long: __builtin_clzll \
+    )(x)
 
 #endif // COMPILER_H
