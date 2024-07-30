@@ -567,6 +567,8 @@ static int perf_event_open(struct perf_event_attr *attr, pid_t pid,
 	return (int) syscall(SYS_perf_event_open, attr, pid, cpu, group_fd, flags);
 }
 
+typedef _Atomic __u64 atomic_u64;
+
 static inline void instr_kernel_init(struct kinstr **ki_ptr)
 {
 	CHECK_INSTR_ENABLED(KERNEL)
@@ -593,8 +595,8 @@ static inline void instr_kernel_init(struct kinstr **ki_ptr)
 	attr.config = PERF_COUNT_SW_DUMMY;
 	attr.type = PERF_TYPE_SOFTWARE;
 
-	attr.task = 1;
-	attr.comm = 1;
+	attr.task = 0;
+	attr.comm = 0;
 	attr.freq = 0;
 	attr.wakeup_events = 1;
 	attr.watermark = 1;
@@ -658,7 +660,7 @@ static inline void emit_perf_event(struct perf_ev *ev)
 	int is_out;
 
 	if (ev->header.type != PERF_RECORD_SWITCH)
-		return;
+		nosv_warn("Unknown event found in the perf buffer");
 
 	is_out = ev->header.misc & PERF_RECORD_MISC_SWITCH_OUT;
 
@@ -679,8 +681,10 @@ static inline void instr_kernel_flush(struct kinstr *ki)
 	if (!ki->enabled)
 		return;
 
+	uint64_t new_head = atomic_load_explicit((atomic_u64 *) &ki->meta->data_head, memory_order_acquire);
+
 	// If there are no events, do nothing
-	if (ki->head == ki->meta->data_head)
+	if (ki->head == new_head)
 		return;
 
 	// Wrap the kernel events with special marker events, so we can sort
@@ -689,12 +693,18 @@ static inline void instr_kernel_flush(struct kinstr *ki)
 	ovni_ev_set_mcv(&ev0, "OU[");
 	ovni_ev_emit(&ev0);
 
-	while (ki->head < ki->meta->data_head) {
+	if ((new_head - ki->head) > (INSTR_KBUFLEN / 2))
+		nosv_warn("Large amount of events piled up");
+
+	while (ki->head < new_head) {
 		p = ki->ringbuf + (ki->head % ki->ringsize);
 		ev = (struct perf_ev *) p;
 		emit_perf_event(ev);
+		ki->tail += ev->header.size;
 		ki->head += ev->header.size;
 	}
+
+	atomic_store_explicit((atomic_u64 *) &ki->meta->data_tail, ki->tail, memory_order_release);
 
 	ovni_ev_set_clock(&ev1, ovni_clock_now());
 	ovni_ev_set_mcv(&ev1, "OU]");

@@ -465,6 +465,9 @@ int nosv_pause(
 	if (!worker || !worker->handle.task)
 		return NOSV_ERR_OUTSIDE_TASK;
 
+	if (kinstr)
+		instr_kernel_flush(kinstr);
+
 	nosv_flush_submit_window();
 
 	nosv_task_t task = worker_current_task();
@@ -527,6 +530,9 @@ int nosv_waitfor(
 	nosv_worker_t *worker = worker_current();
 	if (!worker || !worker->handle.task)
 		return NOSV_ERR_OUTSIDE_TASK;
+
+	if (kinstr)
+		instr_kernel_flush(kinstr);
 
 	nosv_task_t task = worker->handle.task;
 
