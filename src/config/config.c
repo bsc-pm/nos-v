@@ -94,6 +94,7 @@ static inline void config_init(rt_config_t *config)
 	config->ovni_level = 2;
 	config->ovni_events.num_strings = 0;
 	config->ovni_events.strings = NULL;
+	config->ovni_kernel_ringsize = INSTR_OVNI_KERNEL_RINGSIZE;
 }
 
 #define sanity_check(cond, explanation)                             \

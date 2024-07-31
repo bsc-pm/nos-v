@@ -156,3 +156,6 @@
 	##           "api_create", "api_destroy", "api_submit", "api_pause", "api_yield", "api_waitfor", "api_schedpoint",
 	##           "api_mutex_lock", "api_mutex_trylock", "api_mutex_unlock", "api_barrier_wait", "task", "kernel",
 	##           "breakdown" ]
+	#
+	# Size in bytes of the ring buffer for kernel events (per thread)
+	kernel_ringsize = 4194304 # 4 MiB

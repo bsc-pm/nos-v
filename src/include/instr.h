@@ -538,9 +538,6 @@ static inline void instr_detach_exit(void)
 
 // ----------------------- Kernel events  ---------------------------
 
-// Must be a power of two
-#define INSTR_KBUFLEN (4UL * 1024UL * 1024UL) // 4 MB
-
 #ifdef ENABLE_INSTRUMENTATION
 struct kinstr {
 	int fd;
@@ -617,7 +614,15 @@ static inline void instr_kernel_init(struct kinstr **ki_ptr)
 	pagesize = sysconf(_SC_PAGE_SIZE);
 	assert(pagesize > 0);
 
-	ki->ringsize = INSTR_KBUFLEN;
+	// Round ringsize to page if not aligned
+	size_t ringsize = (size_t) nosv_config.ovni_kernel_ringsize;
+	if (ringsize % pagesize) {
+		ringsize = (ringsize / pagesize) * pagesize;
+		nosv_warn("kernel ring size rounded to %ld to align with page size %ld\n",
+				ringsize, pagesize);
+	}
+
+	ki->ringsize = ringsize;
 	assert((ki->ringsize % pagesize) == 0);
 
 	// Map the buffer: must be 1+2^n pages
@@ -693,7 +698,7 @@ static inline void instr_kernel_flush(struct kinstr *ki)
 	ovni_ev_set_mcv(&ev0, "OU[");
 	ovni_ev_emit(&ev0);
 
-	if ((new_head - ki->head) > (INSTR_KBUFLEN / 2))
+	if (new_head - ki->head > ki->ringsize / 2)
 		nosv_warn("Large amount of events piled up");
 
 	while (ki->head < new_head) {
