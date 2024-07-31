@@ -664,8 +664,15 @@ static inline void emit_perf_event(struct perf_ev *ev)
 	struct ovni_ev ovniev = {0};
 	int is_out;
 
-	if (ev->header.type != PERF_RECORD_SWITCH)
+	// Stop if we missed any context switch events, otherwise they won't
+	// match in ovniemu
+	if (ev->header.type == PERF_RECORD_LOST)
+		nosv_abort("Kernel events lost, consider increasing ovni.kernel_ringsize");
+
+	if (ev->header.type != PERF_RECORD_SWITCH) {
 		nosv_warn("Unknown event type %d found in the perf buffer", ev->header.type);
+		return;
+	}
 
 	is_out = ev->header.misc & PERF_RECORD_MISC_SWITCH_OUT;
 
@@ -695,9 +702,6 @@ static inline void instr_kernel_flush(struct kinstr *ki)
 	ovni_ev_set_clock(&ev0, ovni_clock_now());
 	ovni_ev_set_mcv(&ev0, "OU[");
 	ovni_ev_emit(&ev0);
-
-	if (new_head - ki->head > ki->ringsize / 2)
-		nosv_warn("Large amount of events piled up");
 
 	uint8_t *aux = NULL;
 	while (ki->head < new_head) {
