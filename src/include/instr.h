@@ -665,7 +665,7 @@ static inline void emit_perf_event(struct perf_ev *ev)
 	int is_out;
 
 	if (ev->header.type != PERF_RECORD_SWITCH)
-		nosv_warn("Unknown event found in the perf buffer");
+		nosv_warn("Unknown event type %d found in the perf buffer", ev->header.type);
 
 	is_out = ev->header.misc & PERF_RECORD_MISC_SWITCH_OUT;
 
@@ -680,8 +680,6 @@ static inline void instr_kernel_flush(struct kinstr *ki)
 {
 	CHECK_INSTR_ENABLED(KERNEL)
 	struct ovni_ev ev0 = {0}, ev1 = {0};
-	struct perf_ev *ev;
-	uint8_t *p;
 
 	if (!ki->enabled)
 		return;
@@ -701,12 +699,42 @@ static inline void instr_kernel_flush(struct kinstr *ki)
 	if (new_head - ki->head > ki->ringsize / 2)
 		nosv_warn("Large amount of events piled up");
 
+	uint8_t *aux = NULL;
 	while (ki->head < new_head) {
-		p = ki->ringbuf + (ki->head % ki->ringsize);
-		ev = (struct perf_ev *) p;
+		uint64_t offset = ki->head % ki->ringsize;
+		uint8_t *p = ki->ringbuf + offset;
+		struct perf_ev *ev = (struct perf_ev *) p;
+
+		/* The header should never be split, as the events are aligned
+		 * to 64 bits, the size of the header */
+		assert(offset + sizeof(struct perf_event_header) <= ki->ringsize);
+
+		/* Handle split event in the ring boundary:
+		 *
+		 *   |     ring buffer     |
+		 *   EEEEEEEE] ... [EEEEEEEE
+		 *                 ^
+		 *                 offset
+		 */
+		if (unlikely(offset + ev->header.size > ki->ringsize)) {
+			aux = malloc(ev->header.size);
+			if (!aux)
+				nosv_abort("malloc failed");
+			size_t first_half = ki->ringsize - offset;
+			size_t second_half = ev->header.size - first_half;
+			memcpy(aux, p, first_half);
+			memcpy(aux + first_half, ki->ringbuf, second_half);
+			ev = (struct perf_ev *) aux;
+		}
+
 		emit_perf_event(ev);
 		ki->tail += ev->header.size;
 		ki->head += ev->header.size;
+
+		if (unlikely(aux)) {
+			free(aux);
+			aux = NULL;
+		}
 	}
 
 	atomic_store_explicit((atomic_u64 *) &ki->meta->data_tail, ki->tail, memory_order_release);
