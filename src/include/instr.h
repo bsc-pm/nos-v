@@ -615,7 +615,7 @@ static inline void instr_kernel_init(struct kinstr **ki_ptr)
 	assert(pagesize > 0);
 
 	// Round ringsize to page if not aligned
-	size_t ringsize = (size_t) nosv_config.ovni_kernel_ringsize;
+	size_t ringsize = nosv_config.ovni_kernel_ringsize;
 	if (ringsize % pagesize) {
 		ringsize = (ringsize / pagesize) * pagesize;
 		nosv_warn("kernel ring size rounded to %ld to align with page size %ld\n",

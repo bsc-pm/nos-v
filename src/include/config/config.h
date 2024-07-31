@@ -90,7 +90,7 @@ typedef struct rt_config {
 	// ovni
 	uint64_t ovni_level;
 	string_list_t ovni_events;
-	uint64_t ovni_kernel_ringsize;
+	size_t ovni_kernel_ringsize;
 } rt_config_t;
 
 __internal extern rt_config_t nosv_config;

@@ -88,7 +88,7 @@ static config_spec_t config_spec_list[] = {
 	DECLARE_CONFIG(TYPE_SIZE, "misc.stack_size", thread_stack_size),
 	DECLARE_CONFIG(TYPE_UINT64, "ovni.level", ovni_level),
 	DECLARE_CONFIG(TYPE_LIST_STR, "ovni.events", ovni_events),
-	DECLARE_CONFIG(TYPE_UINT64, "ovni.kernel_ringsize", ovni_kernel_ringsize),
+	DECLARE_CONFIG(TYPE_SIZE, "ovni.kernel_ringsize", ovni_kernel_ringsize),
 };
 
 #endif // CONFIG_PARSE_H

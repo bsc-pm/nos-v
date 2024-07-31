@@ -158,4 +158,4 @@
 	##           "breakdown" ]
 	#
 	# Size in bytes of the ring buffer for kernel events (per thread)
-	kernel_ringsize = 4194304 # 4 MiB
+	kernel_ringsize = "4M"
