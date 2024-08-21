@@ -945,6 +945,7 @@ void topology_init(int initialize)
     }
 
     topology = salloc(sizeof(topology_t), 0);
+    st_config.config->topology_ptr = topology;
 
     // All levels unitialized
     for (int d = 0; d < NOSV_TOPO_LEVEL_COUNT; ++d) {
