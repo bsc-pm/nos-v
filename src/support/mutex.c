@@ -134,7 +134,7 @@ int nosv_mutex_unlock(nosv_mutex_t mutex)
 
 	// Unlock the mutex
 	nosv_spin_lock(&mutex->lock);
-	elem = list_pop_head(&mutex->list);
+	elem = list_pop_front(&mutex->list);
 	if (!elem) {
 		// There are no waiting tasks for this mutex, mark the mutex as
 		// not taken and return.

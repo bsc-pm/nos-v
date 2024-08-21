@@ -13,6 +13,7 @@
 #include "config/config.h"
 #include "defaults.h"
 #include "generic/clock.h"
+#include "generic/list.h"
 #include "hardware/cpus.h"
 #include "hardware/locality.h"
 #include "hardware/threads.h"
@@ -128,7 +129,7 @@ static inline void scheduler_pop_queue(scheduler_queue_t *queue, nosv_task_t tas
 		nosv_task_t next_task = list_elem(next, struct nosv_task, list_hook);
 		if (next) {
 			// Change the list "head" to be the next task.
-			next->prev = task->list_hook.prev;
+			list_remove(&task->list_hook);
 			// Now transplant the element to replace the current element in the Red-Black Tree
 			RB_TRANSPLANT(priority_tree, &queue->tasks_priority, task, next_task);
 		} else {
@@ -138,7 +139,7 @@ static inline void scheduler_pop_queue(scheduler_queue_t *queue, nosv_task_t tas
 		// Clean the tree hooks
 		memset(&task->tree_hook, 0, sizeof(task->tree_hook));
 	} else {
-		__maybe_unused list_head_t *head = list_pop_head(&queue->tasks);
+		__maybe_unused list_head_t *head = list_pop_front(&queue->tasks);
 		assert(head == &task->list_hook);
 	}
 
@@ -197,13 +198,15 @@ static inline void scheduler_add_queue(scheduler_queue_t *queue, nosv_task_t tas
 		if (unlikely(task->priority)) {
 			// Enabling priorities
 			queue->priority_enabled = 1;
-			list_head_t previous = queue->tasks;
+			list_head_t previous;
+			list_init(&previous);
+			list_replace(&queue->tasks, &previous);
 			RB_INIT(&queue->tasks_priority);
 			list_head_t *new_head = list_front(&previous);
 
 			if (new_head) {
 				// There are elements in the current list
-				new_head->prev = previous.prev;
+				list_remove(&previous);
 				RB_INSERT(priority_tree, &queue->tasks_priority, list_elem(new_head, struct nosv_task, list_hook));
 			}
 
@@ -261,7 +264,8 @@ static inline process_scheduler_t *scheduler_init_pid(int pid)
 // Check if any schedulers need shutting down
 static inline void scheduler_check_process_shutdowns(void)
 {
-	for (list_head_t *head = list_front(&scheduler->queues); head; head = list_next(head)) {
+	list_head_t *head;
+	list_for_each(head, &scheduler->queues) {
 		process_scheduler_t *sched = list_elem(head, process_scheduler_t, list_hook);
 		int shutdown = atomic_load_explicit(&sched->shutdown, memory_order_relaxed);
 		if (shutdown > sched->last_shutdown) {
@@ -317,13 +321,14 @@ static inline void scheduler_process_ready_task_buffer(nosv_task_t first_task)
 	assert(first_task != NULL);
 
 	nosv_task_t task = first_task;
-	list_head_t *lh = &(task->list_hook);
+	list_head_t *start = &(task->list_hook);
+	list_head_t *iterator = start;
 	do {
-		task = list_elem(lh, struct nosv_task, list_hook);
-		lh = list_next(lh);
+		task = list_elem(iterator, struct nosv_task, list_hook);
+		iterator = list_next(iterator);
 		list_init(&(task->list_hook));
 		scheduler_insert_ready_task(task);
-	} while (lh != NULL);
+	} while (iterator != start);
 }
 
 // Must be called inside the dtlock
@@ -567,7 +572,7 @@ static inline int scheduler_get_yield_expired(process_scheduler_t *sched, nosv_t
 
 	res = list_elem(head, struct nosv_task, list_hook);
 	if (res->yield <= scheduler->served_tasks) {
-		list_pop_head(&sched->yield_tasks.tasks);
+		list_pop_front(&sched->yield_tasks.tasks);
 		res->yield = 0;
 		*task = res;
 		return 1;
@@ -730,7 +735,7 @@ static inline nosv_task_t scheduler_find_task_yield_process(process_scheduler_t 
 	nosv_task_t task;
 
 	// Are there any yield tasks?
-	list_head_t *head = list_pop_head(&sched->yield_tasks.tasks);
+	list_head_t *head = list_pop_front(&sched->yield_tasks.tasks);
 	if (!head)
 		return NULL;
 
@@ -748,7 +753,7 @@ static inline nosv_task_t scheduler_find_task_yield_process(process_scheduler_t 
 		} else {
 			scheduler_insert_affine(sched, task);
 		}
-	} while ((head = list_pop_head(&sched->yield_tasks.tasks)));
+	} while ((head = list_pop_front(&sched->yield_tasks.tasks)));
 
 	return NULL;
 }

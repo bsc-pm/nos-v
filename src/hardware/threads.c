@@ -13,6 +13,7 @@
 #include "compat.h"
 #include "compiler.h"
 #include "generic/arch.h"
+#include "generic/list.h"
 #include "hardware/cpus.h"
 #include "hardware/pids.h"
 #include "hardware/threads.h"
@@ -151,7 +152,7 @@ void threadmanager_init(thread_manager_t *threadmanager)
 static inline nosv_worker_t *get_idle_worker(thread_manager_t *threadmanager)
 {
 	nosv_spin_lock(&threadmanager->idle_spinlock);
-	list_head_t *head = list_pop_head(&threadmanager->idle_threads);
+	list_head_t *head = list_pop_front(&threadmanager->idle_threads);
 	nosv_spin_unlock(&threadmanager->idle_spinlock);
 	return (head) ? list_elem(head, nosv_worker_t, list_hook) : NULL;
 }
@@ -243,13 +244,12 @@ void threadmanager_shutdown(thread_manager_t *threadmanager)
 	}
 
 	// We don't really need locking anymore
-	list_head_t *head = clist_pop_head(&threadmanager->shutdown_threads);
-	while (head) {
+	list_head_t *head;
+	clist_for_each_pop(head, &threadmanager->shutdown_threads) {
 		nosv_worker_t *worker = list_elem(head, nosv_worker_t, list_hook);
 		worker_join(worker);
 		nosv_condvar_destroy(&worker->condvar);
 		sfree(worker, sizeof(nosv_worker_t), -1);
-		head = clist_pop_head(&threadmanager->shutdown_threads);
 	}
 }
 
@@ -613,7 +613,7 @@ void worker_wake_idle(int pid, cpu_t *cpu, task_execution_handle_t handle)
 	assert(threadmanager);
 
 	nosv_spin_lock(&threadmanager->idle_spinlock);
-	list_head_t *head = list_pop_head(&threadmanager->idle_threads);
+	list_head_t *head = list_pop_front(&threadmanager->idle_threads);
 	nosv_spin_unlock(&threadmanager->idle_spinlock);
 
 	if (head) {
@@ -646,6 +646,7 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 	worker->creator_tid = gettid();
 	worker->in_task_body = 0;
 	nosv_condvar_init(&worker->condvar);
+	list_init(&worker->list_hook);
 
 	// We use the address of the worker structure as the tag of the
 	// thread create event, as it provides a unique value known to
@@ -672,6 +673,7 @@ nosv_worker_t *worker_create_external(void)
 	worker->in_task_body = 1;
 	worker->original_affinity = NULL;
 	worker->original_affinity_size = 0;
+	list_init(&worker->list_hook);
 
 	instr_kernel_init(&kinstr);
 

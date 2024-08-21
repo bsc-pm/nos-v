@@ -6,6 +6,7 @@
 
 #include "generic/clock.h"
 #include "generic/cpuset.h"
+#include "generic/list.h"
 #include "hardware/cpus.h"
 #include "hardware/pids.h"
 #include "hwcounters/hwcounters.h"
@@ -108,10 +109,9 @@ void task_type_manager_shutdown(void)
 	nosv_spin_destroy(&task_type_manager->lock);
 
 	list_head_t *list = task_type_manager_get_list();
-	list_head_t *head = list_front(list);
-	while (head != NULL) {
+	list_head_t *head;
+	list_for_each(head, list) {
 		nosv_task_type_t type = list_elem(head, struct nosv_task_type, list_hook);
-		head = list_next(head);
 		if (type != NULL) {
 			if (type->label)
 				free((void *)type->label);
@@ -156,6 +156,7 @@ int nosv_type_init(
 	res->pid = logic_pid;
 	res->typeid = atomic_fetch_add_explicit(&typeid_counter, 1, memory_order_relaxed);
 	res->get_cost = cost_function;
+	list_init(&(res->list_hook));
 
 	// Monitoring type statistics are right after the type's memory
 	res->stats = (tasktype_stats_t *) (((char *) res) + sizeof(struct nosv_task_type));
