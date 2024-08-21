@@ -10,7 +10,7 @@
 #define ARCH_X86
 #define ARCH_SUPPORTED
 
-#if defined(ARCH_POWER9) || defined(ARCH_ARM64)
+#if defined(ARCH_POWER9) || defined(ARCH_ARM64) || defined(ARCH_RISCV)
 #error "Multiple architecture definitions"
 #endif
 
