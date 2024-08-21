@@ -39,8 +39,7 @@ static const char *const nosv_topo_level_names[] = {
 	"cpu",
 };
 
-// The members logical_<level> are TOPO_ID_DISABLED when the instance is from <level>.
-// E.g., for numa domains, logical_numa will be TOPO_ID_DISABLED
+// Struct to be used for cores, complex sets and numas. For numa, we are wasting sizeof(int)*2 bytes, but it's not a big deal
 typedef struct topo_domain {
 	union {
 		struct {
@@ -98,13 +97,13 @@ typedef struct topology {
 		struct {
 			topo_domain_t *numas; // NUMA topo domain array
 			topo_domain_t *complex_sets; // Complex Set domain array
-			topo_domain_t *cores; // Core set domain array
+			topo_domain_t *cores; // Core domain array
 			// CPU array belongs in cpumanager
 		};
 		topo_domain_t *(per_domain_array[NOSV_TOPO_LEVEL_COUNT-2]); // Should be accessed through topology_get_level_domains
 	};
 
-	int *s_to_l[NOSV_TOPO_LEVEL_COUNT];
+	int *s_to_l[NOSV_TOPO_LEVEL_COUNT]; // System id to logical id mapping
 	int s_max[NOSV_TOPO_LEVEL_COUNT]; // Max system id in this system for each level
 } topology_t;
 

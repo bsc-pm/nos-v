@@ -277,6 +277,18 @@ int nosv_get_current_logical_cpu(void);
 /* Restriction: Can only be called from a task context */
 int nosv_get_current_system_cpu(void);
 
+/* Get the number of NUMA nodes seen by nOS-V (containing cpus allowed in this process)*/
+int nosv_get_num_numa_nodes(void);
+
+/* Get the system identifier of the NUMA node given the logical identifier */
+int nosv_get_system_numa_id(int logical_numa_id);
+
+/* Get the logical identifier of the NUMA node given the system identifier */
+int nosv_get_logical_numa_id(int system_numa_id);
+
+/* Get the number of CPUs in the NUMA node given the system identifier */
+int nosv_get_num_cpus_in_numa(int system_numa_id);
+
 /* Batch Submit API */
 /* Set the maximum size of the submit window */
 /* submit_batch_size > 0 */
