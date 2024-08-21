@@ -72,16 +72,6 @@ static inline int cpu_bitset_cmp(const cpu_bitset_t *a, const cpu_bitset_t *b)
 	return BIT_CMP(a->size, &a->bits, &b->bits);
 }
 
-// Returns true if bitset a is different from bitset b
-static inline void cpu_bitset_print(const cpu_bitset_t *b, const char *prefix)
-{
-	fprintf(stdout, "%s = {", prefix);
-	for (int i = cpu_bitset_ffs(b); i >= 0; i = cpu_bitset_ffs_at(b, i)) {
-		fprintf(stdout, "%d,", i);
-	}
-	fprintf(stdout, "}\n");
-}
-
 #define CPU_BITSET_FOREACH(bs, var) \
 	for ((var) = cpu_bitset_ffs((bs)); (var) >= 0; (var) = (cpu_bitset_ffs_at((bs), (var))))
 
