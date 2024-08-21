@@ -281,6 +281,10 @@ struct t {								\
 
 #define	BIT_FFS(_s, p) BIT_FFS_AT((_s), (p), 0)
 
+#if (__GNUC__ >= 4) || ((__GNUC__ == 3) && (__GNUC_MINOR__ >= 4))
+#  define flsl(x) ((x) ? (8*sizeof(long) - __builtin_clzl(x)) : 0)
+#endif
+
 #define	BIT_FLS(_s, p) __extension__ ({					\
 	size_t __i;							\
 	long __bit;							\

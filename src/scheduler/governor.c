@@ -5,13 +5,13 @@
 */
 
 #include "config/config.h"
-#include "hardware/cpus.h"
+#include "hardware/topology.h"
 #include "scheduler/dtlock.h"
 #include "scheduler/governor.h"
 
 void governor_init(governor_t *governor)
 {
-	int actual_cpus = cpus_count();
+	int actual_cpus = topology_get_level_count(NOSV_TOPO_LEVEL_CPU);
 
 	cpu_bitset_init(&governor->sleepers, actual_cpus);
 	cpu_bitset_init(&governor->waiters, actual_cpus);

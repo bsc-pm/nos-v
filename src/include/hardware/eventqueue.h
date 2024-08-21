@@ -10,7 +10,7 @@
 #include "nosv.h"
 #include "generic/ringbuffer.h"
 #include "generic/signalmutex.h"
-#include "hardware/cpus.h"
+#include "hardware/topology.h"
 #include "memory/slab.h"
 #include "system/tasks.h"
 
@@ -33,7 +33,7 @@ typedef struct event_queue {
 
 static inline void event_queue_init(event_queue_t *queue)
 {
-	const size_t cpus = cpus_count();
+	const size_t cpus = topology_get_level_count(NOSV_TOPO_LEVEL_CPU);
 	nosv_signal_mutex_init(&queue->lock);
 	queue->buffer = salloc(sizeof(creation_event_t) * cpus * 2, cpu_get_current());
 	ring_buffer_init(&queue->rb, sizeof(creation_event_t), cpus * 2, queue->buffer);

@@ -14,9 +14,8 @@
 #include "defaults.h"
 #include "generic/clock.h"
 #include "generic/list.h"
-#include "hardware/cpus.h"
-#include "hardware/locality.h"
 #include "hardware/threads.h"
+#include "hardware/topology.h"
 #include "instr.h"
 #include "memory/sharedmemory.h"
 #include "scheduler/scheduler.h"
@@ -53,7 +52,7 @@ void scheduler_init(int initialize)
 		return;
 	}
 
-	int cpu_count = cpus_count();
+	int cpu_count = topology_get_level_count(NOSV_TOPO_LEVEL_CPU);
 
 	scheduler = (scheduler_t *) salloc(sizeof(scheduler_t), -1);
 	assert(scheduler);
@@ -252,7 +251,7 @@ static inline process_scheduler_t *scheduler_init_pid(int pid)
 	sched->preferred_affinity_tasks = 0;
 	sched->tasks = 0;
 
-	int cpus = cpus_count();
+	int cpus = topology_get_level_count(NOSV_TOPO_LEVEL_CPU);
 	sched->per_cpu_queue_preferred = salloc(sizeof(scheduler_queue_t) * cpus, cpu_get_current());
 	sched->per_cpu_queue_strict = salloc(sizeof(scheduler_queue_t) * cpus, cpu_get_current());
 
@@ -261,7 +260,7 @@ static inline process_scheduler_t *scheduler_init_pid(int pid)
 		scheduler_init_queue(&sched->per_cpu_queue_strict[i]);
 	}
 
-	int numas = locality_numa_count();
+	int numas = topology_get_level_count(NOSV_TOPO_LEVEL_NUMA);
 	sched->per_numa_queue_preferred = salloc(sizeof(scheduler_queue_t) * numas, cpu_get_current());
 	sched->per_numa_queue_strict = salloc(sizeof(scheduler_queue_t) * numas, cpu_get_current());
 
@@ -571,7 +570,9 @@ int task_affine(nosv_task_t task, cpu_t *cpu)
 		case NOSV_AFFINITY_LEVEL_CPU:
 			return ((int) task->affinity.index) == cpu->system_id;
 		case NOSV_AFFINITY_LEVEL_NUMA:
-			return locality_get_logical_numa((int) task->affinity.index) == cpu->numa_node;
+			;
+			int numa_system = topology_get_logical(NOSV_TOPO_LEVEL_NUMA, (int) cpu->logical_numa);
+			return topology_get_logical(NOSV_TOPO_LEVEL_NUMA, (int) task->affinity.index) == numa_system;
 		case NOSV_AFFINITY_LEVEL_USER_COMPLEX:
 		default:
 			return 1;
@@ -588,14 +589,14 @@ static inline void scheduler_insert_affine(process_scheduler_t *sched, nosv_task
 
 	switch (task->affinity.level) {
 		case NOSV_AFFINITY_LEVEL_CPU:
-			idx = cpu_system_to_logical((int) task->affinity.index);
+			idx = topology_get_logical(NOSV_TOPO_LEVEL_CPU, (int) task->affinity.index);
 			assert(idx >= 0);
 			queue = (task->affinity.type == NOSV_AFFINITY_TYPE_STRICT)
 						? &sched->per_cpu_queue_strict[idx]
 						: &sched->per_cpu_queue_preferred[idx];
 			break;
 		case NOSV_AFFINITY_LEVEL_NUMA:
-			idx = locality_get_logical_numa((int) task->affinity.index);
+			idx = topology_get_logical(NOSV_TOPO_LEVEL_NUMA, (int) task->affinity.index);
 			queue = (task->affinity.type == NOSV_AFFINITY_TYPE_STRICT)
 						? &sched->per_numa_queue_strict[idx]
 						: &sched->per_numa_queue_preferred[idx];
@@ -660,7 +661,7 @@ deadline_expired:
 
 static inline nosv_task_t scheduler_find_task_process(process_scheduler_t *sched, cpu_t *cpu, int *removed)
 {
-	int cpuid = cpu->logic_id;
+	int cpuid = cpu->logical_id;
 	nosv_task_t task = NULL;
 
 	*removed = 1;
@@ -707,11 +708,11 @@ static inline nosv_task_t scheduler_find_task_process(process_scheduler_t *sched
 		goto task_obtained_preferred;
 	}
 
-	if (scheduler_get_from_queue(&sched->per_numa_queue_strict[cpu->numa_node], &task, removed)) {
+	if (scheduler_get_from_queue(&sched->per_numa_queue_strict[cpu->logical_numa], &task, removed)) {
 		goto task_obtained;
 	}
 
-	if (scheduler_get_from_queue(&sched->per_numa_queue_preferred[cpu->numa_node], &task, removed)) {
+	if (scheduler_get_from_queue(&sched->per_numa_queue_preferred[cpu->logical_numa], &task, removed)) {
 		goto task_obtained_preferred;
 	}
 
@@ -753,8 +754,8 @@ static inline nosv_task_t scheduler_find_task_noaffine_process(process_scheduler
 		return NULL;
 
 	if (sched->preferred_affinity_tasks) {
-		int cpus = cpus_count();
-		int numas = locality_numa_count();
+		int cpus = topology_get_level_count(NOSV_TOPO_LEVEL_CPU);
+		int numas = topology_get_level_count(NOSV_TOPO_LEVEL_NUMA);
 		// We can try to steal from somewhere
 		// Note that we don't skip our own cpus, although we know nothing is there, just for simplicity
 		for (int i = 0; i < cpus; ++i) {
@@ -914,7 +915,7 @@ static inline size_t scheduler_serve_batch(int *cpus_were_skipped, cpu_bitset_t 
 
 	CPU_BITSET_FOREACH(cpus_to_serve, cpu_delegated)
 	{
-		assert(cpu_delegated < cpus_count());
+		assert(cpu_delegated < topology_get_level_count(NOSV_TOPO_LEVEL_CPU));
 		nosv_task_t task = scheduler_get_internal(cpu_delegated);
 
 		// If we don't get a task, indicate this situation to the server thread

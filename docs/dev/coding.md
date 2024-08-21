@@ -98,7 +98,7 @@ Include headers in two groups: C system headers (first), and then internal heade
 #include "config/config.h"
 #include "defaults.h"
 #include "generic/clock.h"
-#include "hardware/cpus.h"
+#include "hardware/topology.h"
 #include "instr.h"
 #include "memory/sharedmemory.h"
 #include "nosv-internal.h"

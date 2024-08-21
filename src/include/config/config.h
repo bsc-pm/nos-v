@@ -57,6 +57,7 @@ typedef struct rt_config {
 	const char *affinity_default_policy;
 	int affinity_compat_support;
 	generic_array_t affinity_numa_nodes;
+	generic_array_t affinity_complex_sets;
 
 	// Scheduler
 	uint64_t sched_cpus_per_queue;

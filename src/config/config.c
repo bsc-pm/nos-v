@@ -20,8 +20,7 @@
 #include "config/config.h"
 #include "config/configspec.h"
 #include "config/toml.h"
-#include "hardware/cpus.h"
-#include "hardware/locality.h"
+#include "hardware/topology.h"
 
 #ifndef INSTALLED_CONFIG_DIR
 #error "INSTALLED_CONFIG_DIR should be defined at make time"
@@ -67,6 +66,7 @@ static inline void config_init(rt_config_t *config)
 	config->affinity_default_policy = strdup(AFFINITY_DEFAULT_POLICY);
 	config->affinity_compat_support = AFFINITY_COMPAT_SUPPORT;
 	config->affinity_numa_nodes.n = 0;
+	config->affinity_complex_sets.n = 0;
 
 	config->debug_dump_config = 0;
 
@@ -821,8 +821,9 @@ static inline void config_preset_shared_mpi(void)
 	nosv_config.affinity_default_policy = strdup("preferred");
 
 	// Now, see if we can have a best guess at determining a core or NUMA affinity by default
-	char *new_affinity;
-	int ret = locality_get_default_affinity(&new_affinity);
+	char *new_affinity = NULL;
+	int ret = topology_get_default_affinity(&new_affinity);
+	nosv_warn("new_affinity: %s", new_affinity ? new_affinity : "NULL"); // TODO: Be aware of this in affinity scheduling
 
 	if (ret) {
 		nosv_warn("Could not determine a valid affinity by default. This can happen if the initial process"

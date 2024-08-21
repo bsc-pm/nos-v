@@ -7,6 +7,9 @@
 #ifndef CPU_BITSET_H
 #define CPU_BITSET_H
 
+#include <assert.h>
+#include <stdio.h>
+
 #include "defaults.h"
 #include "generic/bitset.h"
 
@@ -55,6 +58,28 @@ static inline int cpu_bitset_ffs_at(const cpu_bitset_t *bitset, const int cpu)
 		return -1;
 
 	return BIT_FFS_AT(bitset->size, &bitset->bits, cpu + 1) - 1;
+}
+
+static inline int cpu_bitset_fls(const cpu_bitset_t *bitset)
+{
+	return BIT_FLS(bitset->size, &bitset->bits) - 1;
+}
+
+// Returns true if bitset a is different from bitset b
+static inline int cpu_bitset_cmp(const cpu_bitset_t *a, const cpu_bitset_t *b)
+{
+	assert(a->size == b->size);
+	return BIT_CMP(a->size, &a->bits, &b->bits);
+}
+
+// Returns true if bitset a is different from bitset b
+static inline void cpu_bitset_print(const cpu_bitset_t *b, const char *prefix)
+{
+	fprintf(stdout, "%s = {", prefix);
+	for (int i = cpu_bitset_ffs(b); i >= 0; i = cpu_bitset_ffs_at(b, i)) {
+		fprintf(stdout, "%d,", i);
+	}
+	fprintf(stdout, "}\n");
 }
 
 #define CPU_BITSET_FOREACH(bs, var) \
