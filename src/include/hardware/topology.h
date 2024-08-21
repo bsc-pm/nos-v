@@ -50,7 +50,6 @@ typedef struct topo_domain {
 		};
 		int parents[NOSV_TOPO_LEVEL_COUNT-2];
 	};
-	int logical_id;
 	int system_id;
 	cpu_bitset_t cpu_sid_mask; // system ids
 	cpu_bitset_t cpu_lid_mask; // logic ids
@@ -107,7 +106,6 @@ typedef struct topology {
 
 	int *s_to_l[NOSV_TOPO_LEVEL_COUNT];
 	int s_max[NOSV_TOPO_LEVEL_COUNT]; // Max system id in this system for each level
-	topo_domain_t *domains;
 } topology_t;
 
 typedef struct cpumanager {
@@ -123,6 +121,8 @@ __internal void cpu_transfer(int destination_pid, cpu_t *cpu, task_execution_han
 __internal void cpu_mark_free(cpu_t *cpu);
 __internal void cpu_affinity_reset(void);
 __internal void cpu_get_all_mask(const char **mask);
+__internal int cpu_get_parent_logical_id(cpu_t *cpu, nosv_topo_level_t level);
+
 
 __internal int topology_get_logical(nosv_topo_level_t d, int system_id);
 __internal int topology_get_system(nosv_topo_level_t level, int logical_id);
@@ -133,7 +133,7 @@ __internal cpu_bitset_t* topology_get_domain_cpu_system_mask(nosv_topo_level_t l
 
 __internal extern thread_local int __current_cpu;
 __internal extern cpumanager_t *cpumanager;
-__internal extern topology_t *topology;
+__internal extern topology_t *config_numa_count;
 
 static inline int cpu_get_current(void)
 {
