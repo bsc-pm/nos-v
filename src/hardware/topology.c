@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <numa.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <string.h>
 
 #include "common.h"
@@ -429,12 +430,12 @@ static inline void topology_init_complex_sets(cpu_bitset_t *valid_cpus, cpu_bits
 }
 
 // Inits topology->numas, updates cpus, cores and complex sets domains setting numa logical id. Also inits numa system to logical map, and valid_numas bitset
-static inline void topology_init_numa_from_config(cpu_bitset_t *valid_cpus)
+static inline void topology_init_numa_from_config(cpu_bitset_t *valid_cpus, generic_array_t *all_numa_config)
 {
     topology->numa_fromcfg = 1;
     int cpus_cnt = cpu_bitset_count((valid_cpus));
     // Use the relevant configuration option
-    int config_numa_count = nosv_config.affinity_numa_nodes.n;
+    int config_numa_count = all_numa_config->n;
     topology_init_domain_s_to_l(NOSV_TOPO_LEVEL_NUMA, config_numa_count);
     assert(config_numa_count);
 
@@ -446,7 +447,7 @@ static inline void topology_init_numa_from_config(cpu_bitset_t *valid_cpus)
 
     cpu_bitset_t visited_cpus;
     cpu_bitset_init(&visited_cpus, NR_CPUS);
-    generic_array_t *config_numas = (generic_array_t *) nosv_config.affinity_numa_nodes.items;
+    generic_array_t *config_numas = (generic_array_t *) all_numa_config->items;
 
     int numa_logical = 0;
     for (int numa_system = 0; numa_system < config_numa_count; ++numa_system) {
@@ -558,15 +559,34 @@ static inline void topology_init_numa_from_libnuma(cpu_bitset_t *valid_cpus)
 static inline void topology_init_numa(cpu_bitset_t *valid_cpus)
 {
     if (nosv_config.affinity_numa_nodes.n >= 1) { // If more than 1, enable numa from config
-        topology_init_numa_from_config(valid_cpus);
+        topology_init_numa_from_config(valid_cpus, &nosv_config.affinity_numa_nodes);
     } else if (numa_available() != -1) {
-        if (numa_bitmask_weight(numa_all_nodes_ptr) > 1) {
             topology_init_numa_from_libnuma(valid_cpus);
-        } else {
-            nosv_abort("Error: No NUMA config and libnuma is not available. This should not happen.");
-        }
     } else {
-            nosv_abort("Error: No NUMA config and libnuma is not available. This should not happen.");
+        // Create numa config with all cpus in one numa
+        generic_array_t numa_nodes;
+        numa_nodes.n = 1;
+
+        // Alloc generic array for only one numa
+        generic_array_t *numa0 = (generic_array_t *)malloc(sizeof(generic_array_t));
+        numa0->n = cpu_bitset_count(valid_cpus);
+        numa0->items = malloc(sizeof(uint64_t) * numa0->n);
+        // Set numa nodes items to point to the only generic array it will have
+        numa_nodes.items = (void*)numa0;
+
+        // Iterate over valid cpus and add them to the only one numa array
+        uint64_t *cpuids_arr = (uint64_t *)numa0->items;
+        int cpu_system;
+        int i = 0;
+        CPU_BITSET_FOREACH(valid_cpus, cpu_system) {
+            cpuids_arr[i++] = cpu_system;
+        }
+
+        // Lastly, init numa using generic array
+        topology_init_numa_from_config(valid_cpus, &numa_nodes);
+
+        free(numa0->items);
+        free(numa0);
     }
 }
 
