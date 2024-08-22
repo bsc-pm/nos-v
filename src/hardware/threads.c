@@ -251,6 +251,10 @@ void threadmanager_shutdown(thread_manager_t *threadmanager)
 		nosv_condvar_destroy(&worker->condvar);
 		sfree(worker, sizeof(nosv_worker_t), -1);
 	}
+
+	event_queue_destroy(&threadmanager->thread_creation_queue);
+
+	threadmanager = NULL;
 }
 
 static inline void worker_coordinate_shutdown(void)

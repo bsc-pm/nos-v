@@ -30,7 +30,7 @@ typedef struct monitoring_manager {
 __internal void monitoring_init(bool initialize);
 
 //! \brief Shutdown monitoring
-__internal void monitoring_shutdown(void);
+__internal void monitoring_free(void);
 
 //! \brief Check whether monitoring is enabled
 __internal bool monitoring_is_enabled(void);

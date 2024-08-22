@@ -15,6 +15,7 @@
 
 
 __internal void affinity_support_init(void);
+__internal void affinity_support_shutdown(void);
 __internal void affinity_support_register_worker(nosv_worker_t *worker, char default_affinity);
 __internal void affinity_support_unregister_worker(nosv_worker_t *worker, char restore);
 

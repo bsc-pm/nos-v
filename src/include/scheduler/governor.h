@@ -32,6 +32,9 @@ typedef struct governor {
 // Initializes the governor structures
 __internal void governor_init(governor_t *governor);
 
+// Frees the governor structures
+__internal void governor_free(governor_t *governor);
+
 // Notify that remaining waiters could not be scheduled a task
 // Pass the dtlock as this may result in actions taken
 __internal void governor_apply_policy(governor_t *governor, delegation_lock_t *dtlock);

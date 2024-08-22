@@ -46,10 +46,10 @@ void monitoring_init(bool initialize)
 	}
 }
 
-void monitoring_shutdown(void)
+void monitoring_free(void)
 {
 	if (monitoring_enabled) {
-		cpumonitor_shutdown(monitor->cpumonitor);
+		cpumonitor_free(monitor->cpumonitor);
 
 		sfree(monitor->cpumonitor, sizeof(cpumonitor_t), -1);
 		sfree(monitor, sizeof(monitoring_manager_t), -1);

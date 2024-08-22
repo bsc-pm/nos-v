@@ -194,6 +194,15 @@ void affinity_support_init(void)
 	assert(!ret);
 }
 
+void affinity_support_shutdown(void)
+{
+	if (!nosv_config.affinity_compat_support)
+		return;
+
+	ht_destroy(&ht_pthread);
+	ht_destroy(&ht_tid);
+}
+
 void affinity_support_register_worker(nosv_worker_t *worker, char default_affinity)
 {
 	assert(worker);

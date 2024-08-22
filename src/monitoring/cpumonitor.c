@@ -25,7 +25,7 @@ void cpumonitor_initialize(cpumonitor_t *monitor)
 	}
 }
 
-void cpumonitor_shutdown(cpumonitor_t *monitor)
+void cpumonitor_free(cpumonitor_t *monitor)
 {
 	assert(monitor != NULL);
 

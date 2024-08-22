@@ -94,6 +94,34 @@ void scheduler_shutdown(void)
 	free(task_batch_buffer);
 }
 
+static inline void scheduler_free_pid(process_scheduler_t *sched, int cpus);
+
+// Called by the last process to exit the shared memory segment
+// We are guaranteed to be the last scheduler process
+void scheduler_free(void)
+{
+	int cpu_count = cpus_count();
+
+	// Free helper data structures
+	sfree(scheduler->timestamps, sizeof(timestamp_t) * cpu_count, -1);
+	mpsc_free(scheduler->in_queue, cpu_count, nosv_config.sched_in_queue_size);
+	governor_free(&scheduler->governor);
+	dtlock_free(&scheduler->dtlock, cpu_count * 2);
+
+	// Free per-pid queues
+	list_head_t *next;
+	for (list_head_t *head = list_front(&scheduler->queues); !list_is_head(head, &scheduler->queues); head = next) {
+		// Save next pointer because we're freeing everything
+		next = list_next(head);
+		process_scheduler_t *sched = list_elem(head, process_scheduler_t, list_hook);
+		scheduler_free_pid(sched, cpu_count);
+	}
+
+	// Free the scheduler itself
+	sfree(scheduler, sizeof(scheduler_t), -1);
+	scheduler = NULL;
+}
+
 static inline void scheduler_init_queue(scheduler_queue_t *queue)
 {
 	list_init(&queue->tasks);
@@ -260,6 +288,21 @@ static inline process_scheduler_t *scheduler_init_pid(int pid)
 	atomic_init(&sched->shutdown, 0);
 
 	return sched;
+}
+
+static inline void scheduler_free_pid(process_scheduler_t *sched, int cpus)
+{
+	assert(sched);
+
+	int numas = locality_numa_count();
+
+	sfree(sched->per_numa_queue_preferred, sizeof(scheduler_queue_t) * numas, -1);
+	sfree(sched->per_numa_queue_strict, sizeof(scheduler_queue_t) * numas, -1);
+
+	sfree(sched->per_cpu_queue_preferred, sizeof(scheduler_queue_t) * cpus, -1);
+	sfree(sched->per_cpu_queue_strict, sizeof(scheduler_queue_t) * cpus, -1);
+
+	sfree(sched, sizeof(process_scheduler_t), -1);
 }
 
 // Check if any schedulers need shutting down

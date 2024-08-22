@@ -48,6 +48,11 @@ static inline spsc_queue_t *spsc_alloc(size_t size)
 	return queue;
 }
 
+static inline void spsc_free(spsc_queue_t * queue, size_t size)
+{
+	sfree(queue, sizeof(spsc_queue_t) + size * sizeof(struct spsc_queue_entry), -1);
+}
+
 static inline int spsc_push(spsc_queue_t *queue, void *value)
 {
 	const size_t size = queue->size;

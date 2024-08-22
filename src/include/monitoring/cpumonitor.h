@@ -25,7 +25,7 @@ __internal void cpumonitor_initialize(cpumonitor_t *monitor);
 
 //! \brief Shutdown the CPU monitor
 //! \param[in,out] monitor The CPU monitor
-__internal void cpumonitor_shutdown(cpumonitor_t *monitor);
+__internal void cpumonitor_free(cpumonitor_t *monitor);
 
 //! \brief Signal that a CPU just became active
 //! \param[in,out] monitor The CPU monitor

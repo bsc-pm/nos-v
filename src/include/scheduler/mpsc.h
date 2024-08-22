@@ -57,6 +57,19 @@ static inline mpsc_queue_t *mpsc_alloc(size_t nqueues, size_t slots)
 	return queue;
 }
 
+static inline void mpsc_free(mpsc_queue_t *queue, size_t nqueues, size_t slots)
+{
+	assert(queue);
+
+	for (int i = 0; i < nqueues + 1; ++i) {
+		nosv_spin_destroy(&queue->queues[i].qspin);
+		spsc_free(queue->queues[i].queue, slots);
+	}
+
+	sfree(queue->queues, sizeof(mspc_subqueue_t) * (nqueues + 1), -1);
+	sfree(queue, sizeof(mpsc_queue_t), -1);
+}
+
 static inline int mpsc_push(mpsc_queue_t *queue, void *value, int cpu)
 {
 	assert(value);

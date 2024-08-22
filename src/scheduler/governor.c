@@ -33,6 +33,11 @@ void governor_init(governor_t *governor)
 	}
 }
 
+void governor_free(__maybe_unused governor_t *governor)
+{
+	// Nothing to do for now
+}
+
 static inline void governor_sleep_cpu(governor_t *governor, const int waiter, delegation_lock_t *dtlock)
 {
 	// Tell the waiter to sleep

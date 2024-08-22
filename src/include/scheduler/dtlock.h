@@ -125,6 +125,18 @@ static inline void dtlock_init(delegation_lock_t *dtlock, int size)
 	atomic_store_explicit(&dtlock->waitqueue[0].ticket, size, memory_order_seq_cst);
 }
 
+static inline void dtlock_free(delegation_lock_t *dtlock, int size)
+{
+	assert(dtlock);
+
+	for (int i = 0; i < size; ++i)
+		nosv_futex_destroy(&dtlock->cpu_sleep_vars[i]);
+
+	sfree(dtlock->cpu_sleep_vars, sizeof(nosv_futex_t) * size, -1);
+	sfree(dtlock->items, sizeof(struct dtlock_item) * size, -1);
+	sfree(dtlock->waitqueue, sizeof(nosv_futex_t) * size, -1);
+}
+
 static inline int dtlock_try_lock(delegation_lock_t *dtlock)
 {
 	uint64_t head = atomic_load_explicit(&dtlock->head, memory_order_relaxed);

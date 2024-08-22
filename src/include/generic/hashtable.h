@@ -35,6 +35,7 @@ typedef struct hash_table {
 	int nbkt;
 	hash_bucket_t free;
 	hash_bucket_t *buckets;
+	hash_entry_t *entries;
 } hash_table_t;
 
 
@@ -50,7 +51,6 @@ static inline size_t hash(hash_table_t *ht, hash_key_t key)
 static inline int ht_init(hash_table_t *ht, size_t nbuckets, size_t nentries)
 {
 	size_t i;
-	hash_entry_t *buffer;
 
 	assert(ht != NULL);
 
@@ -66,17 +66,23 @@ static inline int ht_init(hash_table_t *ht, size_t nbuckets, size_t nentries)
 	}
 
 	if (nentries) {
-		buffer = (hash_entry_t *)malloc(sizeof(hash_entry_t) * nentries);
-		if (!buffer) {
+		ht->entries = (hash_entry_t *)malloc(sizeof(hash_entry_t) * nentries);
+		if (!ht->entries) {
 			return 1;
 		}
 
 		for (i = 0; i < nentries; i++) {
-			SLIST_INSERT_HEAD(&ht->free.head, &buffer[i], list_hook);
+			SLIST_INSERT_HEAD(&ht->free.head, &ht->entries[i], list_hook);
 		}
 	}
 
 	return 0;
+}
+
+static inline void ht_destroy(hash_table_t *ht)
+{
+	free(ht->entries);
+	free(ht->buckets);
 }
 
 static inline hash_entry_t *get_free_entry(hash_table_t *ht)
