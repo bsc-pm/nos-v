@@ -507,7 +507,7 @@ static inline void topology_init_numa_from_libnuma(cpu_bitset_t *valid_cpus)
     topology->numa_count = numa_bitmask_weight(numa_all_nodes_ptr);
     topology_init_domain_s_to_l(NOSV_TOPO_LEVEL_NUMA, topology->numa_count);
     int numa_max = numa_max_node();
-    if (numa_max <= 0) {
+    if (numa_max < 0) {
         nosv_abort("Error: Number of numa nodes is %d, which is invalid.", numa_max);
     }
     cpu_bitset_init(&topology->valid_numas, NR_CPUS);
@@ -561,7 +561,7 @@ static inline void topology_init_numa(cpu_bitset_t *valid_cpus)
     if (nosv_config.affinity_numa_nodes.n >= 1) { // If more than 1, enable numa from config
         topology_init_numa_from_config(valid_cpus, &nosv_config.affinity_numa_nodes);
     } else if (numa_available() != -1) {
-            topology_init_numa_from_libnuma(valid_cpus);
+        topology_init_numa_from_libnuma(valid_cpus);
     } else {
         // Create numa config with all cpus in one numa
         generic_array_t numa_nodes;
