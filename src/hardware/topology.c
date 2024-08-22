@@ -1,7 +1,7 @@
 /*
     This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-    Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
+    Copyright (C) 2024 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
@@ -43,55 +43,6 @@ static inline int* topology_init_domain_s_to_l(nosv_topo_level_t level, int max)
     }
     topology->s_max[level] = max;
     return *s_to_l;
-}
-
-// Infer real system core id, which we define as the first cpu sibling of the core. Cannot use core_id sysfs value as it is not unique in a system
-static inline int topology_parse_coreid_from_sysfs(int cpu_sid)
-{
-    // First, open thread_siblings file and read content
-    char siblings_filename[PATH_MAX];
-    int would_be_size = snprintf(siblings_filename, PATH_MAX, SYS_CPU_PATH "/cpu%d/topology/thread_siblings_list", cpu_sid);
-    if (would_be_size >= PATH_MAX) {
-        nosv_abort("snprintf failed to format siblings_filename string. String too big with size %d", would_be_size);
-    }
-    errno = 0;
-    FILE *siblings_fp = fopen(siblings_filename, "r");
-    if (!siblings_fp || errno != 0) {
-        nosv_abort("Couldn't open cpu thread siblings list file %s", siblings_filename);
-    }
-    char thread_siblings_str[40];
-    fgets(thread_siblings_str, 40, siblings_fp);
-    fclose(siblings_fp);
-    // Check closed correctly
-    if (errno != 0) {
-        nosv_abort("Couldn't close cpu thread siblings list file %s", siblings_filename);
-    }
-
-    // Artificially shorten the string by replacing the '-' and ',' characters
-    // with a '\0'.
-    // We are only interested in the first value of the sequence.
-    char *first_dash = strchrnul(thread_siblings_str, '-');
-    if (!first_dash) { // Note: It does not matter if there is no '-' in the string
-      nosv_abort("Error parsing thread_siblings string in file %s", siblings_filename);
-    } else {
-        *first_dash = '\0';
-    }
-    char *first_comma = strchrnul(thread_siblings_str, ',');
-    if (!first_comma) { // Note: It does not matter if there is no ',' in the string
-      nosv_abort("Error parsing thread_siblings string in file %s", siblings_filename);
-    } else {
-        *first_comma = '\0';
-    }
-
-    // Lastly, parse the first thread sibling value
-    char *first_int_str = thread_siblings_str;
-    char *first_int_endptr;
-    errno = 0;
-    int coreid = strtol(first_int_str, &first_int_endptr, 10);
-    if (errno != 0) {
-      nosv_abort("Error parsing thread_siblings string in file %s", siblings_filename);
-    }
-    return coreid;
 }
 
 // Returns the topo_domain_t struct for the given level and logical id. Does not accept levels NOSV_TOPO_LEVEL_{NODE,CPU}
@@ -269,6 +220,34 @@ static inline void update_cpu_and_parents(int cpu_system, nosv_topo_level_t pare
     }
 }
 
+// Returns core system id, and populates core_cpus bitset.
+// We infer real system core id, which we define as the first cpu sibling of the core.
+// Cannot use core_id sysfs value as it is not unique in a system
+static inline int topology_get_core_cpus(const int cpu_system, cpu_bitset_t *core_cpus)
+{
+    // First, open thread_siblings file and read content
+    char siblings_filename[PATH_MAX];
+    int would_be_size = snprintf(siblings_filename, PATH_MAX, SYS_CPU_PATH "/cpu%d/topology/thread_siblings_list", cpu_system);
+    if (would_be_size >= PATH_MAX) {
+        nosv_abort("snprintf failed to format siblings_filename string. String too big with size %d", would_be_size);
+    }
+    errno = 0;
+    FILE *siblings_fp = fopen(siblings_filename, "r");
+    if (!siblings_fp || errno != 0) {
+        nosv_abort("Couldn't open cpu thread siblings list file %s", siblings_filename);
+    }
+    char core_cpus_str[40];
+    fgets(core_cpus_str, 40, siblings_fp);
+    fclose(siblings_fp);
+    // Check closed correctly
+    if (errno != 0) {
+        nosv_abort("Couldn't close cpu thread siblings list file %s", siblings_filename);
+    }
+
+    cpu_bitset_parse_str(core_cpus, core_cpus_str);
+    return cpu_bitset_ffs(core_cpus);
+}
+
 // Inits core topo_domain_t structs without the numa and complex set info
 static inline void topology_init_cores(cpu_bitset_t const* const valid_cpus)
 {
@@ -277,28 +256,33 @@ static inline void topology_init_cores(cpu_bitset_t const* const valid_cpus)
 
     cpu_bitset_t *valid_cores = &topology->valid_cores;
     cpu_bitset_init(valid_cores, NR_CPUS);
+    cpu_bitset_t visited_cpus;
+    cpu_bitset_init(&visited_cpus, NR_CPUS);
+
     topology->cores = malloc(sizeof(topo_domain_t) * cpu_bitset_count(valid_cpus));
 
     int cpu_system = 0;
     int core_logical = 0;
     CPU_BITSET_FOREACH(valid_cpus, cpu_system) {
-        int core_system = topology_parse_coreid_from_sysfs(cpu_system);
+        if (!cpu_bitset_isset(&visited_cpus, cpu_system)) {
+            // Find core system id and find core cpus
+            cpu_bitset_t core_cpus;
+            int core_system = topology_get_core_cpus(cpu_system, &core_cpus);
 
-        // Init core
-        if (!cpu_bitset_isset(valid_cores, core_system)) {
+            // Init core topology domain
             cpu_bitset_set(valid_cores, core_system);
+            topology_init_domain(NOSV_TOPO_LEVEL_CORE, core_system, core_logical);            // Get core logic id, irrespective of whether or not is the first time core_system is found or not
 
-            topology_init_domain(NOSV_TOPO_LEVEL_CORE, core_system, core_logical);
-
+            // Update cpu and parents
+            int core_cpu_system;
+            CPU_BITSET_FOREACH(&core_cpus, core_cpu_system) {
+                assert(!cpu_bitset_isset(&visited_cpus, core_cpu_system));
+                cpu_bitset_set(&visited_cpus, core_cpu_system);
+                update_cpu_and_parents(core_cpu_system, NOSV_TOPO_LEVEL_CORE, core_logical);
+            }
             core_logical++;
         }
-
-        // Get core logic id, irrespective of whether or not is the first time core_system is found or not
-        int _core_logical = topology_get_logical(NOSV_TOPO_LEVEL_CORE, core_system);
-
-       update_cpu_and_parents(cpu_system, NOSV_TOPO_LEVEL_CORE, _core_logical);
     }
-
     topology->core_count = cpu_bitset_count(valid_cores);
     assert(core_logical == topology->core_count);
 
@@ -389,7 +373,10 @@ static inline void topology_init_complex_sets(cpu_bitset_t *valid_cpus, cpu_bits
         uint64_t *system_ids = (uint64_t *) config_cs[cs_system].items;
         for (int j = 0; j < config_cs[cs_system].n; ++j) {
             int cpu_system = (int) system_ids[j];
-            int core_system = topology_parse_coreid_from_sysfs(cpu_system);
+
+            cpu_t *cpu = cpu_get_from_system_id(cpu_system);
+            int core_logical = cpu_get_parent_logical_id(cpu, NOSV_TOPO_LEVEL_CORE);
+            int core_system = topology_get_system(NOSV_TOPO_LEVEL_CORE, core_logical);
             if (!cpu_bitset_isset(valid_cores, core_system)) {
                 continue;
             }
@@ -398,7 +385,6 @@ static inline void topology_init_complex_sets(cpu_bitset_t *valid_cpus, cpu_bits
             }
             cpu_bitset_set(&visited_cores, (int)core_system);
 
-            int core_logical = topology_get_logical(NOSV_TOPO_LEVEL_CORE, core_system);
             topology_set_complex_set_in_core_cpus(core_logical, cs_logical, valid_cpus);
         }
 
@@ -1027,9 +1013,15 @@ int topology_get_default_affinity(char **out)
     return 0;
 }
 
-cpu_t *cpu_get(int cpu)
+cpu_t *cpu_get(int cpu_logical_id)
 {
-    return &cpumanager->cpus[cpu];
+    return &cpumanager->cpus[cpu_logical_id];
+}
+
+cpu_t *cpu_get_from_system_id(int cpu_system_id)
+{
+    int cpu_logical_id = topology_get_logical(NOSV_TOPO_LEVEL_CPU, cpu_system_id);
+    return &cpumanager->cpus[cpu_logical_id];
 }
 
 cpu_t *cpu_pop_free(int pid)

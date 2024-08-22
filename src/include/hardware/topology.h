@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2024 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef CPUS_H
@@ -114,7 +114,8 @@ typedef struct cpumanager {
 } cpumanager_t;
 
 __internal void topology_init(int initialize);
-__internal cpu_t *cpu_get(int cpu);
+__internal cpu_t *cpu_get(int cpu_logical_id);
+__internal cpu_t *cpu_get_from_system_id(int cpu_system_id);
 __internal cpu_t *cpu_pop_free(int pid);
 __internal void cpu_set_pid(cpu_t *cpu, int pid);
 __internal void cpu_transfer(int destination_pid, cpu_t *cpu, task_execution_handle_t handle);

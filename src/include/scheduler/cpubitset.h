@@ -10,6 +10,7 @@
 #include <assert.h>
 #include <stdio.h>
 
+#include "common.h"
 #include "defaults.h"
 #include "generic/bitset.h"
 
@@ -47,17 +48,18 @@ static inline int cpu_bitset_count(const cpu_bitset_t *bitset)
 	return BIT_COUNT(bitset->size, &bitset->bits);
 }
 
+// Returns the 0-index first set bit, -1 if bitset is empty
 static inline int cpu_bitset_ffs(const cpu_bitset_t *bitset)
 {
 	return BIT_FFS(bitset->size, &bitset->bits) - 1;
 }
 
-static inline int cpu_bitset_ffs_at(const cpu_bitset_t *bitset, const int cpu)
+// Returns the 0-index first set bit, -1 if no bits are greater than start_cpu are set
+static inline int cpu_bitset_ffs_at(const cpu_bitset_t *bitset, const int start_cpu)
 {
-	if (bitset->size <= cpu)
-		return -1;
+	assert(start_cpu < bitset->size);
 
-	return BIT_FFS_AT(bitset->size, &bitset->bits, cpu + 1) - 1;
+	return BIT_FFS_AT(bitset->size, &bitset->bits, start_cpu + 1) - 1;
 }
 
 static inline int cpu_bitset_fls(const cpu_bitset_t *bitset)
@@ -70,6 +72,52 @@ static inline int cpu_bitset_cmp(const cpu_bitset_t *a, const cpu_bitset_t *b)
 {
 	assert(a->size == b->size);
 	return BIT_CMP(a->size, &a->bits, &b->bits);
+}
+
+// Parse a CPU set which is specified in separation by "-" and "," into a CPU set
+// Additionally, allow for stride to be specified with ":", similarly to taskset
+// This can parse both taskset-style lists and linux-style lists
+static inline int cpu_bitset_parse_str(cpu_bitset_t *set, char *string_to_parse)
+{
+	int ret = 0;
+	cpu_bitset_init(set, NR_CPUS);
+
+	char *string_copy = strdup(string_to_parse);
+	if (!string_copy)
+		nosv_abort("Could not allocate memory");
+
+	char *tok = strtok(string_to_parse, ",");
+	while(tok) {
+		int first_id, last_id, stride;
+		int ret = sscanf(tok, "%d-%d:%d", &first_id, &last_id, &stride);
+
+		switch (ret) {
+			case 0:
+				ret = 1;
+				goto failed;
+			case 1:
+				last_id = first_id;
+				fallthrough;
+			case 2:
+				stride = 1;
+				break;
+		}
+
+		// Sanity check
+		if (first_id > last_id) {
+			ret = 1;
+			goto failed;
+		}
+
+		for (int i = first_id; i <= last_id; i += stride)
+			cpu_bitset_set(set, i);
+
+		tok = strtok(NULL, ",");
+	}
+
+failed:
+	free(string_copy);
+	return ret;
 }
 
 #define CPU_BITSET_FOREACH(bs, var) \
