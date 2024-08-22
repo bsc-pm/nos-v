@@ -568,11 +568,11 @@ int task_affine(nosv_task_t task, cpu_t *cpu)
 {
 	switch (task->affinity.level) {
 		case NOSV_AFFINITY_LEVEL_CPU:
-			return ((int) task->affinity.index) == cpu->system_id;
+			return ((int) task->affinity.index) == cpu_get_system_id(cpu);
 		case NOSV_AFFINITY_LEVEL_NUMA:
 			;
-			int numa_system = topology_get_logical(NOSV_TOPO_LEVEL_NUMA, (int) cpu->logical_numa);
-			return topology_get_logical(NOSV_TOPO_LEVEL_NUMA, (int) task->affinity.index) == numa_system;
+			int numa_system = topology_get_system_id(NOSV_TOPO_LEVEL_NUMA, cpu_get_parent_logical_id(cpu, NOSV_TOPO_LEVEL_NUMA));
+			return topology_get_logical_id(NOSV_TOPO_LEVEL_NUMA, (int) task->affinity.index) == numa_system;
 		case NOSV_AFFINITY_LEVEL_USER_COMPLEX:
 		default:
 			return 1;
@@ -589,14 +589,14 @@ static inline void scheduler_insert_affine(process_scheduler_t *sched, nosv_task
 
 	switch (task->affinity.level) {
 		case NOSV_AFFINITY_LEVEL_CPU:
-			idx = topology_get_logical(NOSV_TOPO_LEVEL_CPU, (int) task->affinity.index);
+			idx = topology_get_logical_id(NOSV_TOPO_LEVEL_CPU, (int) task->affinity.index);
 			assert(idx >= 0);
 			queue = (task->affinity.type == NOSV_AFFINITY_TYPE_STRICT)
 						? &sched->per_cpu_queue_strict[idx]
 						: &sched->per_cpu_queue_preferred[idx];
 			break;
 		case NOSV_AFFINITY_LEVEL_NUMA:
-			idx = topology_get_logical(NOSV_TOPO_LEVEL_NUMA, (int) task->affinity.index);
+			idx = topology_get_logical_id(NOSV_TOPO_LEVEL_NUMA, (int) task->affinity.index);
 			queue = (task->affinity.type == NOSV_AFFINITY_TYPE_STRICT)
 						? &sched->per_numa_queue_strict[idx]
 						: &sched->per_numa_queue_preferred[idx];
@@ -661,7 +661,7 @@ deadline_expired:
 
 static inline nosv_task_t scheduler_find_task_process(process_scheduler_t *sched, cpu_t *cpu, int *removed)
 {
-	int cpuid = cpu->logical_id;
+	int cpuid = cpu_get_logical_id(cpu);
 	nosv_task_t task = NULL;
 
 	*removed = 1;
@@ -708,11 +708,12 @@ static inline nosv_task_t scheduler_find_task_process(process_scheduler_t *sched
 		goto task_obtained_preferred;
 	}
 
-	if (scheduler_get_from_queue(&sched->per_numa_queue_strict[cpu->logical_numa], &task, removed)) {
+	int numa_logical = cpu_get_parent_logical_id(cpu, NOSV_TOPO_LEVEL_NUMA);
+	if (scheduler_get_from_queue(&sched->per_numa_queue_strict[numa_logical], &task, removed)) {
 		goto task_obtained;
 	}
 
-	if (scheduler_get_from_queue(&sched->per_numa_queue_preferred[cpu->logical_numa], &task, removed)) {
+	if (scheduler_get_from_queue(&sched->per_numa_queue_preferred[numa_logical], &task, removed)) {
 		goto task_obtained_preferred;
 	}
 
@@ -818,7 +819,7 @@ static inline nosv_task_t scheduler_get_internal(int cpu)
 		return NULL;
 	}
 
-	cpu_t *cpu_str = cpu_get(cpu);
+	cpu_t *cpu_str = cpu_get_from_logical_id(cpu);
 	const int external = dtlock_requires_external(&scheduler->dtlock, cpu);
 
 	// What PID is that CPU running?

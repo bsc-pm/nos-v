@@ -42,13 +42,16 @@ static const char *const nosv_topo_level_names[] = {
 
 // Struct to be used for cores, complex sets and numas. For numa, we are wasting sizeof(int)*2 bytes, but it's not a big deal
 typedef struct topo_domain {
+	nosv_topo_level_t level;
 	union {
 		struct {
+			int logical_node;
 			int logical_numa;
 			int logical_complex_set;
 			int logical_core;
+			int logical_cpu;
 		};
-		int parents[NOSV_TOPO_LEVEL_COUNT-2];
+		int parents[NOSV_TOPO_LEVEL_COUNT];
 	};
 	int system_id;
 	cpu_bitset_t cpu_sid_mask; // system ids
@@ -57,15 +60,9 @@ typedef struct topo_domain {
 
 typedef struct cpu {
 	cpu_set_t cpuset;
-	union {
-		struct { // Logic ids
-			int logical_numa;
-			int logical_complex_set;
-			int logical_core;
-			int logical_id;
-		};
-		int parents[NOSV_TOPO_LEVEL_COUNT - 1]; // upper levels and itself
-	};
+
+	// Pointer to a position in topology's cpu array
+	topo_domain_t *cpu_domain;
 
 	int system_id;
 	cpu_hwcounters_t counters;
@@ -74,6 +71,7 @@ typedef struct cpu {
 typedef struct topology {
 	union {
 		struct {
+			cpu_bitset_t valid_nodes;
 			cpu_bitset_t valid_numas;
 			cpu_bitset_t valid_complex_sets;
 			cpu_bitset_t valid_cores;
@@ -96,12 +94,13 @@ typedef struct topology {
 
 	union {
 		struct {
+			topo_domain_t *nodes;
 			topo_domain_t *numas; // NUMA topo domain array
 			topo_domain_t *complex_sets; // Complex Set domain array
 			topo_domain_t *cores; // Core domain array
-			// CPU array belongs in cpumanager
+			topo_domain_t *cpus; // CPU domain array
 		};
-		topo_domain_t *(per_domain_array[NOSV_TOPO_LEVEL_COUNT-2]); // Should be accessed through topology_get_level_domains
+		topo_domain_t *(per_domain_array[NOSV_TOPO_LEVEL_COUNT]); // Should be accessed through topology_get_level_domains
 	};
 
 	int *s_to_l[NOSV_TOPO_LEVEL_COUNT]; // System id to logical id mapping
@@ -114,7 +113,7 @@ typedef struct cpumanager {
 } cpumanager_t;
 
 __internal void topology_init(int initialize);
-__internal cpu_t *cpu_get(int cpu_logical_id);
+__internal cpu_t *cpu_get_from_logical_id(int cpu_logical_id);
 __internal cpu_t *cpu_get_from_system_id(int cpu_system_id);
 __internal cpu_t *cpu_pop_free(int pid);
 __internal void cpu_set_pid(cpu_t *cpu, int pid);
@@ -123,12 +122,16 @@ __internal void cpu_mark_free(cpu_t *cpu);
 __internal void cpu_affinity_reset(void);
 __internal void cpu_get_all_mask(const char **mask);
 __internal int cpu_get_parent_logical_id(cpu_t *cpu, nosv_topo_level_t level);
+__internal int cpu_get_logical_id(cpu_t *cpu);
+__internal int cpu_get_system_id(cpu_t *cpu);
+__internal int cpu_get_parent_logical_id(cpu_t *cpu, nosv_topo_level_t level);
 
 
-__internal int topology_get_logical(nosv_topo_level_t d, int system_id);
-__internal int topology_get_system(nosv_topo_level_t level, int logical_id);
+__internal int topology_get_logical_id(nosv_topo_level_t d, int system_id);
+__internal int topology_get_system_id(nosv_topo_level_t level, int logical_id);
 __internal int topology_get_level_count(nosv_topo_level_t d);
 __internal int topology_get_default_affinity(char **out);
+__internal int topology_get_parent_logical_id(topo_domain_t *domain, nosv_topo_level_t parent);
 __internal cpu_bitset_t* topology_get_domain_cpu_logical_mask(nosv_topo_level_t level, int lid);
 __internal cpu_bitset_t* topology_get_domain_cpu_system_mask(nosv_topo_level_t level, int lid);
 
