@@ -69,16 +69,7 @@ typedef struct cpu {
 } cpu_t;
 
 typedef struct topology {
-	union {
-		struct {
-			cpu_bitset_t valid_nodes;
-			cpu_bitset_t valid_numas;
-			cpu_bitset_t valid_complex_sets;
-			cpu_bitset_t valid_cores;
-			cpu_bitset_t valid_cpus;
-		};
-		cpu_bitset_t per_domain_bitset[NOSV_TOPO_LEVEL_COUNT - 1];
-	};
+	cpu_bitset_t per_level_valid_domains[NOSV_TOPO_LEVEL_COUNT];
 
 	union {
 		struct {
@@ -88,7 +79,7 @@ typedef struct topology {
 			int core_count;
 			int cpu_count;
 		};
-		int per_domain_count[NOSV_TOPO_LEVEL_COUNT];
+		int per_level_count[NOSV_TOPO_LEVEL_COUNT];
 	};
 	bool numa_fromcfg;
 
@@ -100,7 +91,7 @@ typedef struct topology {
 			topo_domain_t *cores; // Core domain array
 			topo_domain_t *cpus; // CPU domain array
 		};
-		topo_domain_t *(per_domain_array[NOSV_TOPO_LEVEL_COUNT]); // Should be accessed through topology_get_level_domains
+		topo_domain_t *(per_level_domains[NOSV_TOPO_LEVEL_COUNT]); // Should be accessed through topology_get_level_domains
 	};
 
 	int *s_to_l[NOSV_TOPO_LEVEL_COUNT]; // System id to logical id mapping
@@ -127,13 +118,16 @@ __internal int cpu_get_system_id(cpu_t *cpu);
 __internal int cpu_get_parent_logical_id(cpu_t *cpu, nosv_topo_level_t level);
 
 
-__internal int topology_get_logical_id(nosv_topo_level_t d, int system_id);
+__internal int topology_get_logical_id(nosv_topo_level_t level, int system_id);
 __internal int topology_get_system_id(nosv_topo_level_t level, int logical_id);
-__internal int topology_get_level_count(nosv_topo_level_t d);
+__internal int topology_get_level_count(nosv_topo_level_t level);
+__internal int topology_get_level_max(nosv_topo_level_t level);
 __internal int topology_get_default_affinity(char **out);
 __internal int topology_get_parent_logical_id(topo_domain_t *domain, nosv_topo_level_t parent);
-__internal cpu_bitset_t* topology_get_domain_cpu_logical_mask(nosv_topo_level_t level, int lid);
-__internal cpu_bitset_t* topology_get_domain_cpu_system_mask(nosv_topo_level_t level, int lid);
+__internal cpu_bitset_t* topology_get_cpu_logical_mask(nosv_topo_level_t level, int lid);
+__internal cpu_bitset_t* topology_get_cpu_system_mask(nosv_topo_level_t level, int lid);
+__internal cpu_bitset_t *topology_get_valid_domains_mask(nosv_topo_level_t level);
+__internal const char *topology_get_level_name(nosv_topo_level_t level);
 
 __internal extern thread_local int __current_cpu;
 __internal extern cpumanager_t *cpumanager;
