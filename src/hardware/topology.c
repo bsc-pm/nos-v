@@ -182,7 +182,9 @@ static inline void topology_init_complex_sets(cpu_bitset_t *valid_cpus, cpu_bits
 
     topology_init_domain_s_to_l(NOSV_TOPO_LEVEL_COMPLEX_SET, maxcs);
 
-    topology->complex_sets = (topo_domain_t *) malloc(sizeof(topo_domain_t) * core_cnt);
+    topo_domain_t *topo_complex_sets = (topo_domain_t *) malloc(sizeof(topo_domain_t) * core_cnt);
+    topology->per_level_domains[NOSV_TOPO_LEVEL_COMPLEX_SET] = topo_complex_sets;
+
 
     cpu_bitset_t visited_cores;
     cpu_bitset_init(&visited_cores, NR_CPUS);
@@ -241,10 +243,10 @@ static inline void topology_init_complex_sets(cpu_bitset_t *valid_cpus, cpu_bits
 
     // Move malloc'd CSs to shared memory
     topo_domain_t *shmem_cs = salloc(sizeof(topo_domain_t) * cs_logical, 0);
-    memmove(shmem_cs, topology->complex_sets, sizeof(topo_domain_t) * cs_logical);
-    free(topology->complex_sets);
-    topology->complex_sets = shmem_cs;
-    topology->complex_set_count = cs_logical;
+    memmove(shmem_cs, topo_complex_sets, sizeof(topo_domain_t) * cs_logical);
+    free(topo_complex_sets);
+    topology->per_level_domains[NOSV_TOPO_LEVEL_COMPLEX_SET] = shmem_cs;
+    topology->per_level_count[NOSV_TOPO_LEVEL_COMPLEX_SET] = cs_logical;
 
     assert(cs_logical <= maxcs+1);
 }
@@ -288,7 +290,8 @@ static inline void topology_init_cores(cpu_bitset_t const* const valid_cpus)
     cpu_bitset_t visited_cpus;
     cpu_bitset_init(&visited_cpus, NR_CPUS);
 
-    topology->cores = malloc(sizeof(topo_domain_t) * cpu_bitset_count(valid_cpus));
+    topo_domain_t *topo_cores = malloc(sizeof(topo_domain_t) * cpu_bitset_count(valid_cpus));
+    topology->per_level_domains[NOSV_TOPO_LEVEL_CORE] = topo_cores;
 
     int cpu_system = 0;
     int core_logical = 0;
@@ -312,13 +315,14 @@ static inline void topology_init_cores(cpu_bitset_t const* const valid_cpus)
             core_logical++;
         }
     }
-    topology->core_count = cpu_bitset_count(valid_cores);
-    assert(core_logical == topology->core_count);
+    int *topo_core_cnt = &(topology->per_level_count[NOSV_TOPO_LEVEL_CORE]);
+    *topo_core_cnt = cpu_bitset_count(valid_cores);
+    assert(core_logical == (*topo_core_cnt));
 
-    topo_domain_t *shmem_cores = salloc(sizeof(topo_domain_t) * topology->core_count, 0);
-    memmove(shmem_cores, topology->cores, sizeof(topo_domain_t) * topology->core_count);
-    free(topology->cores);
-    topology->cores = shmem_cores;
+    topo_domain_t *shmem_cores = salloc(sizeof(topo_domain_t) * (*topo_core_cnt), 0);
+    memmove(shmem_cores, topo_cores, sizeof(topo_domain_t) * (*topo_core_cnt));
+    free(topo_cores);
+    topology->per_level_domains[NOSV_TOPO_LEVEL_CORE] = shmem_cores;
 }
 
 static inline void topology_init_node(cpu_bitset_t *valid_cpus)
@@ -327,7 +331,7 @@ static inline void topology_init_node(cpu_bitset_t *valid_cpus)
     topology->s_to_l[NOSV_TOPO_LEVEL_NODE][0] = 0;
     topology->s_max[NOSV_TOPO_LEVEL_NODE] = 0;
 
-    topology->nodes = (topo_domain_t *) salloc(sizeof(topo_domain_t), 0);
+    topology->per_level_domains[NOSV_TOPO_LEVEL_NODE] = (topo_domain_t *) salloc(sizeof(topo_domain_t), 0);
     cpu_bitset_init(topology_get_valid_domains_mask(NOSV_TOPO_LEVEL_NODE), NR_CPUS);
     cpu_bitset_set(topology_get_valid_domains_mask(NOSV_TOPO_LEVEL_NODE), 0);
 
@@ -354,7 +358,8 @@ static inline void topology_init_numa_from_config(cpu_bitset_t *valid_cpus, gene
     }
 
     // Temporary malloc'd array
-    topology->numas = (topo_domain_t *) malloc(sizeof(topo_domain_t) * config_numa_count);
+    topo_domain_t *topo_numas = (topo_domain_t *) malloc(sizeof(topo_domain_t) * config_numa_count);
+    topology->per_level_domains[NOSV_TOPO_LEVEL_NUMA] = topo_numas;
 
     cpu_bitset_t visited_cpus;
     cpu_bitset_init(&visited_cpus, NR_CPUS);
@@ -404,10 +409,10 @@ static inline void topology_init_numa_from_config(cpu_bitset_t *valid_cpus, gene
 
     // Move malloc'd CSs to shared memory
     topo_domain_t *shmem_numa = salloc(sizeof(topo_domain_t) * numa_logical, 0);
-    memmove(shmem_numa, topology->numas, sizeof(topo_domain_t) * numa_logical);
-    free(topology->numas);
-    topology->numas = shmem_numa;
-    topology->numa_count = numa_logical;
+    memmove(shmem_numa, topo_numas, sizeof(topo_domain_t) * numa_logical);
+    free(topo_numas);
+    topology->per_level_domains[NOSV_TOPO_LEVEL_NUMA] = shmem_numa;
+    topology->per_level_count[NOSV_TOPO_LEVEL_NUMA] = numa_logical;
 }
 
 // Inits topology->numas, updates cpus, cores and complex sets domains setting numa logical id
@@ -415,15 +420,16 @@ static inline void topology_init_numa_from_libnuma(cpu_bitset_t *valid_cpus)
 {
     // Use numa_all_nodes_ptr as that contains only the nodes that are actually available,
     // not all configured. On some machines, some nodes are configured but unavailable.
-    topology->numa_count = numa_bitmask_weight(numa_all_nodes_ptr);
-    topology_init_domain_s_to_l(NOSV_TOPO_LEVEL_NUMA, topology->numa_count);
+    int numa_count = numa_bitmask_weight(numa_all_nodes_ptr);
+    topology->per_level_count[NOSV_TOPO_LEVEL_NUMA] = numa_count;
     int numa_max = numa_max_node();
+    topology_init_domain_s_to_l(NOSV_TOPO_LEVEL_NUMA, numa_max);
     if (numa_max < 0) {
         nosv_abort("Error: Number of numa nodes is %d, which is invalid.", numa_max);
     }
     cpu_bitset_init(topology_get_valid_domains_mask(NOSV_TOPO_LEVEL_NUMA), NR_CPUS);
 
-    topology->numas = (topo_domain_t *) salloc(sizeof(topo_domain_t) * topology->numa_count, 0);	
+    topology->per_level_domains[NOSV_TOPO_LEVEL_NUMA] = (topo_domain_t *) salloc(sizeof(topo_domain_t) * numa_count, 0);	
 
     int logical_id = 0;
      for (int i = 0; i <= numa_max; ++i) {
@@ -448,7 +454,7 @@ static inline void topology_init_numa_from_libnuma(cpu_bitset_t *valid_cpus)
 
         // Check logical id is valid
         int numa_logical = topology_get_logical_id(NOSV_TOPO_LEVEL_NUMA, numa_system);
-        if (numa_logical < 0 || numa_logical >= topology->numa_count) {
+        if (numa_logical < 0 || numa_logical >= numa_count) {
             nosv_abort("Internal error: Could not find NUMA logical id for cpu %d", cpu_sid);
         }
 
@@ -462,7 +468,7 @@ static inline void topology_init_numa_from_libnuma(cpu_bitset_t *valid_cpus)
         nosv_abort("Not all cpus from valid cpus bitset were visited when parsing numas from libnuma");
     }
 
-    if (cpu_bitset_count(topology_get_valid_domains_mask(NOSV_TOPO_LEVEL_NUMA)) != topology->numa_count) {
+    if (cpu_bitset_count(topology_get_valid_domains_mask(NOSV_TOPO_LEVEL_NUMA)) != numa_count) {
         nosv_abort("Not all numas from libnuma were visited when parsing numas");
     }
 }
@@ -640,10 +646,10 @@ static inline void topology_init_cpus(cpu_bitset_t *valid_cpus)
     assert(cnt > 0);
 
     // The CPU array is located just after the CPU manager, as a flexible array member.
-    topology->cpus = salloc(sizeof(topo_domain_t) * cnt, 0);
+    topology->per_level_domains[NOSV_TOPO_LEVEL_CPU] = salloc(sizeof(topo_domain_t) * cnt, 0);
     cpumanager = salloc(sizeof(cpumanager_t) + cnt * sizeof(cpu_t), 0);
     st_config.config->cpumanager_ptr = cpumanager;
-    topology->cpu_count = cnt;
+    topology->per_level_count[NOSV_TOPO_LEVEL_CPU] = cnt;
     assert(cnt <= NR_CPUS);
 
     // Find out maximum CPU id
@@ -688,10 +694,10 @@ static inline void topology_init_cpus(cpu_bitset_t *valid_cpus)
 
 void topology_print(void)
 {
-    int maxsize = 100 * topology->core_count // core lines
-        + 35 * topology->cpu_count // HT lines
-        + 40 * topology->complex_set_count + topology->cpu_count * 4 // complex set lines
-        + topology->numa_count * 40 + topology->cpu_count*4 + 200; // NUMA lines
+    int maxsize = 100 * topology_get_level_count(NOSV_TOPO_LEVEL_CORE) // core lines
+        + 35 * topology_get_level_count(NOSV_TOPO_LEVEL_CPU) // HT lines
+        + 40 * topology_get_level_count(NOSV_TOPO_LEVEL_COMPLEX_SET) + topology_get_level_count(NOSV_TOPO_LEVEL_CPU) * 4 // complex set lines
+        + topology_get_level_count(NOSV_TOPO_LEVEL_NUMA) * 40 + topology_get_level_count(NOSV_TOPO_LEVEL_CPU)*4 + 200; // NUMA lines
     char *msg = malloc(maxsize * sizeof(char));
 
     int would_be_size = snprintf(msg, maxsize, "NOSV: Printing locality domains");
@@ -704,7 +710,7 @@ void topology_print(void)
     strcat(msg, "\nNOSV: NUMA: system hts contained in each numa node");
     for (int lid = 0; lid < topology_get_level_count(NOSV_TOPO_LEVEL_NUMA); lid++) {
         strcat(msg, "\nNOSV: \t");
-        topo_domain_t *numa = &topology->numas[lid];
+        topo_domain_t *numa = topology_get_domain(NOSV_TOPO_LEVEL_NUMA, lid);
         char *numa_str;
         int size = cpu_bitset_count(&numa->cpu_sid_mask);
         nosv_asprintf(&numa_str, "numa(logic=%d, system=%d, num_items=%d) = [", lid, numa->system_id, size);
@@ -725,7 +731,7 @@ void topology_print(void)
     strcat(msg, "\nNOSV: CCX: system cpus contained in each core complex");
     for (int lid = 0; lid < topology_get_level_count(NOSV_TOPO_LEVEL_COMPLEX_SET); lid++) {
         strcat(msg, "\nNOSV: \t");
-        topo_domain_t *ccx = &topology->complex_sets[lid];
+        topo_domain_t *ccx = topology_get_domain(NOSV_TOPO_LEVEL_COMPLEX_SET, lid);
         char *ccx_str;
         int size = cpu_bitset_count(&ccx->cpu_sid_mask);
         nosv_asprintf(&ccx_str, "CCX(logic=%d, system=N/A, num_items=%d) = [", lid, size);
@@ -745,7 +751,7 @@ void topology_print(void)
     strcat(msg, "\nNOSV: CORE: system cpus contained in each core");
     for (int lid = 0; lid < topology_get_level_count(NOSV_TOPO_LEVEL_CORE); lid++) {
         strcat(msg, "\nNOSV: \t");
-        topo_domain_t *core = &topology->cores[lid];
+        topo_domain_t *core = topology_get_domain(NOSV_TOPO_LEVEL_CORE, lid);
         char *core_str;
         int size = cpu_bitset_count(&core->cpu_sid_mask);
         nosv_asprintf(&core_str, "core(logic=%d, system=%d, num_items=%d) = [", lid, core->system_id, size);
@@ -780,17 +786,7 @@ static inline void topology_assert_parent_is_set(nosv_topo_level_t son, nosv_top
     assert(son >= NOSV_TOPO_LEVEL_NUMA && son <= NOSV_TOPO_LEVEL_CPU);
     assert(parent >= NOSV_TOPO_LEVEL_NODE && parent <= NOSV_TOPO_LEVEL_CORE);
 
-    topo_domain_t *arr = NULL;
-    if (son == NOSV_TOPO_LEVEL_CORE) {
-        arr = topology->cores;
-    } else if (son == NOSV_TOPO_LEVEL_COMPLEX_SET) {
-        arr = topology->complex_sets;
-    } else if (son == NOSV_TOPO_LEVEL_NUMA) {
-        arr = topology->numas;
-    } else if (son == NOSV_TOPO_LEVEL_CPU) {
-        arr = topology->cpus;
-    }
-
+    topo_domain_t *arr = topology_get_level_domains(son);
     for (int i = 0; i < topology->per_level_count[son]; ++i) {
         if (arr[i].parents[parent] < 0) {
             nosv_abort("parent %s not set for %s with idx %d. Check initialization of %s",
@@ -1139,12 +1135,12 @@ int nosv_get_current_system_cpu(void)
 
 int nosv_get_num_numa_nodes(void)
 {
-	return topology->numa_count;
+	return topology_get_level_count(NOSV_TOPO_LEVEL_NUMA);
 }
 
 int nosv_get_system_numa_id(int logical_numa_id)
 {
-	if (logical_numa_id >= topology->numa_count)
+	if (logical_numa_id >= topology_get_level_count(NOSV_TOPO_LEVEL_NUMA))
 		return NOSV_ERR_INVALID_PARAMETER;
         
 	return topology_get_system_id(NOSV_TOPO_LEVEL_NUMA, logical_numa_id);
@@ -1158,6 +1154,6 @@ int nosv_get_logical_numa_id(int system_numa_id)
 int nosv_get_num_cpus_in_numa(int system_numa_id)
 {
 	int logical_node = topology_get_logical_id(NOSV_TOPO_LEVEL_NUMA, system_numa_id);
-
-	return cpu_bitset_count(&topology->numas[logical_node].cpu_sid_mask);
+    topo_domain_t *numa = topology_get_domain(NOSV_TOPO_LEVEL_NUMA, logical_node);
+	return cpu_bitset_count(&(numa->cpu_sid_mask));
 }

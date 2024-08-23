@@ -70,29 +70,11 @@ typedef struct cpu {
 
 typedef struct topology {
 	cpu_bitset_t per_level_valid_domains[NOSV_TOPO_LEVEL_COUNT];
-
-	union {
-		struct {
-			int node_count;
-			int numa_count;
-			int complex_set_count;
-			int core_count;
-			int cpu_count;
-		};
-		int per_level_count[NOSV_TOPO_LEVEL_COUNT];
-	};
 	bool numa_fromcfg;
 
-	union {
-		struct {
-			topo_domain_t *nodes;
-			topo_domain_t *numas; // NUMA topo domain array
-			topo_domain_t *complex_sets; // Complex Set domain array
-			topo_domain_t *cores; // Core domain array
-			topo_domain_t *cpus; // CPU domain array
-		};
-		topo_domain_t *(per_level_domains[NOSV_TOPO_LEVEL_COUNT]); // Should be accessed through topology_get_level_domains
-	};
+	int per_level_count[NOSV_TOPO_LEVEL_COUNT];
+
+	topo_domain_t *(per_level_domains[NOSV_TOPO_LEVEL_COUNT]); // Should be accessed through topology_get_level_domains
 
 	int *s_to_l[NOSV_TOPO_LEVEL_COUNT]; // System id to logical id mapping
 	int s_max[NOSV_TOPO_LEVEL_COUNT]; // Max system id in this system for each level
