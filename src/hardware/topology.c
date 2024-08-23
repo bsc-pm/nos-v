@@ -700,81 +700,68 @@ void topology_print(void)
         + topology_get_level_count(NOSV_TOPO_LEVEL_NUMA) * 40 + topology_get_level_count(NOSV_TOPO_LEVEL_CPU)*4 + 200; // NUMA lines
     char *msg = malloc(maxsize * sizeof(char));
 
-    int would_be_size = snprintf(msg, maxsize, "NOSV: Printing locality domains");
-    if (would_be_size >= maxsize) {
+    int offset = snprintf(msg, maxsize, "NOSV: Printing locality domains");
+    if (offset >= maxsize) {
         nosv_abort("Failed to format locality domains");
     }
 
-    strcat(msg, "\nNOSV: NODE: 1");
+#define snprintf_check(offset, maxsize, ...) do { \
+    int ret = snprintf(msg + offset, maxsize - offset, __VA_ARGS__); \
+    if (ret >= maxsize - offset) { \
+        nosv_abort("Failed to format locality domains. Buffer too small"); \
+    } \
+    offset += ret; \
+} while (0)
 
-    strcat(msg, "\nNOSV: NUMA: system hts contained in each numa node");
+    snprintf_check(offset, maxsize, "\nNOSV: NODE: 1");
+
+    snprintf_check(offset, maxsize, "\nNOSV: NUMA: system hts contained in each numa node");
     for (int lid = 0; lid < topology_get_level_count(NOSV_TOPO_LEVEL_NUMA); lid++) {
-        strcat(msg, "\nNOSV: \t");
         topo_domain_t *numa = topology_get_domain(NOSV_TOPO_LEVEL_NUMA, lid);
-        char *numa_str;
         int size = cpu_bitset_count(&numa->cpu_sid_mask);
-        nosv_asprintf(&numa_str, "numa(logic=%d, system=%d, num_items=%d) = [", lid, numa->system_id, size);
-        strcat(msg, numa_str);
+        snprintf_check(offset, maxsize, "\nNOSV: \t");
+        snprintf_check(offset, maxsize, "numa(logic=%d, system=%d, num_items=%d) = [", lid, numa->system_id, size);
         int count = 0;
         int cpu;
         CPU_BITSET_FOREACH(&numa->cpu_sid_mask, cpu) {
-            char *_str;
-            nosv_asprintf(&_str, "%d", cpu);
-
-            if (count++ > 0)
-                    strcat(msg, ",");
-            strcat(msg, _str);
+            snprintf_check(offset, maxsize, "%s%d", count++ > 0 ? "," : "", cpu);
         }
-        strcat(msg, "] ");
+        snprintf_check(offset, maxsize, "] ");
     }
 
-    strcat(msg, "\nNOSV: CCX: system cpus contained in each core complex");
+    snprintf_check(offset, maxsize, "\nNOSV: COMPLEX_SETS: system cpus contained in each core complex");
     for (int lid = 0; lid < topology_get_level_count(NOSV_TOPO_LEVEL_COMPLEX_SET); lid++) {
-        strcat(msg, "\nNOSV: \t");
         topo_domain_t *ccx = topology_get_domain(NOSV_TOPO_LEVEL_COMPLEX_SET, lid);
-        char *ccx_str;
         int size = cpu_bitset_count(&ccx->cpu_sid_mask);
-        nosv_asprintf(&ccx_str, "CCX(logic=%d, system=N/A, num_items=%d) = [", lid, size);
-        strcat(msg, ccx_str);
+        snprintf_check(offset, maxsize, "\nNOSV: \t");
+        snprintf_check(offset, maxsize, "CS(logic=%d, system=N/A, num_items=%d) = [", lid, size);
         int count = 0;
         int cpu;
         CPU_BITSET_FOREACH(&ccx->cpu_sid_mask, cpu) {
-            char *_str;
-            nosv_asprintf(&_str, "%d", cpu);
-            if (count++ > 0)
-                strcat(msg, ",");
-            strcat(msg, _str);
+            snprintf_check(offset, maxsize, "%s%d", count++ > 0 ? "," : "", cpu);
         }
-        strcat(msg, "] ");
+        snprintf_check(offset, maxsize, "] ");
     }
 
-    strcat(msg, "\nNOSV: CORE: system cpus contained in each core");
+    snprintf_check(offset, maxsize, "\nNOSV: CORE: system cpus contained in each core");
     for (int lid = 0; lid < topology_get_level_count(NOSV_TOPO_LEVEL_CORE); lid++) {
-        strcat(msg, "\nNOSV: \t");
         topo_domain_t *core = topology_get_domain(NOSV_TOPO_LEVEL_CORE, lid);
-        char *core_str;
         int size = cpu_bitset_count(&core->cpu_sid_mask);
-        nosv_asprintf(&core_str, "core(logic=%d, system=%d, num_items=%d) = [", lid, core->system_id, size);
-        strcat(msg, core_str);
+        snprintf_check(offset, maxsize, "\nNOSV: \t");
+        snprintf_check(offset, maxsize, "core(logic=%d, system=%d, num_items=%d) = [", lid, core->system_id, size);
         int count = 0;
         int cpu;
         CPU_BITSET_FOREACH(&core->cpu_sid_mask, cpu) {
-            char *_str;
-            nosv_asprintf(&_str, "%d", cpu);
-            if (count++ > 0)
-                strcat(msg, ",");
-            strcat(msg, _str);
+            snprintf_check(offset, maxsize, "%s%d", count++ > 0 ? "," : "", cpu);
         }
-        strcat(msg, "] ");
+        snprintf_check(offset, maxsize, "] ");
     }
 
-    strcat(msg, "\nNOSV: CPU: cpu(logic=lid, system=sid)");
+    snprintf_check(offset, maxsize, "\nNOSV: CPU: cpu(logic=lid, system=sid)");
     for (int lid = 0; lid < topology_get_level_count(NOSV_TOPO_LEVEL_CPU); lid++) {
         cpu_t *cpu = &cpumanager->cpus[lid];
-        strcat(msg, "\nNOSV: \t");
-        char *cpu_str;
-        nosv_asprintf(&cpu_str, "cpu(logic=%d, system=%d)", cpu_get_logical_id(cpu), cpu_get_system_id(cpu));
-        strcat(msg, cpu_str);
+        snprintf_check(offset, maxsize, "\nNOSV: \t");
+        snprintf_check(offset, maxsize, "cpu(logic=%d, system=%d)", cpu_get_logical_id(cpu), cpu_get_system_id(cpu));
     }
 
     nosv_warn("%s", msg);
