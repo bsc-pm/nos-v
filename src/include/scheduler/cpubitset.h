@@ -8,6 +8,7 @@
 #define CPU_BITSET_H
 
 #include <assert.h>
+#include <stdbool.h>
 #include <stdio.h>
 
 #include "common.h"
@@ -74,6 +75,14 @@ static inline int cpu_bitset_cmp(const cpu_bitset_t *a, const cpu_bitset_t *b)
 	return BIT_CMP(a->size, &a->bits, &b->bits);
 }
 
+// Returns true if bitset a and b have any bits in common
+static inline bool cpu_bitset_overlap(const cpu_bitset_t *a, const cpu_bitset_t *b)
+{
+	assert(a->size == b->size);
+	return BIT_OVERLAP(a->size, &a->bits, &b->bits);
+}
+
+// Returns 0 if success, 1 otherwise.
 // Parse a CPU set which is specified in separation by "-" and "," into a CPU set
 // Additionally, allow for stride to be specified with ":", similarly to taskset
 // This can parse both taskset-style lists and linux-style lists

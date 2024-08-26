@@ -181,7 +181,7 @@ void affinity_support_init(void)
 
 	pthread_once(&once_control, affinity_support_init_once);
 
-	if (!nosv_config.affinity_compat_support)
+	if (!nosv_config.thread_affinity_compat_support)
 		return;
 
 	if (bypass_sched_getaffinity(0, original_affinity_size, &original_affinity))
@@ -211,7 +211,7 @@ void affinity_support_register_worker(nosv_worker_t *worker, char default_affini
 	worker->original_affinity = malloc(worker->original_affinity_size);
 	assert(worker->original_affinity);
 
-	if (!nosv_config.affinity_compat_support) {
+	if (!nosv_config.thread_affinity_compat_support) {
 		bypass_sched_getaffinity(0, worker->original_affinity_size, worker->original_affinity);
 		return;
 	}
@@ -246,7 +246,7 @@ void affinity_support_unregister_worker(nosv_worker_t *worker, char restore)
 {
 	assert(worker);
 
-	if (!nosv_config.affinity_compat_support) {
+	if (!nosv_config.thread_affinity_compat_support) {
 		if (restore)
 			restore_affinity(worker);
 		free(worker->original_affinity);
@@ -365,7 +365,7 @@ int pthread_create(
 	nosv_worker_t *worker = worker_current();
 	char needs_reset = 0;
 
-	if (!worker || !nosv_config.affinity_compat_support || bypass)
+	if (!worker || !nosv_config.thread_affinity_compat_support || bypass)
 		return next_pthread_create(thread, attr, start_routine, arg);
 
 	// We need to create the new pthread considering the current worker fake
@@ -459,7 +459,7 @@ int sched_setaffinity(pid_t pid, size_t cpusetsize, const cpu_set_t *mask)
 	int ret;
 	nosv_worker_t *worker;
 
-	if (!nosv_config.affinity_compat_support || bypass)
+	if (!nosv_config.thread_affinity_compat_support || bypass)
 		return next_sched_setaffinity(pid, cpusetsize, mask);
 
 	nosv_spin_lock(&lock);
@@ -488,7 +488,7 @@ int sched_getaffinity(pid_t pid, size_t cpusetsize, cpu_set_t *mask)
 	int ret;
 	nosv_worker_t *worker;
 
-	if (!nosv_config.affinity_compat_support || bypass)
+	if (!nosv_config.thread_affinity_compat_support || bypass)
 		return next_sched_getaffinity(pid, cpusetsize, mask);
 
 	nosv_spin_lock(&lock);
@@ -520,7 +520,7 @@ int pthread_setaffinity_np(
 	int ret;
 	nosv_worker_t *worker;
 
-	if (!nosv_config.affinity_compat_support || bypass)
+	if (!nosv_config.thread_affinity_compat_support || bypass)
 		return next_pthread_setaffinity_np(thread, cpusetsize, cpuset);
 
 	nosv_spin_lock(&lock);
@@ -551,7 +551,7 @@ int pthread_getaffinity_np(
 	int ret;
 	nosv_worker_t *worker;
 
-	if (!nosv_config.affinity_compat_support || bypass)
+	if (!nosv_config.thread_affinity_compat_support || bypass)
 		return next_pthread_getaffinity_np(thread, cpusetsize, cpuset);
 
 	nosv_spin_lock(&lock);
