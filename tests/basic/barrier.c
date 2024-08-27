@@ -8,6 +8,7 @@
 #include <sched.h>
 #include <stdatomic.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "test.h"
 #include "common/utils.h"
@@ -19,6 +20,7 @@ test_t test;
 nosv_task_type_t task_type;
 nosv_task_t tasks[NTASKS];
 atomic_uint track_init;
+atomic_uint track_mid;
 atomic_uint track_completed;
 nosv_barrier_t barrier;
 
@@ -27,6 +29,9 @@ void task_run(nosv_task_t task)
 {
 	atomic_fetch_add_explicit(&track_init, 1, memory_order_relaxed);
 	CHECK(nosv_barrier_wait(barrier));
+
+	atomic_fetch_add_explicit(&track_mid, 1, memory_order_relaxed);
+	CHECK(nosv_pause(NOSV_PAUSE_NONE));
 }
 
 void task_comp(nosv_task_t task)
@@ -38,6 +43,7 @@ void task_comp(nosv_task_t task)
 void test_barrier(const char *msg)
 {
 	atomic_store_explicit(&track_init, 0, memory_order_relaxed);
+	atomic_store_explicit(&track_mid, 0, memory_order_relaxed);
 	atomic_store_explicit(&track_completed, 0, memory_order_relaxed);
 
 	for (int i = 0; i < NTASKS; i++)
@@ -52,24 +58,38 @@ void test_barrier(const char *msg)
 		CHECK(nosv_yield(NOSV_YIELD_NONE));
 
 	// Ensure that no task has finished yet
-	if (atomic_load_explicit(&track_completed, memory_order_relaxed)) {
-		test_fail(&test, "%s: All tasks were unlocked correctly", msg);
+	if (atomic_load_explicit(&track_mid, memory_order_relaxed)) {
+		test_error(&test, "%s: %d tasks crossed barrier (expected 0)", msg, atomic_load_explicit(&track_mid, memory_order_relaxed));
 		exit(1);
 	}
 
 	// Block until all task reach the barrier
 	CHECK(nosv_barrier_wait(barrier));
 
+	// Wait until all tasks finish first barrier
+	test_check_waitfor(&test, atomic_load_explicit(&track_mid, memory_order_relaxed) == NTASKS, 10000,
+			"%s: All tasks were unlocked correctly from barrier", msg);
+
+	// Ensure that no task has finished yet
+	if (atomic_load_explicit(&track_completed, memory_order_relaxed)) {
+		test_error(&test, "%s: %d tasks finished (expected 0)", msg, atomic_load_explicit(&track_completed, memory_order_relaxed));
+		exit(1);
+	}
+
+	// Re-submit all tasks. Each task should wake from the nosv_pause
+	for (int i = 0; i < NTASKS; i++)
+		CHECK(nosv_submit(tasks[i], NOSV_SUBMIT_NONE));
+
 	// Wait until all tasks finish
-	while (NTASKS != atomic_load_explicit(&track_completed, memory_order_relaxed))
-		CHECK(nosv_yield(NOSV_YIELD_NONE));
+	test_check_waitfor(&test, atomic_load_explicit(&track_completed, memory_order_relaxed) == NTASKS, 10000,
+			"%s: All tasks were unlocked correctly from pause", msg);
 }
 
 int main()
 {
 	nosv_task_t task;
 
-	test_init(&test, 1);
+	test_init(&test, 4);
 
 	// Init nosv
 	CHECK(nosv_init());
@@ -91,8 +111,5 @@ int main()
 	// Shutdown nosv
 	CHECK(nosv_detach(NOSV_DETACH_NONE));
 	CHECK(nosv_shutdown());
-
-	// Report test success
-	test_ok(&test, "All tasks were unlocked correctly");
 }
 
