@@ -50,7 +50,7 @@ typedef struct nosv_task_group {
 
 struct nosv_task {
 	atomic_uint32_t event_count;
-	atomic_uint32_t blocking_count;
+	atomic_int32_t blocking_count;
 	size_t metadata;
 	struct nosv_task_type *type;
 	struct nosv_worker *worker;

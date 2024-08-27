@@ -386,7 +386,7 @@ int nosv_submit(
 	if (is_blocking)
 		task->wakeup = worker->handle.task;
 
-	uint32_t count;
+	int32_t count;
 
 	// Entry point - The task became ready
 	monitoring_task_changed_status(task, ready_status);
@@ -485,7 +485,7 @@ int nosv_pause(
 	uint32_t bodyid = instr_get_bodyid(worker->handle);
 	instr_task_pause((uint32_t)task->taskid, bodyid);
 
-	uint32_t count = atomic_fetch_add_explicit(&task->blocking_count, 1, memory_order_relaxed) + 1;
+	int32_t count = atomic_fetch_add_explicit(&task->blocking_count, 1, memory_order_relaxed) + 1;
 
 	// If r < 1, we have already been unblocked
 	if (count > 0)
