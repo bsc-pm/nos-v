@@ -73,7 +73,7 @@ int nosv_mutex_lock(nosv_mutex_t mutex)
 		// waiting tasks and block.
 		list_add_tail(&mutex->list, &current_task->list_hook);
 		nosv_spin_unlock(&mutex->lock);
-		nosv_pause(NOSV_PAUSE_NONE);
+		task_pause(current_task, /* use_blocking_count */ 0);
 		// A nosv_mutex_unlock woke up the current task, the lock is
 		// still marked as taken and we can return right now.
 	} else {
@@ -156,8 +156,6 @@ int nosv_mutex_unlock(nosv_mutex_t mutex)
 		if (task_affine(task, current_cpu)) {
 			// Since the task is affine, yield the current core to the unblocked task to speed things up
 			// and forego the scheduler
-			int cnt = atomic_fetch_sub_explicit(&task->blocking_count, 1, memory_order_relaxed) - 1;
-			assert(cnt == 0);
 
 			task_execution_handle_t handle = {
 				.task = task,
@@ -167,7 +165,7 @@ int nosv_mutex_unlock(nosv_mutex_t mutex)
 		} else {
 			// The task was not affine, so we only submit it and
 			// expect that someone else will run it.
-			nosv_submit(task, NOSV_SUBMIT_UNLOCKED);
+			scheduler_submit_single(task);
 		}
 	}
 

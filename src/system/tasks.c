@@ -443,7 +443,7 @@ int nosv_submit(
 	}
 
 	if (is_blocking)
-		nosv_pause(NOSV_PAUSE_NONE);
+		task_pause(current_task, /* use_blocking_count */ 1);
 
 	if (current_task) {
 		hwcounters_update_runtime_counters();
@@ -453,6 +453,42 @@ int nosv_submit(
 	instr_submit_exit();
 
 	return NOSV_SUCCESS;
+}
+
+void task_pause(
+	nosv_task_t task,
+	int use_blocking_count)
+{
+	nosv_worker_t *worker = worker_current();
+
+	assert(task);
+	assert(task == worker_current_task());
+	assert(!task_is_parallel(task));
+
+	nosv_flush_submit_window();
+
+	// Thread might yield, read and accumulate hardware counters for the task that blocks
+	hwcounters_update_task_counters(task);
+	monitoring_task_changed_status(task, paused_status);
+
+	uint32_t bodyid = instr_get_bodyid(worker->handle);
+	instr_task_pause((uint32_t)task->taskid, bodyid);
+
+	int32_t count = 1;
+	if (use_blocking_count)
+		count = atomic_fetch_add_explicit(&task->blocking_count, 1, memory_order_relaxed) + 1;
+
+	// If r < 1, we have already been unblocked
+	if (count > 0)
+		worker_yield();
+
+	assert(atomic_load_explicit(&task->blocking_count, memory_order_relaxed) <= 0);
+
+	// Thread might have been resumed here, read and accumulate hardware counters for the CPU
+	hwcounters_update_runtime_counters();
+	monitoring_task_changed_status(task, executing_status);
+
+	instr_task_resume((uint32_t)task->taskid, bodyid);
 }
 
 /* Blocking, yield operation */
@@ -477,27 +513,10 @@ int nosv_pause(
 	if (task_is_parallel(task))
 		return NOSV_ERR_INVALID_OPERATION;
 
-	// Thread might yield, read and accumulate hardware counters for the task that blocks
-	hwcounters_update_task_counters(task);
-	monitoring_task_changed_status(task, paused_status);
-
 	instr_pause_enter();
-	uint32_t bodyid = instr_get_bodyid(worker->handle);
-	instr_task_pause((uint32_t)task->taskid, bodyid);
 
-	int32_t count = atomic_fetch_add_explicit(&task->blocking_count, 1, memory_order_relaxed) + 1;
+	task_pause(task, /* use_blocking_count */1);
 
-	// If r < 1, we have already been unblocked
-	if (count > 0)
-		worker_yield();
-
-	assert(atomic_load_explicit(&task->blocking_count, memory_order_relaxed) <= 0);
-
-	// Thread might have been resumed here, read and accumulate hardware counters for the CPU
-	hwcounters_update_runtime_counters();
-	monitoring_task_changed_status(task, executing_status);
-
-	instr_task_resume((uint32_t)task->taskid, bodyid);
 	instr_pause_exit();
 
 	return NOSV_SUCCESS;

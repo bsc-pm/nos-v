@@ -536,7 +536,7 @@ void worker_yield_to(task_execution_handle_t handle)
 	uint32_t bodyid = instr_get_bodyid(handle);
 	instr_task_pause((uint32_t)current_task->taskid, bodyid);
 
-	// We retrieved a ready task, so submit the current one
+	// We have to submit the current task so it gets resumed somewhere else
 	scheduler_submit_single(current_task);
 
 	// Wake up the corresponding thread to execute the task
