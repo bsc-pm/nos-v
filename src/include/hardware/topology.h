@@ -100,13 +100,12 @@ __internal int cpu_get_system_id(cpu_t *cpu);
 __internal int cpu_get_parent_logical_id(cpu_t *cpu, nosv_topo_level_t level);
 
 
-__internal int topology_get_logical_id(nosv_topo_level_t level, int system_id);
+__internal int topology_get_parent_logical_id(nosv_topo_level_t son_level, int son_logical_id, nosv_topo_level_t parent);
+__internal int topology_get_parent_system_id(nosv_topo_level_t son_level, int son_logical_id, nosv_topo_level_t parent)
 __internal int topology_get_logical_id_check(nosv_topo_level_t level, int system_id);
-__internal int topology_get_system_id(nosv_topo_level_t level, int logical_id);
 __internal int topology_get_level_count(nosv_topo_level_t level);
 __internal int topology_get_level_max(nosv_topo_level_t level);
 __internal int topology_get_default_affinity(char **out);
-__internal int topology_get_parent_logical_id(topo_domain_t *domain, nosv_topo_level_t parent);
 __internal cpu_bitset_t* topology_get_cpu_logical_mask(nosv_topo_level_t level, int lid);
 __internal cpu_bitset_t* topology_get_cpu_system_mask(nosv_topo_level_t level, int lid);
 __internal cpu_bitset_t *topology_get_valid_domains_mask(nosv_topo_level_t level);
