@@ -68,8 +68,14 @@ static inline int cpu_bitset_fls(const cpu_bitset_t *bitset)
 	return BIT_FLS(bitset->size, &bitset->bits) - 1;
 }
 
+static inline void cpu_bitset_and(cpu_bitset_t *dest, const cpu_bitset_t *b)
+{
+	assert(dest->size == b->size);
+	BIT_AND(dest->size, &dest->bits, &b->bits);
+}
+
 // Returns true if bitset a is different from bitset b
-static inline int cpu_bitset_cmp(const cpu_bitset_t *a, const cpu_bitset_t *b)
+static inline bool cpu_bitset_cmp(const cpu_bitset_t *a, const cpu_bitset_t *b)
 {
 	assert(a->size == b->size);
 	return BIT_CMP(a->size, &a->bits, &b->bits);

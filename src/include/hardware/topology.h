@@ -101,6 +101,7 @@ __internal int cpu_get_parent_logical_id(cpu_t *cpu, nosv_topo_level_t level);
 
 
 __internal int topology_get_logical_id(nosv_topo_level_t level, int system_id);
+__internal int topology_get_logical_id_check(nosv_topo_level_t level, int system_id);
 __internal int topology_get_system_id(nosv_topo_level_t level, int logical_id);
 __internal int topology_get_level_count(nosv_topo_level_t level);
 __internal int topology_get_level_max(nosv_topo_level_t level);
