@@ -1,7 +1,7 @@
 /*
 	This file is part of Nanos6 and nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2020-2023 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2020-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef CONFIG_H
@@ -90,6 +90,7 @@ typedef struct rt_config {
 	// ovni
 	uint64_t ovni_level;
 	string_list_t ovni_events;
+	size_t ovni_kernel_ringsize;
 } rt_config_t;
 
 __internal extern rt_config_t nosv_config;

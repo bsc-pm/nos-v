@@ -56,6 +56,7 @@ static inline void *delegate_routine(void *args)
 	}
 
 	instr_delegate_exit();
+	instr_kernel_flush(kinstr);
 	instr_thread_end();
 
 	return NULL;
@@ -478,6 +479,7 @@ static inline void *worker_start_routine(void *arg)
 	hwcounters_thread_shutdown(current_worker);
 
 	instr_worker_exit();
+	instr_kernel_flush(kinstr);
 	instr_thread_end();
 
 	// Verify before finish that turbo config

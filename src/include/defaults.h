@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef DEFAULTS_H
@@ -79,5 +79,10 @@
 
 // How many idle spins will a lock have before it is considered "idling"
 #define IDLE_SPINS_THRESHOLD 1
+
+// INSTRUMENTATION
+
+// Size in bytes of the ring buffer for kernel events (per thread)
+#define INSTR_OVNI_KERNEL_RINGSIZE (4ULL * 1024ULL * 1024ULL) // 4 MB
 
 #endif // DEFAULTS_H

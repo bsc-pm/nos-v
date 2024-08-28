@@ -538,9 +538,6 @@ static inline void instr_detach_exit(void)
 
 // ----------------------- Kernel events  ---------------------------
 
-// Must be a power of two
-#define INSTR_KBUFLEN (4UL * 1024UL * 1024UL) // 4 MB
-
 #ifdef ENABLE_INSTRUMENTATION
 struct kinstr {
 	int fd;
@@ -566,6 +563,8 @@ static int perf_event_open(struct perf_event_attr *attr, pid_t pid,
 {
 	return (int) syscall(SYS_perf_event_open, attr, pid, cpu, group_fd, flags);
 }
+
+typedef _Atomic __u64 atomic_u64;
 
 static inline void instr_kernel_init(struct kinstr **ki_ptr)
 {
@@ -593,8 +592,8 @@ static inline void instr_kernel_init(struct kinstr **ki_ptr)
 	attr.config = PERF_COUNT_SW_DUMMY;
 	attr.type = PERF_TYPE_SOFTWARE;
 
-	attr.task = 1;
-	attr.comm = 1;
+	attr.task = 0;
+	attr.comm = 0;
 	attr.freq = 0;
 	attr.wakeup_events = 1;
 	attr.watermark = 1;
@@ -615,7 +614,15 @@ static inline void instr_kernel_init(struct kinstr **ki_ptr)
 	pagesize = sysconf(_SC_PAGE_SIZE);
 	assert(pagesize > 0);
 
-	ki->ringsize = INSTR_KBUFLEN;
+	// Round ringsize to page if not aligned
+	size_t ringsize = nosv_config.ovni_kernel_ringsize;
+	if (ringsize % pagesize) {
+		ringsize = (ringsize / pagesize) * pagesize;
+		nosv_warn("kernel ring size rounded to %ld to align with page size %ld\n",
+				ringsize, pagesize);
+	}
+
+	ki->ringsize = ringsize;
 	assert((ki->ringsize % pagesize) == 0);
 
 	// Map the buffer: must be 1+2^n pages
@@ -657,8 +664,15 @@ static inline void emit_perf_event(struct perf_ev *ev)
 	struct ovni_ev ovniev = {0};
 	int is_out;
 
-	if (ev->header.type != PERF_RECORD_SWITCH)
+	// Stop if we missed any context switch events, otherwise they won't
+	// match in ovniemu
+	if (ev->header.type == PERF_RECORD_LOST)
+		nosv_abort("Kernel events lost, consider increasing ovni.kernel_ringsize");
+
+	if (ev->header.type != PERF_RECORD_SWITCH) {
+		nosv_warn("Unknown event type %d found in the perf buffer", ev->header.type);
 		return;
+	}
 
 	is_out = ev->header.misc & PERF_RECORD_MISC_SWITCH_OUT;
 
@@ -673,14 +687,14 @@ static inline void instr_kernel_flush(struct kinstr *ki)
 {
 	CHECK_INSTR_ENABLED(KERNEL)
 	struct ovni_ev ev0 = {0}, ev1 = {0};
-	struct perf_ev *ev;
-	uint8_t *p;
 
 	if (!ki->enabled)
 		return;
 
+	uint64_t new_head = atomic_load_explicit((atomic_u64 *) &ki->meta->data_head, memory_order_acquire);
+
 	// If there are no events, do nothing
-	if (ki->head == ki->meta->data_head)
+	if (ki->head == new_head)
 		return;
 
 	// Wrap the kernel events with special marker events, so we can sort
@@ -689,12 +703,45 @@ static inline void instr_kernel_flush(struct kinstr *ki)
 	ovni_ev_set_mcv(&ev0, "OU[");
 	ovni_ev_emit(&ev0);
 
-	while (ki->head < ki->meta->data_head) {
-		p = ki->ringbuf + (ki->head % ki->ringsize);
-		ev = (struct perf_ev *) p;
+	uint8_t *aux = NULL;
+	while (ki->head < new_head) {
+		uint64_t offset = ki->head % ki->ringsize;
+		uint8_t *p = ki->ringbuf + offset;
+		struct perf_ev *ev = (struct perf_ev *) p;
+
+		/* The header should never be split, as the events are aligned
+		 * to 64 bits, the size of the header */
+		assert(offset + sizeof(struct perf_event_header) <= ki->ringsize);
+
+		/* Handle split event in the ring boundary:
+		 *
+		 *   |     ring buffer     |
+		 *   EEEEEEEE] ... [EEEEEEEE
+		 *                 ^
+		 *                 offset
+		 */
+		if (unlikely(offset + ev->header.size > ki->ringsize)) {
+			aux = malloc(ev->header.size);
+			if (!aux)
+				nosv_abort("malloc failed");
+			size_t first_half = ki->ringsize - offset;
+			size_t second_half = ev->header.size - first_half;
+			memcpy(aux, p, first_half);
+			memcpy(aux + first_half, ki->ringbuf, second_half);
+			ev = (struct perf_ev *) aux;
+		}
+
 		emit_perf_event(ev);
+		ki->tail += ev->header.size;
 		ki->head += ev->header.size;
+
+		if (unlikely(aux)) {
+			free(aux);
+			aux = NULL;
+		}
 	}
+
+	atomic_store_explicit((atomic_u64 *) &ki->meta->data_tail, ki->tail, memory_order_release);
 
 	ovni_ev_set_clock(&ev1, ovni_clock_now());
 	ovni_ev_set_mcv(&ev1, "OU]");
