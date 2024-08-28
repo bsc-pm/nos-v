@@ -491,6 +491,8 @@ int nosv_pause(
 	if (count > 0)
 		worker_yield();
 
+	assert(atomic_load_explicit(&task->blocking_count, memory_order_relaxed) <= 0);
+
 	// Thread might have been resumed here, read and accumulate hardware counters for the CPU
 	hwcounters_update_runtime_counters();
 	monitoring_task_changed_status(task, executing_status);
