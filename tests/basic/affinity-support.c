@@ -526,6 +526,7 @@ void run_getaffinity_after_attach_test(cpu_set_t *original, cpu_set_t *target, n
 	pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), target);
 	atomic_store_explicit(&parg.set, target, memory_order_relaxed);
 	run_thread(getaffinity_test, &attr, &parg);
+	pthread_attr_destroy(&attr);
 
 #ifdef HAVE_pthread_getattr_default_np
 	// repeat, but using a default attr without cpuset. This is the same as
@@ -535,6 +536,7 @@ void run_getaffinity_after_attach_test(cpu_set_t *original, cpu_set_t *target, n
 	pthread_setattr_default_np(&attr);
 	atomic_store_explicit(&parg.set, original, memory_order_relaxed);
 	run_thread(getaffinity_test, NULL, &parg);
+	pthread_attr_destroy(&attr);
 
 	// repeat, but using a default attr with cpuset
 	parg.msg = "default attr with cpuset";
@@ -542,6 +544,7 @@ void run_getaffinity_after_attach_test(cpu_set_t *original, cpu_set_t *target, n
 	pthread_setattr_default_np(&attr);
 	atomic_store_explicit(&parg.set, target, memory_order_relaxed);
 	run_thread(getaffinity_test, NULL, &parg);
+	pthread_attr_destroy(&attr);
 
 	// reset default attr
 	pthread_attr_init(&attr);

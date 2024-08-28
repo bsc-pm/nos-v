@@ -462,10 +462,12 @@ int main(int argc, char *argv[])
 	// First, execute 1 test and emit its results
 	execute_tests(&tap, argv[1], 1, &options);
 
+#ifndef NO_PARALLEL_TEST
 	if (options.parallel) {
 		// Then do so for parallel testing
 		execute_tests(&tap, argv[1], PARALLEL_TESTS, &options);
 	}
+#endif
 
 	tap_end(&tap);
 }

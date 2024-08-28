@@ -110,6 +110,9 @@ void mutex_test(const char *msg, char trylock)
 	test_check_waitfor(&test, atomic_load_explicit(&track_completed, memory_order_relaxed) == NTASKS, 10000,
 					   "%s: All tasks were unlocked correctly", msg);
 
+	for (int i = 0; i < NTASKS; i++)
+		CHECK(nosv_destroy(tasks[i], NOSV_DESTROY_NONE));
+
 	// Free mutex object
 	CHECK(nosv_mutex_destroy(mutex));
 }

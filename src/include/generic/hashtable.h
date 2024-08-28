@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2023 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2023-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef HT_H
@@ -66,13 +66,12 @@ static inline int ht_init(hash_table_t *ht, size_t nbuckets, size_t nentries)
 	}
 
 	if (nentries) {
-		ht->entries = (hash_entry_t *)malloc(sizeof(hash_entry_t) * nentries);
-		if (!ht->entries) {
-			return 1;
-		}
-
 		for (i = 0; i < nentries; i++) {
-			SLIST_INSERT_HEAD(&ht->free.head, &ht->entries[i], list_hook);
+			hash_entry_t *entry = (hash_entry_t *) malloc(sizeof(hash_entry_t));
+			if (!entry)
+				return 1;
+
+			SLIST_INSERT_HEAD(&ht->free.head, entry, list_hook);
 		}
 	}
 
@@ -81,7 +80,12 @@ static inline int ht_init(hash_table_t *ht, size_t nbuckets, size_t nentries)
 
 static inline void ht_destroy(hash_table_t *ht)
 {
-	free(ht->entries);
+	while (!SLIST_EMPTY(&ht->free.head)) {
+		hash_entry_t *h = SLIST_FIRST(&ht->free.head);
+		SLIST_REMOVE_HEAD(&ht->free.head, list_hook);
+		free(h);
+	}
+
 	free(ht->buckets);
 }
 
@@ -204,6 +208,7 @@ static inline void *ht_remove(hash_table_t *ht, hash_key_t key)
 	he = SLIST_FIRST(&bkt->head);
 	if (he && he->key == key) {
 		SLIST_REMOVE_HEAD(&bkt->head, list_hook);
+		SLIST_INSERT_HEAD(&ht->free.head, he, list_hook);
 		return he->data;
 	}
 
@@ -214,6 +219,7 @@ static inline void *ht_remove(hash_table_t *ht, hash_key_t key)
 			// middle or last element in the list
 			assert(prev);
 			SLIST_REMOVE_AFTER(prev, list_hook);
+			SLIST_INSERT_HEAD(&ht->free.head, he, list_hook);
 			return he->data;
 		}
 		prev = he;
