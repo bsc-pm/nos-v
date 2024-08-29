@@ -154,8 +154,8 @@ static inline void scheduler_pop_queue(scheduler_queue_t *queue, nosv_task_t tas
 	assert(task);
 	if (queue->priority_enabled) {
 		list_head_t *next = list_front(&task->list_hook);
-		nosv_task_t next_task = list_elem(next, struct nosv_task, list_hook);
 		if (next) {
+			nosv_task_t next_task = list_elem(next, struct nosv_task, list_hook);
 			// Change the list "head" to be the next task.
 			list_remove(&task->list_hook);
 			// Now transplant the element to replace the current element in the Red-Black Tree
