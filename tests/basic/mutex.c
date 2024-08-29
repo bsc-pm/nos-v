@@ -123,13 +123,13 @@ void trylock_test(const char *msg)
 	CHECK(nosv_mutex_init(&mutex, NOSV_MUTEX_NONE));
 
 	// Check trylock when the lock is not taken
-	if (&test, NOSV_SUCCESS != nosv_mutex_trylock(mutex)) {
+	if (NOSV_SUCCESS != nosv_mutex_trylock(mutex)) {
 		test_fail(&test, "%s: trylock returned \"taken\" when not taken", msg);
 		exit(1);
 	}
 
 	// Check trylock when the lock is taken
-	if (&test, NOSV_ERR_BUSY != nosv_mutex_trylock(mutex)) {
+	if (NOSV_ERR_BUSY != nosv_mutex_trylock(mutex)) {
 		test_fail(&test, "%s: trylock returned \"not taken\" when lock was taken", msg);
 		exit(1);
 	}

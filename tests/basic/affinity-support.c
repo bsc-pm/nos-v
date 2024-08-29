@@ -41,11 +41,11 @@ typedef enum rat_cmd {
 } rat_cmd_t;
 
 typedef struct parg {
-	cpu_set_t *set;
-	nosv_task_t task;
+	_Atomic (cpu_set_t *)set;
+	_Atomic nosv_task_t task;
 	char *msg;
 	atomic_int status;
-	pid_t tid;
+	_Atomic pid_t tid;
 	char attached;
 } parg_t;
 
