@@ -19,11 +19,14 @@ AC_DEFUN([AX_CHECK_CC_VERSION], [
 	AC_SUBST([CC_VERSION])
 ])
 
-AC_DEFUN([AX_PREPARE_ASAN_FLAGS], [
-	AC_MSG_CHECKING([if we should enable ASAN])
+AC_DEFUN([AX_PREPARE_SANITIZER_FLAGS], [
+	AC_MSG_CHECKING([if we should enable sanitizers])
 
 	AC_ARG_ENABLE([asan], [AS_HELP_STRING([--enable-asan],
 		[Enables address sanitizing @<:@default=disabled@:>@])])
+
+	AC_ARG_ENABLE([ubsan], [AS_HELP_STRING([--enable-ubsan],
+		[Enables undefined behaviour sanitizing @<:@default=disabled@:>@])])
 
 	AM_CONDITIONAL(USE_ASAN, test x"${enable_asan}" = x"yes")
 
@@ -34,11 +37,19 @@ AC_DEFUN([AX_PREPARE_ASAN_FLAGS], [
 		asan_CFLAGS="-fsanitize=address"
 		AC_MSG_RESULT([yes])
 	],[
-		# ASAN disabled
-		asan_CPPFLAGS=""
-		asan_LDFLAGS=""
-		asan_CFLAGS=""
-		AC_MSG_RESULT([no])
+		AS_IF([test "$enable_ubsan" = yes],[
+			# UBSan enabled
+			asan_CPPFLAGS="-fsanitize=undefined -fno-sanitize-recover=all"
+			asan_LDFLAGS="-fsanitize=undefined -fno-sanitize-recover=all"
+			asan_CFLAGS="-fsanitize=undefined -fno-sanitize-recover=all"
+			AC_MSG_RESULT([yes])
+		], [
+			# ASAN and UBSan disabled
+			asan_CPPFLAGS=""
+			asan_LDFLAGS=""
+			asan_CFLAGS=""
+			AC_MSG_RESULT([no])
+		])
 	])
 
 	AC_SUBST(asan_LDFLAGS)
