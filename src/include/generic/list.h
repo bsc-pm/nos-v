@@ -44,9 +44,7 @@ typedef struct list_head {
 #define list_next_circular(p, h) \
 	(list_is_head((p)->next, (h)) ? ((h)->next) : ((p)->next))
 
-
-
-static inline int list_is_head(const struct list_head *n, const struct list_head *head)
+static inline int list_is_head(const list_head_t *n, const list_head_t *head)
 {
 	return n == head;
 }
@@ -56,14 +54,14 @@ static inline int list_empty(list_head_t *head)
 	return list_is_head(head->next, head);
 }
 
-static inline int list_node_has_list(list_head_t *n)
+static inline int list_node_is_inserted_in_any_list(list_head_t *n)
 {
 	if (!n->next) {
 		// Pertains to no queue
 		assert(!n->prev);
 		return 0;
 	} else if (list_is_head(n->next, n)) {
-    	// Is head, and has no elements. Can happen when tasks in priority queue
+		// Is head, and has no elements
 		assert(n == n->prev);
 		return 0;
 	} else { // Pertains to a queue
@@ -78,6 +76,7 @@ static inline int list_node_has_list(list_head_t *n)
 
 static inline void list_init(list_head_t *head)
 {
+	assert(head);
 	head->next = head;
 	head->prev = head;
 }
@@ -95,7 +94,7 @@ static inline void __list_add(list_head_t *prev, list_head_t *n, list_head_t *ne
 // Add after head
 static inline void list_add(list_head_t *head, list_head_t *n)
 {
-	assert(!list_node_has_list(n));
+	assert(!list_node_is_inserted_in_any_list(n));
 	assert(head->next && head->prev);
 	assert(n->next && n->prev);
 	__list_add(head, n, head->next);
@@ -104,7 +103,7 @@ static inline void list_add(list_head_t *head, list_head_t *n)
 // Add before head
 static inline void list_add_tail(list_head_t *head, list_head_t *n)
 {
-	assert(!list_node_has_list(n));
+	assert(!list_node_is_inserted_in_any_list(n));
 	assert(head->next && head->prev);
 	__list_add(head->prev, n, head);
 }
@@ -127,7 +126,7 @@ static inline list_head_t *list_pop_front(list_head_t *head)
 		return NULL;
 
 	list_head_t *old_next = list_next(head); // the one to remove
-	assert(list_node_has_list(old_next));
+	assert(list_node_is_inserted_in_any_list(old_next));
 
 	__list_remove(head, old_next->next);
 
@@ -140,10 +139,10 @@ static inline list_head_t *list_pop_front(list_head_t *head)
 static inline void list_replace(list_head_t *old, list_head_t *new)
 {
 	assert(old->next && old->prev);
-	if (old == old->next) { // Empty list, only head
+	if (list_is_head(old, old->next)) { // Empty list, only head
 		list_init(new);
 	} else {
-		assert(list_node_has_list(old));
+		assert(list_node_is_inserted_in_any_list(old));
 
 		// Init new
 		new->next = old->next;
@@ -217,15 +216,6 @@ static inline void clist_remove(clist_head_t *head, list_head_t *n)
 {
 	list_remove(n);
 	head->cnt--;
-}
-
-#define clist_head(h) ((h)->__head.next)
-
-static inline int clist_is_head(const struct list_head *n, const struct clist_head *clist)
-{
-	assert(n);
-	assert(clist);
-	return n == clist_head(clist);
 }
 
 static inline list_head_t *clist_pop_front(clist_head_t *head)
