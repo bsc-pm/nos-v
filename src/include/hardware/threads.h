@@ -80,6 +80,7 @@ __internal void threadmanager_init(thread_manager_t *threadmanager);
 __internal void threadmanager_shutdown(thread_manager_t *threadmanager);
 
 __internal void worker_yield(void);
+__internal void worker_yield_to(task_execution_handle_t handle);
 __internal int worker_yield_if_needed(nosv_task_t current_task);
 __internal void worker_block(void);
 __internal void worker_add_to_idle_list(void);
@@ -94,7 +95,6 @@ __internal nosv_task_t worker_current_task(void);
 __internal nosv_task_t worker_get_immediate(void);
 __internal void worker_set_immediate(nosv_task_t task);
 __internal void worker_check_turbo(void);
-__internal int worker_yield_if_affine(nosv_task_t current_task, nosv_task_t task);
 
 __internal int worker_should_shutdown(void);
 

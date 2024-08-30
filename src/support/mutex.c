@@ -13,7 +13,9 @@
 #include "nosv-internal.h"
 #include "generic/list.h"
 #include "generic/spinlock.h"
+#include "hardware/cpus.h"
 #include "hardware/threads.h"
+#include "scheduler/scheduler.h"
 
 struct nosv_mutex {
 	list_head_t list;
@@ -58,6 +60,9 @@ int nosv_mutex_lock(nosv_mutex_t mutex)
 
 	if (!current_task)
 		return NOSV_ERR_OUTSIDE_TASK;
+
+	if (task_is_parallel(current_task))
+		return NOSV_ERR_INVALID_OPERATION;
 
 	instr_mutex_lock_enter();
 
@@ -145,7 +150,21 @@ int nosv_mutex_unlock(nosv_mutex_t mutex)
 		// the current task for the next task in order to speed up
 		// unlocking contended tasks
 		task = list_elem(elem, struct nosv_task, list_hook);
-		if (!worker_yield_if_affine(current_task, task)) {
+
+		cpu_t *current_cpu = cpu_get(cpu_get_current());
+
+		if (task_affine(task, current_cpu)) {
+			// Since the task is affine, yield the current core to the unblocked task to speed things up
+			// and forego the scheduler
+			int cnt = atomic_fetch_sub_explicit(&task->blocking_count, 1, memory_order_relaxed) - 1;
+			assert(cnt == 0);
+
+			task_execution_handle_t handle = {
+				.task = task,
+				.execution_id = 1 // Doesn't really matter, since task is blocked
+			};
+			worker_yield_to(handle);
+		} else {
 			// The task was not affine, so we only submit it and
 			// expect that someone else will run it.
 			nosv_submit(task, NOSV_SUBMIT_UNLOCKED);

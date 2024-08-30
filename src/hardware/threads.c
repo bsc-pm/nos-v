@@ -522,6 +522,29 @@ void worker_yield(void)
 	worker_block();
 }
 
+void worker_yield_to(task_execution_handle_t handle)
+{
+	assert(current_worker);
+	cpu_t *cpu = current_worker->cpu;
+	assert(cpu);
+	assert(handle.task);
+
+	nosv_task_t current_task = worker_current_task();
+	assert(current_task);
+	assert(!task_is_parallel(current_task));
+
+	uint32_t bodyid = instr_get_bodyid(handle);
+	instr_task_pause((uint32_t)current_task->taskid, bodyid);
+
+	// We retrieved a ready task, so submit the current one
+	scheduler_submit_single(current_task);
+
+	// Wake up the corresponding thread to execute the task
+	worker_execute_or_delegate(handle, cpu, /* busy thread */ 1);
+
+	instr_task_resume((uint32_t)current_task->taskid, bodyid);
+}
+
 int worker_yield_if_needed(nosv_task_t current_task)
 {
 	assert(current_worker);
@@ -541,50 +564,7 @@ int worker_yield_if_needed(nosv_task_t current_task)
 	if (!handle.task)
 		return 0;
 
-	uint32_t bodyid = instr_get_bodyid(handle);
-	instr_task_pause((uint32_t)current_task->taskid, bodyid);
-
-	// We retrieved a ready task, so submit the current one
-	scheduler_submit_single(current_task);
-
-	// Wake up the corresponding thread to execute the task
-	worker_execute_or_delegate(handle, cpu, /* busy thread */ 1);
-
-	instr_task_resume((uint32_t)current_task->taskid, bodyid);
-
-	return 1;
-}
-
-// Yield the current task if the provided task can run in the current core
-int worker_yield_if_affine(nosv_task_t current_task, nosv_task_t task)
-{
-	assert(current_worker);
-	assert(current_worker->handle.task == current_task);
-	assert(current_task->worker == current_worker);
-	assert(task);
-	assert(task->worker);
-
-	cpu_t *cpu = current_worker->cpu;
-	assert(cpu);
-
-	if (current_task == task)
-		return 1;
-
-	if (!task_affine(task, cpu))
-		return 0;
-
-	task_execution_handle_t handle = task->worker->handle;
-
-	uint32_t bodyid = instr_get_bodyid(handle);
-	instr_task_pause((uint32_t)current_task->taskid, bodyid);
-
-	// We have a new task to run, so submit the current one
-	scheduler_submit_single(current_task);
-
-	// Wake up the corresponding thread to execute the task
-	worker_execute_or_delegate(handle, cpu, /* busy thread */ 1);
-
-	instr_task_resume((uint32_t)current_task->taskid, bodyid);
+	worker_yield_to(handle);
 
 	return 1;
 }
