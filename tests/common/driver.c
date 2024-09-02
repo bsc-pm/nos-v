@@ -12,6 +12,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <poll.h>
 #include <pthread.h>
 #include <unistd.h>
 
@@ -55,21 +58,40 @@ struct test_options {
 	int parallel;
 };
 
-struct harness_args args_threads[PARALLEL_TESTS];
+struct test_proc_descriptor {
+	pid_t pid;
+	int readfd;
+	int finished;
+	char *output;
+	size_t size;
+	size_t off;
+};
 
-void usage(const char *program)
+static inline void usage(const char *program)
 {
 	printf("Usage: driver %s <test-to-execute>\n", program);
 	exit(1);
 }
 
+#define _errstr(fmt, ...) fprintf(stderr, fmt "%s\n", ##__VA_ARGS__)
+#define report_error(...) _report_error(__VA_ARGS__, "")
+#define _report_error(fmt, ...)                                                                          \
+	do {                                                                                                 \
+		if (errno)                                                                                       \
+			_errstr("TEST DRIVER ERROR in %s(): " fmt ": %s", __func__, ##__VA_ARGS__, strerror(errno)); \
+		else                                                                                             \
+			_errstr("TEST DRIVER ERROR in %s(): " fmt, __func__, ##__VA_ARGS__);                         \
+		exit(1);                                                                                         \
+	} while (0)
+
+
 static inline void free_harness(struct test_harness *result)
 {
 	for (int i = 0; i < result->ntests; ++i) {
 		if (result->outcomes[i].description)
-			free((void *)result->outcomes[i].description);
+			free((void *) result->outcomes[i].description);
 		if (result->outcomes[i].reason)
-			free((void *)result->outcomes[i].reason);
+			free((void *) result->outcomes[i].reason);
 	}
 
 	free(result->outcomes);
@@ -147,7 +169,7 @@ void handle_option(const char *line, __unused struct test_harness *result, __unu
 	int option, value;
 	sscanf(line, "op%d %d\n", &option, &value);
 
-	switch(option) {
+	switch (option) {
 		case OPTION_PARALLEL:
 			options->parallel = value;
 			break;
@@ -186,62 +208,171 @@ void process_harness_line(const char *line, struct test_harness *result, struct 
 
 	for (int i = 0; i < NUM_HANDLERS; ++i) {
 		if (strncmp(str_types[i], line, 2) == 0) {
-			handlers[i](line, result, (enum test_status)i, options);
+			handlers[i](line, result, (enum test_status) i, options);
 			break;
 		}
 	}
 }
 
-static inline void *__entry_execute_tests(void *arg)
+void launch_test_proc(const char *program, struct test_proc_descriptor *descriptor)
 {
-	struct harness_args *args = (struct harness_args *)arg;
+	// Create a pipe to read stdout and stderr from the forked process
+	int pipefd[2];
+	int ret = pipe(pipefd);
+
+	if (ret)
+		report_error("Could not create unnamed pipe");
+
+	pid_t pid = fork();
+
+	if (pid == -1) {
+		// Error
+		report_error("Could not fork test driver");
+	} else if (pid == 0) {
+		// Child
+		// Redirect output
+		dup2(pipefd[1], 1);
+		dup2(pipefd[1], 2);
+		close(pipefd[1]);
+
+		// Exec program
+		execlp(program, program, NULL);
+
+		report_error("Could not exec test program");
+	} else {
+		// Parent
+		descriptor->pid = pid;
+		// Close pipe write end
+		close(pipefd[1]);
+		descriptor->readfd = pipefd[0];
+		descriptor->finished = 0;
+		descriptor->off = 0;
+		descriptor->size = 0;
+		descriptor->output = NULL;
+	}
+}
+
+int monitor_procs(int n, struct test_harness *result, struct test_proc_descriptor *procs)
+{
+	struct pollfd descriptors[PARALLEL_TESTS];
+	memset(descriptors, 0, sizeof(descriptors));
 	char buffer[MAX_BUFF_SIZE];
-	FILE *fp;
 
-	fp = popen(args->program, "r");
-	if (fp == NULL) {
-		fprintf(stderr, "Cannot open program\n");
-		exit(1);
+	for (int i = 0; i < n; ++i) {
+		descriptors[i].fd = procs[i].readfd;
+		descriptors[i].events = POLLIN;
 	}
 
-	while (fgets(buffer, MAX_BUFF_SIZE, fp) != NULL) {
-		process_harness_line(buffer, args->result, args->options);
+	int openfds = n;
+
+	while(openfds) {
+		int ready = poll(descriptors, n, -1);
+		if (ready == -1)
+			report_error("Poll returned error");
+
+		for (int i = 0; i < n; ++i) {
+			short revents = descriptors[i].revents;
+			if (revents) {
+				if (revents & POLLIN) {
+					// Data to read.
+					int ret = read(descriptors[i].fd, buffer, MAX_BUFF_SIZE);
+					assert(ret > 0);
+
+					// Do we have space left in the process buffer to save this?
+					struct test_proc_descriptor *proc = &procs[i];
+					// Leave always at least one extra char at the end to place the null termination
+					if (proc->size - proc->off < (ret + 1)) {
+						if (proc->size == 0)
+							proc->size = MAX_BUFF_SIZE;
+
+						proc->output = realloc(proc->output, proc->size * 2);
+						proc->size *= 2;
+					}
+
+					memcpy(&proc->output[proc->off], buffer, ret);
+					proc->off += ret;
+					proc->output[proc->off] = '\0';
+				} else {
+					// POLLHUP
+					assert(revents & POLLHUP);
+					// Close fd, reap process
+					close(descriptors[i].fd);
+					// Notify poll to ignore subsequent polls of this FD
+					descriptors[i].fd = -1;
+					int status;
+					pid_t ret = waitpid(procs[i].pid, &status, 0);
+					procs[i].finished = 1;
+					openfds--;
+
+					if (ret == -1)
+						report_error("Waitpid");
+
+					if(WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+						// All ok.
+						result[i].retval = 0;
+					} else {
+						// The process crashed. We cannot continue
+						if (WIFEXITED(status))
+							return WEXITSTATUS(status);
+						else
+							return WTERMSIG(status);
+					}
+				}
+			}
+		}
 	}
 
-	args->result->retval = pclose(fp);
+	return 0;
+}
 
-	return NULL;
+void parse_proc_outputs(int n, struct test_harness *result, struct test_options *options, struct test_proc_descriptor *procs)
+{
+	for (int i = 0; i < n; ++i) {
+		assert(procs[i].output);
+
+		char *line = strtok(procs[i].output, "\n");
+		while (line) {
+			process_harness_line(line, &result[i], options);
+			line = strtok(NULL, "\n");
+		}
+
+		free(procs[i].output);
+	}
 }
 
 void execute_tests(tap_t *tap, const char *program, int n, struct test_options *options)
 {
 	assert(n > 0);
+	assert(n <= PARALLEL_TESTS);
 	struct test_harness result[PARALLEL_TESTS];
-	pthread_t threads[PARALLEL_TESTS];
+	struct test_proc_descriptor *procs;
+
+	procs = malloc(sizeof(struct test_proc_descriptor) * PARALLEL_TESTS);
 
 	// Silence compiler warning
 	result[0].ntests = 0;
 
 	for (int i = 0; i < n; ++i) {
 		result[i].ntests = 0;
-		args_threads[i].program = program;
-		args_threads[i].options = options;
-		args_threads[i].result = &result[i];
-		pthread_create(&threads[i], NULL, __entry_execute_tests, &args_threads[i]);
+		launch_test_proc(program, &procs[i]);
 	}
 
-	for (int i = 0; i < n; ++i) {
-		pthread_join(threads[i], NULL);
+	// Now that all tests are lauched, we have to monitor the procs until (1) they all end or (2) one crashes
+	int ret = monitor_procs(n, result, procs);
+
+	if (ret) {
+		// Some process crashed. Emulate the crash in the driver.
+		exit(ret);
 	}
+
+	// Parse the recorded outputs
+	parse_proc_outputs(n, result, options, procs);
 
 	// Handle test results accordingly
 	// Check if any test has returned with an error
 	// Similarly, check if in any case there is a mismatch in test number
 	int ntests = result[0].ntests;
 	for (int i = 0; i < n; ++i) {
-		if (result[i].retval)
-			exit(result[i].retval);
-
 		if (result[i].ntests != ntests) {
 			tap_error(tap, "Test number mismatch");
 			return;
@@ -263,6 +394,8 @@ void execute_tests(tap_t *tap, const char *program, int n, struct test_options *
 		if (result[i].ntests > 0)
 			free_harness(&result[i]);
 	}
+
+	free(procs);
 }
 
 int main(int argc, char *argv[])
