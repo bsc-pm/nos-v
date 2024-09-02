@@ -35,7 +35,6 @@ typedef struct hash_table {
 	int nbkt;
 	hash_bucket_t free;
 	hash_bucket_t *buckets;
-	hash_entry_t *entries;
 } hash_table_t;
 
 
