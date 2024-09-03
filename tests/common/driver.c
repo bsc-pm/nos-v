@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #define _GNU_SOURCE
@@ -273,7 +273,7 @@ int reap_processes(int n, struct test_harness *result, struct test_proc_descript
 		if (ret == -1)
 			report_error("Waitpid");
 
-		if(WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+		if (WIFEXITED(status) && WEXITSTATUS(status) == 0) {
 			// All ok.
 			result[i].retval = 0;
 		} else {
@@ -308,7 +308,7 @@ int monitor_procs(int n, struct test_harness *result, struct test_proc_descripto
 
 	int openfds = n;
 
-	while(openfds) {
+	while (openfds) {
 		// Use a 100ms timeout. In case more than 100ms happen without any output, we will check
 		// if any process has crashed. A crash may not trigger a POLLHUP event in some cases, specially if the
 		// test forks, because children also inherit the open channel to the pipe write end, which maintains
