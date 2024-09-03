@@ -249,6 +249,7 @@ static inline process_scheduler_t *scheduler_init_pid(int pid)
 	sched->pid = pid;
 	scheduler_init_queue(&sched->queue);
 	scheduler->queues_direct[pid] = sched;
+	list_init(&sched->list_hook);
 	list_add_tail(&scheduler->queues, &sched->list_hook);
 
 	RB_INIT(&sched->deadline_tasks);
