@@ -54,7 +54,8 @@ where `INSTALLATION_PREFIX` is the directory into which to install nOS-V.
 The configure script accepts several options:
 
 1. `--enable-debug`: Add compiler debug flags and enable additional internal debugging mechanisms
-1. `--enable-asan`: Add compiler flags to enable address sanitizing
+1. `--enable-asan`: Build and link with [AddressSanitizer](https://github.com/google/sanitizers/wiki/AddressSanitizer) to detect memory bugs and leaks
+1. `--enable-ubsan`: Build and link with [UndefinedBehaviourSanitizer](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html) to detect undefined behaviour
 1. `--with-ovni`: Enable ovni instrumentation and specify the ovni library installation prefix
 1. `--with-papi`: Enable PAPI counters and specify the PAPI library installation prefix
 1. `--with-libnuma`: Specify the numactl library installation prefix
