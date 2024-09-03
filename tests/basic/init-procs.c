@@ -95,22 +95,16 @@ int wait_subprocesses(size_t nprocs)
 			// The subprocess received a signal while running. Give some
 			// information about the received signal
 			fprintf(stderr, "Subprocess %d signaled with %d\n", pid, WTERMSIG(status));
+			// Now exit to prevent hanging the tests
+			exit(1);
 		}
 
 		if (WIFEXITED(status) && WEXITSTATUS(status)) {
 			// The subprocess exited or returned but with a non-zero
 			// error code. Give some information about the exit status
 			fprintf(stderr, "Subprocess %d returned with error %d\n", pid, WEXITSTATUS(status));
-		}
-
-		if (!failed && (!WIFEXITED(status) || WEXITSTATUS(status))) {
-			// One of the processes failed for some reason. Let the rest of processes
-			// exit normally and wait for them to finish
-			nosv_signal_mutex_lock(&data->smutex);
-			data->counter = 0;
-			nosv_signal_mutex_broadcast(&data->smutex);
-			nosv_signal_mutex_unlock(&data->smutex);
-			failed = 1;
+			// Now exit to prevent hanging the tests
+			exit(WEXITSTATUS(status));
 		}
 	}
 
