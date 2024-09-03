@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef TASKMONITOR_H
@@ -131,8 +131,8 @@ static inline void taskmonitor_statistics(void)
 
 	// Iterate all the tasktypes, no need for lock as runtime is shutting down
 	list_head_t *list = task_type_manager_get_list();
-	list_head_t *head = list_front(list);
-	while (head != NULL) {
+	list_head_t *head;
+	list_for_each(head, list) {
 		nosv_task_type_t type = list_elem(head, struct nosv_task_type, list_hook);
 		if (type != NULL) {
 			// Display monitoring-related statistics
@@ -198,8 +198,6 @@ static inline void taskmonitor_statistics(void)
 
 			printf("\n");
 		}
-
-		head = list_next(head);
 	}
 
 	printf("\n");

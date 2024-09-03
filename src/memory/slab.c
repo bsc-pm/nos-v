@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
@@ -132,7 +132,7 @@ static inline void bucket_refill_cpu_cache(cache_bucket_t *bucket, cpu_cache_buc
 
 	if (!clist_empty(&bucket->partial)) {
 		// Fast-path, we have a partial page
-		list_head_t *firstpage = clist_pop_head(&bucket->partial);
+		list_head_t *firstpage = clist_pop_front(&bucket->partial);
 		metadata = list_elem(firstpage, page_metadata_t, list_hook);
 
 		uint64_t inuse = metadata->inuse_chunks;
@@ -146,7 +146,7 @@ static inline void bucket_refill_cpu_cache(cache_bucket_t *bucket, cpu_cache_buc
 		nosv_spin_unlock(&bucket->lock);
 	} else if (!clist_empty(&bucket->free)) {
 		// Fast-path as well, we have a cached free page
-		list_head_t *firstpage = clist_pop_head(&bucket->free);
+		list_head_t *firstpage = clist_pop_front(&bucket->free);
 		nosv_spin_unlock(&bucket->lock);
 
 		metadata = list_elem(firstpage, page_metadata_t, list_hook);

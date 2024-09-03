@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
@@ -58,6 +58,7 @@ void backbone_alloc_init(void *start, size_t size, int initialize)
 	page_t *page = (page_t *)pages_start;
 
 	for (size_t i = 0; i < backbone_pages; ++i) {
+		list_init(&backbone_metadata_start[i].list_hook);
 		clist_add(&backbone_header->free_pages, &(backbone_metadata_start[i].list_hook));
 		backbone_metadata_start[i].addr = (void *)page;
 		asan_poison(page, PAGE_SIZE);
@@ -75,7 +76,7 @@ page_metadata_t *balloc(void)
 	page_metadata_t *ret = NULL;
 	nosv_sys_mutex_lock(&backbone_header->mutex);
 
-	list_head_t *first = clist_pop_head(&backbone_header->free_pages);
+	list_head_t *first = clist_pop_front(&backbone_header->free_pages);
 
 	if (first) {
 		ret = list_elem(first, page_metadata_t, list_hook);
