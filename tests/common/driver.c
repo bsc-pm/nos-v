@@ -230,6 +230,10 @@ void launch_test_proc(const char *program, struct test_proc_descriptor *descript
 		report_error("Could not fork test driver");
 	} else if (pid == 0) {
 		// Child
+		// Create new process group, which will allow us to reap this process and its children
+		// in case they hang
+		setpgrp();
+
 		// Redirect output
 		dup2(pipefd[1], 1);
 		dup2(pipefd[1], 2);
@@ -252,6 +256,45 @@ void launch_test_proc(const char *program, struct test_proc_descriptor *descript
 	}
 }
 
+int reap_processes(int n, struct test_harness *result, struct test_proc_descriptor *procs, int blocking)
+{
+	for (int i = 0; i < n; ++i) {
+		if (procs[i].finished)
+			continue;
+
+		int status;
+		pid_t ret = waitpid(procs[i].pid, &status, blocking ? 0 : WNOHANG);
+
+		if (ret == 0)
+			continue;
+
+		procs[i].finished = 1;
+
+		if (ret == -1)
+			report_error("Waitpid");
+
+		if(WIFEXITED(status) && WEXITSTATUS(status) == 0) {
+			// All ok.
+			result[i].retval = 0;
+		} else {
+			// The process crashed. We cannot continue
+			if (WIFEXITED(status)) {
+				fprintf(stderr, "Process %d exited with non-zero status %d\n", procs[i].pid, WEXITSTATUS(status));
+				if (procs[i].output)
+					fputs(procs[i].output, stderr);
+				return WEXITSTATUS(status);
+			} else {
+				fprintf(stderr, "Process %d was killed by signal %d\n", procs[i].pid, WTERMSIG(status));
+				if (procs[i].output)
+					fputs(procs[i].output, stderr);
+				return WTERMSIG(status);
+			}
+		}
+	}
+
+	return 0;
+}
+
 int monitor_procs(int n, struct test_harness *result, struct test_proc_descriptor *procs)
 {
 	struct pollfd descriptors[PARALLEL_TESTS];
@@ -266,7 +309,12 @@ int monitor_procs(int n, struct test_harness *result, struct test_proc_descripto
 	int openfds = n;
 
 	while(openfds) {
-		int ready = poll(descriptors, n, -1);
+		// Use a 100ms timeout. In case more than 100ms happen without any output, we will check
+		// if any process has crashed. A crash may not trigger a POLLHUP event in some cases, specially if the
+		// test forks, because children also inherit the open channel to the pipe write end, which maintains
+		// the pipe opened. If the parent crashes, the children may survive and keep that write end opened.
+		// This is why we cannot rely on simply reaping the processes when we receive POLLHUP events.
+		int ready = poll(descriptors, n, 100);
 		if (ready == -1)
 			report_error("Poll returned error");
 
@@ -299,30 +347,22 @@ int monitor_procs(int n, struct test_harness *result, struct test_proc_descripto
 					close(descriptors[i].fd);
 					// Notify poll to ignore subsequent polls of this FD
 					descriptors[i].fd = -1;
-					int status;
-					pid_t ret = waitpid(procs[i].pid, &status, 0);
-					procs[i].finished = 1;
 					openfds--;
-
-					if (ret == -1)
-						report_error("Waitpid");
-
-					if(WIFEXITED(status) && WEXITSTATUS(status) == 0) {
-						// All ok.
-						result[i].retval = 0;
-					} else {
-						// The process crashed. We cannot continue
-						if (WIFEXITED(status))
-							return WEXITSTATUS(status);
-						else
-							return WTERMSIG(status);
-					}
 				}
 			}
 		}
+
+		// Timeout of poll, check if someone crashed
+		if (ready == 0) {
+			int ret = reap_processes(n, result, procs, 0);
+
+			// Return if some process crashed
+			if (ret)
+				return ret;
+		}
 	}
 
-	return 0;
+	return reap_processes(n, result, procs, 1);
 }
 
 void parse_proc_outputs(int n, struct test_harness *result, struct test_options *options, struct test_proc_descriptor *procs)
@@ -337,6 +377,15 @@ void parse_proc_outputs(int n, struct test_harness *result, struct test_options 
 		}
 
 		free(procs[i].output);
+	}
+}
+
+void cleanup_procs(int n, struct test_proc_descriptor *procs)
+{
+	for (int i = 0; i < n; ++i) {
+		// Kill every process group, in case some of the children from the
+		// crashed process are still alive
+		kill(-procs[i].pid, SIGKILL);
 	}
 }
 
@@ -362,6 +411,7 @@ void execute_tests(tap_t *tap, const char *program, int n, struct test_options *
 
 	if (ret) {
 		// Some process crashed. Emulate the crash in the driver.
+		cleanup_procs(n, procs);
 		exit(ret);
 	}
 
