@@ -433,7 +433,6 @@ static inline void scheduler_submit_internal(nosv_task_t task)
 void scheduler_submit_single(nosv_task_t task)
 {
 	assert(task);
-	assert(!list_front(&task->list_hook));
 	scheduler_submit_internal(task);
 }
 

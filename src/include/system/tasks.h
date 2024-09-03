@@ -48,6 +48,7 @@ typedef struct task_execution_handle {
 #define EMPTY_TASK_EXECUTION_HANDLE ((task_execution_handle_t){ 0 })
 
 __internal void task_execute(task_execution_handle_t handle);
+__internal void task_pause(nosv_task_t task, int use_blocking_count);
 __internal void task_type_manager_init(void);
 __internal void task_type_manager_shutdown(void);
 __internal void task_affinity_init(void);

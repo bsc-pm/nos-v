@@ -77,7 +77,7 @@ int nosv_barrier_wait(nosv_barrier_t barrier)
 		// Wait for the other tasks
 		task_group_add(&barrier->waiting_tasks, current_task);
 		nosv_spin_unlock(&barrier->lock);
-		nosv_pause(NOSV_PAUSE_NONE);
+		task_pause(current_task, /* use_blocking_count */ 0);
 		// We have been unblocked, we can return immediately
 	} else {
 		// We are the last task
