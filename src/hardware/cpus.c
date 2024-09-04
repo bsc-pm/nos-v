@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
@@ -256,8 +256,8 @@ void cpus_init(int initialize)
 		}
 		--i;
 	}
+	cpumanager->max_cpu_id = maxcpu;
 	cpumanager->system_to_logical = salloc(sizeof(int) * (maxcpu + 1), 0);
-
 
 	// Inform the instrumentation of all available CPUs
 	instr_cpu_count(cnt, maxcpu);
@@ -314,6 +314,22 @@ void cpus_init(int initialize)
 	}
 
 	cpumanager->all_cpu_set = set;
+}
+
+void cpus_free(void)
+{
+	// Important to grab this before destroying the cpumanager
+	int cnt = cpus_count();
+	int maxcpu = cpumanager->max_cpu_id;
+
+	sfree(cpumanager->pids_cpus, sizeof(int) * cnt, -1);
+	sfree(cpumanager->system_to_logical, sizeof(int) * (maxcpu + 1), -1);
+
+	for (int i = 0; i < cnt; ++i)
+		sfree(cpumanager->thread_siblings[i], sizeof(int) * cnt, -1);
+	sfree(cpumanager->thread_siblings, sizeof(int *) * cnt, -1);
+
+	sfree(cpumanager, sizeof(cpumanager_t) + cnt * sizeof(cpu_t), -1);
 }
 
 int cpu_system_to_logical(int cpu)

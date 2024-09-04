@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
@@ -250,7 +250,10 @@ static void segment_unregister_last(void)
 	// NOTE: This is called from segment_unregister by the last process to
 	// arrive at the shutdown
 
-	monitoring_shutdown();
+	scheduler_free();
+	monitoring_free();
+	cpus_free();
+	pidmanager_free();
 }
 
 static void segment_unregister(void)

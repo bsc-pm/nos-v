@@ -11,7 +11,6 @@
 #include "compiler.h"
 #include "generic/arch.h"
 #include "instr.h"
-#include "memory/asan.h"
 #include "memory/backbone.h"
 #include "memory/slab.h"
 
@@ -57,8 +56,6 @@ static inline int cpubucket_alloc(cpu_cache_bucket_t *cpubucket, void **obj, siz
 	if (cpubucket->freelist) {
 		void *ret = cpubucket->freelist;
 
-		// Unpoison the chunk we're going to allocate
-		asan_unpoison(ret, size);
 		void *next = *((void **) ret);
 		cpubucket->freelist = next;
 
@@ -87,9 +84,6 @@ static inline void cpubucket_localfree(cpu_cache_bucket_t *cpubucket, void *obj,
 
 	*((void **)obj) = cpubucket->freelist;
 	cpubucket->freelist = obj;
-
-	// Poison again
-	asan_poison(obj, objsize);
 }
 
 static inline size_t bucket_objinpage(cache_bucket_t *bucket)
@@ -102,8 +96,6 @@ static inline void bucket_initialize_page(cache_bucket_t *bucket, page_metadata_
 {
 	void **base = (void **)page->addr;
 	size_t stride = bucket->obj_size / sizeof(void *);
-	// Temporarily unpoison the full page
-	asan_unpoison(base, PAGE_SIZE);
 
 	size_t obj_in_page = bucket_objinpage(bucket);
 	for (size_t i = 0; i < obj_in_page; i++) {
@@ -114,9 +106,6 @@ static inline void bucket_initialize_page(cache_bucket_t *bucket, page_metadata_
 	base[(obj_in_page - 1) * stride] = NULL;
 	page->freelist = page->addr;
 	page->inuse_chunks = 0;
-
-	// Poison everything again
-	asan_poison(base, PAGE_SIZE);
 }
 
 static inline void bucket_refill_cpu_cache(cache_bucket_t *bucket, cpu_cache_bucket_t *cpubucket)
@@ -262,17 +251,10 @@ static inline void bucket_free(cache_bucket_t *bucket, void *obj, int cpu)
 				nosv_spin_lock(&bucket->lock);
 			}
 
-			// Poison obj
-			asan_poison(obj, bucket->obj_size);
 			success = page_metadata_cmpxchg_double(metadata, next, inuse, obj, inuse - 1);
 
 			if (!success && (inuse == obj_in_page || inuse == 1))
 				nosv_spin_unlock(&bucket->lock);
-
-			// Unpoison the range as we have failed to update it
-			if (!success)
-				asan_unpoison(obj, bucket->obj_size);
-
 		} while (!success);
 
 		if (inuse == 1) {

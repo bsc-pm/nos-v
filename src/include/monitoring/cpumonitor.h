@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef CPUMONITOR_H
@@ -25,7 +25,7 @@ __internal void cpumonitor_initialize(cpumonitor_t *monitor);
 
 //! \brief Shutdown the CPU monitor
 //! \param[in,out] monitor The CPU monitor
-__internal void cpumonitor_shutdown(cpumonitor_t *monitor);
+__internal void cpumonitor_free(cpumonitor_t *monitor);
 
 //! \brief Signal that a CPU just became active
 //! \param[in,out] monitor The CPU monitor

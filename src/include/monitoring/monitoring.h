@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef MONITORING_H
@@ -30,7 +30,7 @@ typedef struct monitoring_manager {
 __internal void monitoring_init(bool initialize);
 
 //! \brief Shutdown monitoring
-__internal void monitoring_shutdown(void);
+__internal void monitoring_free(void);
 
 //! \brief Check whether monitoring is enabled
 __internal bool monitoring_is_enabled(void);

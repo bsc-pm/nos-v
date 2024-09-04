@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
@@ -71,6 +71,7 @@ void pidmanager_unregister(void)
 void pidmanager_shutdown(void)
 {
 	thread_manager_t *threadmanager = pidmanager_get_threadmanager(logic_pid);
+	pid_structures_t *pidstruct = PID_STR(logic_pid);
 
 	// Notify all threads they have to shut down and wait until they do
 	// Each thread will pass its CPU during the shutdown process
@@ -80,6 +81,7 @@ void pidmanager_shutdown(void)
 	// with logical PIDs
 	nosv_sys_mutex_lock(&pidmanager->lock);
 	BIT_CLR(MAX_PIDS, logic_pid, &pidmanager->pids_alloc);
+	sfree(pidstruct, sizeof(pid_structures_t), -1);
 	nosv_sys_mutex_unlock(&pidmanager->lock);
 }
 
@@ -96,6 +98,12 @@ void pidmanager_init(int initialize)
 	BIT_ZERO(MAX_PIDS, &pidmanager->pids);
 	BIT_ZERO(MAX_PIDS, &pidmanager->pids_alloc);
 	st_config.config->pidmanager_ptr = pidmanager;
+}
+
+void pidmanager_free(void)
+{
+	sfree(pidmanager, sizeof(pid_manager_t), -1);
+	pidmanager = NULL;
 }
 
 thread_manager_t *pidmanager_get_threadmanager(int pid)

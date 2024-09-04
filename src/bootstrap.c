@@ -86,6 +86,7 @@ static int nosv_shutdown_impl(void)
 		// can finalize modules that need hwcounters (e.g., monitoring)
 		hwcounters_shutdown();
 
+		affinity_support_shutdown();
 		locality_shutdown();
 		config_free();
 

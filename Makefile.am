@@ -1,6 +1,6 @@
 #	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 #
-#	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
+#	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 
 ACLOCAL_AMFLAGS = -I m4
 
@@ -48,7 +48,6 @@ libnosv_la_SOURCES = \
 	src/hwcounters/taskhwcounters.c \
 	src/hwcounters/threadhwcounters.c \
 	src/memory/backbone.c \
-	src/memory/slab.c \
 	src/memory/sharedmemory.c \
 	src/monitoring/cpumonitor.c \
 	src/monitoring/cpustats.c \
@@ -59,6 +58,14 @@ libnosv_la_SOURCES = \
 	src/support/barrier.c \
 	src/support/mutex.c \
 	src/system/tasks.c
+
+if USE_ASAN
+libnosv_la_SOURCES += \
+	src/memory/slab-asan.c
+else
+libnosv_la_SOURCES += \
+	src/memory/slab.c
+endif
 
 if HAVE_OVNI
 libnosv_la_SOURCES += \
@@ -118,7 +125,6 @@ noinst_HEADERS = \
 	src/include/hwcounters/supportedhwcounters.h \
 	src/include/hwcounters/taskhwcounters.h \
 	src/include/hwcounters/threadhwcounters.h \
-	src/include/memory/asan.h \
 	src/include/memory/backbone.h \
 	src/include/memory/sharedmemory.h \
 	src/include/memory/slab.h \

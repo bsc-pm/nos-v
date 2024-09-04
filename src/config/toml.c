@@ -1,7 +1,7 @@
 /*
   This file is part of Nanos6 and nOS-V and is licensed under the terms contained in the COPYING file.
 
-  Copyright (C) 2020-2022 Barcelona Supercomputing Center (BSC)
+  Copyright (C) 2020-2024 Barcelona Supercomputing Center (BSC)
 */
 /*
 
@@ -417,7 +417,8 @@ static void* expand(void* p, int sz, int newsz)
 	void* s = MALLOC(newsz);
 	if (!s) return 0;
 
-	memcpy(s, p, sz);
+	if (p)
+		memcpy(s, p, sz);
 	FREE(p);
 	return s;
 }
@@ -428,7 +429,8 @@ static void** expand_ptrarr(void** p, int n)
 	if (!s) return 0;
 
 	s[n] = 0;
-	memcpy(s, p, n * sizeof(void*));
+	if (p)
+		memcpy(s, p, n * sizeof(void*));
 	FREE(p);
 	return s;
 }

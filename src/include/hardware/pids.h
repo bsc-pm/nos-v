@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef PID_STRUCTURES_H
@@ -36,5 +36,6 @@ __internal void pidmanager_transfer_to_idle(cpu_t *cpu);
 __internal void pidmanager_register(void);
 __internal void pidmanager_unregister(void);
 __internal void pidmanager_shutdown(void);
+__internal void pidmanager_free(void);
 
 #endif // PID_STRUCTURES_H

@@ -110,6 +110,9 @@ void mutex_test(const char *msg, char trylock)
 	test_check_waitfor(&test, atomic_load_explicit(&track_completed, memory_order_relaxed) == NTASKS, 10000,
 					   "%s: All tasks were unlocked correctly", msg);
 
+	for (int i = 0; i < NTASKS; i++)
+		CHECK(nosv_destroy(tasks[i], NOSV_DESTROY_NONE));
+
 	// Free mutex object
 	CHECK(nosv_mutex_destroy(mutex));
 }
@@ -120,13 +123,13 @@ void trylock_test(const char *msg)
 	CHECK(nosv_mutex_init(&mutex, NOSV_MUTEX_NONE));
 
 	// Check trylock when the lock is not taken
-	if (&test, NOSV_SUCCESS != nosv_mutex_trylock(mutex)) {
+	if (NOSV_SUCCESS != nosv_mutex_trylock(mutex)) {
 		test_fail(&test, "%s: trylock returned \"taken\" when not taken", msg);
 		exit(1);
 	}
 
 	// Check trylock when the lock is taken
-	if (&test, NOSV_ERR_BUSY != nosv_mutex_trylock(mutex)) {
+	if (NOSV_ERR_BUSY != nosv_mutex_trylock(mutex)) {
 		test_fail(&test, "%s: trylock returned \"not taken\" when lock was taken", msg);
 		exit(1);
 	}

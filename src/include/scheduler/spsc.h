@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef SPSC_H
@@ -46,6 +46,11 @@ static inline spsc_queue_t *spsc_alloc(size_t size)
 	queue->tail = 0;
 
 	return queue;
+}
+
+static inline void spsc_free(spsc_queue_t * queue, size_t size)
+{
+	sfree(queue, sizeof(spsc_queue_t) + size * sizeof(struct spsc_queue_entry), -1);
 }
 
 static inline int spsc_push(spsc_queue_t *queue, void *value)

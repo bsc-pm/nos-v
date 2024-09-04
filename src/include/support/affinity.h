@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2023 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2023-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef NOSV_AFFINITY_SUPPORT_H
@@ -15,6 +15,7 @@
 
 
 __internal void affinity_support_init(void);
+__internal void affinity_support_shutdown(void);
 __internal void affinity_support_register_worker(nosv_worker_t *worker, char default_affinity);
 __internal void affinity_support_unregister_worker(nosv_worker_t *worker, char restore);
 

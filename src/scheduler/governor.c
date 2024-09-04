@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #include "config/config.h"
@@ -31,6 +31,11 @@ void governor_init(governor_t *governor)
 		assert(strcmp(nosv_config.governor_policy, "busy") == 0);
 		governor->spins = UINT64_MAX;
 	}
+}
+
+void governor_free(__maybe_unused governor_t *governor)
+{
+	// Nothing to do for now
 }
 
 static inline void governor_sleep_cpu(governor_t *governor, const int waiter, delegation_lock_t *dtlock)

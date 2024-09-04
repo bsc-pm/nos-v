@@ -75,6 +75,9 @@ void pause_test(unsigned int npauses)
 	// Wait for all tasks to have a chance to finish
 	test_check_timeout(&test, atomic_load_explicit(&track_completed, memory_order_relaxed) == NTASKS, 2000,
 					   "%u: All tasks were unlocked correctly", npauses);
+
+	for (int i = 0; i < NTASKS; i++)
+		CHECK(nosv_destroy(tasks[i], NOSV_DESTROY_NONE));
 }
 
 int main()

@@ -1,6 +1,6 @@
 #	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 #
-#	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
+#	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 
 .NOTPARALLEL:
 
@@ -15,7 +15,6 @@ basic_tests = basic-error-code.test \
 	basic-init.test \
 	basic-reinit.test \
 	basic-init-multicall.test \
-	basic-init-procs.test \
 	basic-mix.test \
 	basic-crash.test \
 	basic-turbo.test \
@@ -36,6 +35,12 @@ basic_tests = basic-error-code.test \
 	basic-alpi.test \
 	basic-submit-window.test \
 	basic-multi_pause.test
+
+# Tests that won't work with AddressSanitizer
+if !USE_ASAN
+basic_tests += \
+	basic-init-procs.test
+endif
 
 regression_tests = regression-attach-is.test \
 	regression-parallel-tasks-cross-process.test \
@@ -185,6 +190,10 @@ unit_ring_buffer_test_LDFLAGS = $(unit_LIBS)
 driver_SOURCES = common/driver.c
 driver_CFLAGS = -O3 -g -Wall -Wpedantic $(PTHREAD_CFLAGS)
 driver_LDFLAGS = -lrt $(PTHREAD_LIBS)
+
+if USE_ASAN
+driver_CFLAGS += -DNO_PARALLEL_TEST
+endif
 
 TEST_LOG_DRIVER = env AM_TAP_AWK='$(AWK)' $(SHELL) $(top_srcdir)/tests/wrapper.sh $(top_srcdir) $(top_builddir)/tests/driver $(top_srcdir)/tests/tap-driver.sh
 EXTRA_DIST = tap-driver.sh wrapper.sh

@@ -39,6 +39,13 @@ static inline void event_queue_init(event_queue_t *queue)
 	ring_buffer_init(&queue->rb, sizeof(creation_event_t), cpus * 2, queue->buffer);
 }
 
+static inline void event_queue_destroy(event_queue_t *queue)
+{
+	const size_t cpus = cpus_count();
+	sfree(queue->buffer, sizeof(creation_event_t) * cpus * 2, cpu_get_current());
+	nosv_signal_mutex_destroy(&queue->lock);
+}
+
 static inline int event_queue_put(event_queue_t *queue, creation_event_t *event)
 {
 	nosv_signal_mutex_lock(&queue->lock);

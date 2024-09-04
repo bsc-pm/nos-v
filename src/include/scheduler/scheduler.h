@@ -77,6 +77,7 @@ typedef struct scheduler {
 __internal void scheduler_init(int initialize);
 __internal void scheduler_wake(int pid);
 __internal void scheduler_shutdown(void);
+__internal void scheduler_free(void);
 
 __internal int scheduler_should_yield(int pid, int cpu, uint64_t *timestamp);
 __internal void scheduler_reset_accounting(int pid, int cpu);

@@ -110,7 +110,7 @@ void task_type_manager_shutdown(void)
 
 	list_head_t *list = task_type_manager_get_list();
 	list_head_t *head;
-	list_for_each(head, list) {
+	list_for_each_pop(head, list) {
 		nosv_task_type_t type = list_elem(head, struct nosv_task_type, list_hook);
 		if (type != NULL) {
 			if (type->label)

@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2023 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2023-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #include <dlfcn.h>
@@ -192,6 +192,15 @@ void affinity_support_init(void)
 	assert(!ret);
 	ret = ht_init(&ht_pthread, 256, 256);
 	assert(!ret);
+}
+
+void affinity_support_shutdown(void)
+{
+	if (!nosv_config.affinity_compat_support)
+		return;
+
+	ht_destroy(&ht_pthread);
+	ht_destroy(&ht_tid);
 }
 
 void affinity_support_register_worker(nosv_worker_t *worker, char default_affinity)

@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef GOVERNOR_H
@@ -31,6 +31,9 @@ typedef struct governor {
 
 // Initializes the governor structures
 __internal void governor_init(governor_t *governor);
+
+// Frees the governor structures
+__internal void governor_free(governor_t *governor);
 
 // Notify that remaining waiters could not be scheduled a task
 // Pass the dtlock as this may result in actions taken

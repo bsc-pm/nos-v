@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2023 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2023-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #include <nosv.h>
@@ -41,11 +41,11 @@ typedef enum rat_cmd {
 } rat_cmd_t;
 
 typedef struct parg {
-	cpu_set_t *set;
-	nosv_task_t task;
+	_Atomic (cpu_set_t *)set;
+	_Atomic nosv_task_t task;
 	char *msg;
 	atomic_int status;
-	pid_t tid;
+	_Atomic pid_t tid;
 	char attached;
 } parg_t;
 
@@ -526,6 +526,7 @@ void run_getaffinity_after_attach_test(cpu_set_t *original, cpu_set_t *target, n
 	pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), target);
 	atomic_store_explicit(&parg.set, target, memory_order_relaxed);
 	run_thread(getaffinity_test, &attr, &parg);
+	pthread_attr_destroy(&attr);
 
 #ifdef HAVE_pthread_getattr_default_np
 	// repeat, but using a default attr without cpuset. This is the same as
@@ -535,6 +536,7 @@ void run_getaffinity_after_attach_test(cpu_set_t *original, cpu_set_t *target, n
 	pthread_setattr_default_np(&attr);
 	atomic_store_explicit(&parg.set, original, memory_order_relaxed);
 	run_thread(getaffinity_test, NULL, &parg);
+	pthread_attr_destroy(&attr);
 
 	// repeat, but using a default attr with cpuset
 	parg.msg = "default attr with cpuset";
@@ -542,6 +544,7 @@ void run_getaffinity_after_attach_test(cpu_set_t *original, cpu_set_t *target, n
 	pthread_setattr_default_np(&attr);
 	atomic_store_explicit(&parg.set, target, memory_order_relaxed);
 	run_thread(getaffinity_test, NULL, &parg);
+	pthread_attr_destroy(&attr);
 
 	// reset default attr
 	pthread_attr_init(&attr);

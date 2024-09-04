@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #include <stdio.h>
@@ -46,10 +46,10 @@ void monitoring_init(bool initialize)
 	}
 }
 
-void monitoring_shutdown(void)
+void monitoring_free(void)
 {
 	if (monitoring_enabled) {
-		cpumonitor_shutdown(monitor->cpumonitor);
+		cpumonitor_free(monitor->cpumonitor);
 
 		sfree(monitor->cpumonitor, sizeof(cpumonitor_t), -1);
 		sfree(monitor, sizeof(monitoring_manager_t), -1);

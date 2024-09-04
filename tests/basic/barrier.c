@@ -83,6 +83,9 @@ void test_barrier(const char *msg)
 	// Wait until all tasks finish
 	test_check_waitfor(&test, atomic_load_explicit(&track_completed, memory_order_relaxed) == NTASKS, 10000,
 			"%s: All tasks were unlocked correctly from pause", msg);
+
+	for (int i = 0; i < NTASKS; i++)
+		CHECK(nosv_destroy(tasks[i], NOSV_DESTROY_NONE));
 }
 
 int main()
