@@ -110,10 +110,8 @@ void scheduler_free(void)
 
 	// Free per-pid queues
 	list_head_t *next;
-	for (list_head_t *head = list_front(&scheduler->queues); !list_is_head(head, &scheduler->queues); head = next) {
-		// Save next pointer because we're freeing everything
-		next = list_next(head);
-		process_scheduler_t *sched = list_elem(head, process_scheduler_t, list_hook);
+	list_for_each_pop(next, &scheduler->queues) {
+		process_scheduler_t *sched = list_elem(next, process_scheduler_t, list_hook);
 		scheduler_free_pid(sched, cpu_count);
 	}
 
