@@ -14,8 +14,8 @@
 #include "nosv-internal.h"
 #include "generic/list.h"
 #include "generic/spinlock.h"
-#include "hardware/cpus.h"
 #include "hardware/threads.h"
+#include "hardware/topology.h"
 #include "scheduler/scheduler.h"
 
 struct nosv_mutex {
