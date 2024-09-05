@@ -100,7 +100,7 @@ static inline void scheduler_free_pid(process_scheduler_t *sched, int cpus);
 // We are guaranteed to be the last scheduler process
 void scheduler_free(void)
 {
-	int cpu_count = cpus_count();
+	int cpu_count = topology_get_level_count(NOSV_TOPO_LEVEL_CPU);
 
 	// Free helper data structures
 	sfree(scheduler->timestamps, sizeof(timestamp_t) * cpu_count, -1);
@@ -289,7 +289,7 @@ static inline void scheduler_free_pid(process_scheduler_t *sched, int cpus)
 {
 	assert(sched);
 
-	int numas = locality_numa_count();
+	int numas = topology_get_level_count(NOSV_TOPO_LEVEL_NUMA);
 
 	sfree(sched->per_numa_queue_preferred, sizeof(scheduler_queue_t) * numas, -1);
 	sfree(sched->per_numa_queue_strict, sizeof(scheduler_queue_t) * numas, -1);

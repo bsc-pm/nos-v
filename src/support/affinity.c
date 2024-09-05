@@ -196,7 +196,7 @@ void affinity_support_init(void)
 
 void affinity_support_shutdown(void)
 {
-	if (!nosv_config.affinity_compat_support)
+	if (!nosv_config.thread_affinity_compat_support)
 		return;
 
 	ht_destroy(&ht_pthread);

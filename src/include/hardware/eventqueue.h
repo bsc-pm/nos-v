@@ -41,7 +41,7 @@ static inline void event_queue_init(event_queue_t *queue)
 
 static inline void event_queue_destroy(event_queue_t *queue)
 {
-	const size_t cpus = cpus_count();
+	const size_t cpus = topology_get_level_count(NOSV_TOPO_LEVEL_CPU);
 	sfree(queue->buffer, sizeof(creation_event_t) * cpus * 2, cpu_get_current());
 	nosv_signal_mutex_destroy(&queue->lock);
 }

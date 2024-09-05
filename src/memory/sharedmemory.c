@@ -253,7 +253,7 @@ static void segment_unregister_last(void)
 
 	scheduler_free();
 	monitoring_free();
-	cpus_free();
+	topology_free();
 	pidmanager_free();
 }
 

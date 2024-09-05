@@ -41,6 +41,15 @@ __internal topology_t *topology;
     offset += ret; \
 } while (0)
 
+int topology_get_logical_id_check(nosv_topo_level_t level, int system_id)
+{
+    int lid = topology_get_logical_id(level, system_id);
+    if (lid < 0) {
+        nosv_abort("system_id %d is invalid for topology level %s", system_id, nosv_topo_level_names[level]);
+    }
+    return lid;
+}
+
 
 // Init system id to logical id mapping. Sets all values to -1, and inits topology->s_max[level]
 static inline int* topology_init_domain_s_to_l(nosv_topo_level_t level, int max)
@@ -61,18 +70,6 @@ static inline topo_domain_t* topology_get_level_domains(nosv_topo_level_t level)
 {
     assert(level >= NOSV_TOPO_LEVEL_NODE && level <= NOSV_TOPO_LEVEL_CPU);
     return topology->per_level_domains[level];
-}
-
-// Returns the topo_domain_t struct for the given level and system id.
-static inline topo_domain_t *topology_get_domain_from_system_id(nosv_topo_level_t level, int system_id)
-{
-    assert(level >= NOSV_TOPO_LEVEL_NODE && level <= NOSV_TOPO_LEVEL_CPU);
-    assert(system_id >= 0);
-    assert(system_id <= topology_get_level_max(level));
-
-    topo_domain_t *domains = topology_get_level_domains(level);
-    int logical_id = topology_get_logical_id_check(level, system_id);
-    return &domains[logical_id];
 }
 
 // Returns the topo_domain_t struct for the given level and logical id.
@@ -350,6 +347,7 @@ static inline void topology_init_node(cpu_bitset_t *valid_cpus)
     topology->s_max[NOSV_TOPO_LEVEL_NODE] = 0;
 
     topology->per_level_domains[NOSV_TOPO_LEVEL_NODE] = (topo_domain_t *) salloc(sizeof(topo_domain_t), 0);
+    topology->per_level_count[NOSV_TOPO_LEVEL_NODE] = 1;
     cpu_bitset_init(topology_get_valid_domains_mask(NOSV_TOPO_LEVEL_NODE), NR_CPUS);
 
     topology_init_domain(NOSV_TOPO_LEVEL_NODE, 0, 0);
@@ -888,7 +886,7 @@ void topology_init(int initialize)
         topology->s_max[d] = TOPO_ID_UNSET; 
     }
 
-
+    // Initialize domain levels
     cpu_bitset_t valid_cpus;
     topology_init_cpus(&valid_cpus);
     topology_init_cores(&valid_cpus);
@@ -903,6 +901,34 @@ void topology_init(int initialize)
     if (env_print_locality_domains != NULL && (strcmp(env_print_locality_domains, "TRUE") == 0 || strcmp(env_print_locality_domains, "true") == 0)) {
         topology_print();
     }
+}
+
+void topology_free(void)
+{
+    // Free cpumanager
+    int cpu_cnt = topology_get_level_count(NOSV_TOPO_LEVEL_CPU);
+    sfree(cpumanager->pids_cpus, cpu_cnt, 0);
+    sfree(cpumanager, sizeof(cpumanager_t) + cpu_cnt * sizeof(cpu_t), 0);
+    cpumanager = NULL;
+
+    // Free topology system to logical id array, and per level domain array
+    for (int lvl = 0; lvl < NOSV_TOPO_LEVEL_COUNT; ++lvl) {
+        // Per level, free first system to logical map array
+        if (topology->s_to_l[lvl]) {
+            sfree(topology->s_to_l[lvl], topology_get_level_max(lvl) + 1, 0);
+            topology->s_to_l[lvl] = NULL;
+        }
+        // Per level, free domain array
+        if (topology->per_level_domains[lvl]) {
+            sfree(topology->per_level_domains[lvl], topology_get_level_count(lvl), 0);
+            topology->per_level_domains[lvl] = NULL;
+        }
+    }
+
+    // Free topology main pointer
+    sfree(topology, sizeof(topology_t), 0);
+    topology = NULL;
+
 }
 
 int topology_get_default_affinity(char **out)
@@ -983,15 +1009,6 @@ int topology_get_logical_id(nosv_topo_level_t level, int system_id)
     return topology->s_to_l[level][system_id];
 }
 
-int topology_get_logical_id_check(nosv_topo_level_t level, int system_id)
-{
-    int lid = topology_get_logical_id(level, system_id);
-    if (lid < 0) {
-        nosv_abort("system_id %d is invalid for topology level %s", system_id, nosv_topo_level_names[level]);
-    }
-    return lid;
-}
-
 // Returns the system id given the topology level and logical id
 int topology_get_system_id(nosv_topo_level_t level, int logical_id)
 {
@@ -1002,7 +1019,9 @@ int topology_get_system_id(nosv_topo_level_t level, int logical_id)
     }
 
     topo_domain_t *domains = topology_get_level_domains(level);
-    return domains[logical_id].system_id;
+    int system_id = domains[logical_id].system_id;
+    assert(system_id >= 0 && system_id <= topology->s_max[level]);
+    return system_id;
 }
 
 // Returns the number of domains in the given topology level
@@ -1075,7 +1094,7 @@ cpu_bitset_t *topology_get_valid_domains_mask(nosv_topo_level_t level)
 int cpu_get_parent_logical_id(cpu_t *cpu, nosv_topo_level_t parent)
 {
     assert(parent >= NOSV_TOPO_LEVEL_NODE && parent <= NOSV_TOPO_LEVEL_CORE);
-    return topology_get_parent_logical_id(NOSV_TOPO_LEVEL_CPU, cpu->cpu_domain->system_id, parent);
+    return topology_get_parent_logical_id(NOSV_TOPO_LEVEL_CPU, cpu_get_logical_id(cpu), parent);
 }
 
 cpu_t *cpu_get_from_logical_id(int cpu_logical_id)
