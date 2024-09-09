@@ -34,7 +34,8 @@ basic_tests = basic-error-code.test \
 	basic-parallel-init.test \
 	basic-alpi.test \
 	basic-submit-window.test \
-	basic-multi_pause.test
+	basic-multi_pause.test \
+	basic-suspend.test
 
 # Tests that won't work with AddressSanitizer
 if !USE_ASAN
@@ -154,6 +155,10 @@ basic_submit_window_test_LDFLAGS = $(AM_LDFLAGS)
 basic_multi_pause_test_SOURCES = basic/multi_pause.c
 basic_multi_pause_test_CFLAGS = $(AM_CFLAGS)
 basic_multi_pause_test_LDFLAGS = $(AM_LDFLAGS)
+
+basic_suspend_test_SOURCES = basic/suspend.c
+basic_suspend_test_CFLAGS = $(AM_CFLAGS)
+basic_suspend_test_LDFLAGS = $(AM_LDFLAGS)
 
 regression_attach_is_test_SOURCES = regression/attach-is.c
 regression_attach_is_test_CFLAGS = $(AM_CFLAGS)

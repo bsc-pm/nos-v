@@ -30,6 +30,25 @@ typedef struct task_hwcounters task_hwcounters_t;
 typedef struct tasktype_stats tasktype_stats_t;
 typedef struct task_stats task_stats_t;
 
+
+// Flags
+// Flags usage (64 bits): -------- -------- -------- -------- -------- -------- -------- ---sssSC
+
+#define TASK_FLAG_CREATE_PARALLEL      __BIT(0)
+// Indicates if the task has to suspend
+#define TASK_FLAG_SUSPEND              __BIT(1)
+// Suspend Modes
+#define TASK_FLAG_SUSPEND_MODE_SUBMIT  __BIT(2)
+#define TASK_FLAG_SUSPEND_MODE_TIMEOUT __BIT(3)
+#define TASK_FLAG_SUSPEND_MODE_EVENT   __BIT(4)
+
+// Mask to select only the suspend mode
+#define TASK_FLAG_SUSPEND_MODE_MASK ( TASK_FLAG_SUSPEND_MODE_SUBMIT | TASK_FLAG_SUSPEND_MODE_TIMEOUT | TASK_FLAG_SUSPEND_MODE_EVENT )
+
+// event_count flag
+// Indicates if the task is waitning for events
+#define TASK_WAITING_FOR_EVENTS        __BIT(31)
+
 struct nosv_task_type {
 	nosv_task_run_callback_t run_callback;
 	nosv_task_end_callback_t end_callback;
@@ -66,6 +85,7 @@ struct nosv_task {
 	union {
 		yield_t yield;
 		RB_ENTRY(nosv_task) tree_hook;
+		uint64_t suspend_args;
 	};
 
 	// Submit Window (Parent task)
@@ -89,5 +109,10 @@ struct nosv_task {
 	// Monitoring statistics
 	task_stats_t *stats;
 };
+
+static inline nosv_flags_t task_should_suspend(struct nosv_task *task)
+{
+	return ((task->flags & TASK_FLAG_SUSPEND) != 0);
+}
 
 #endif // NOSV_INTERNAL_H

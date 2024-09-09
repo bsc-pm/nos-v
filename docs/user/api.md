@@ -208,3 +208,23 @@ void *nosv_get_task_type_metadata(nosv_task_type_t type);
 int nosv_set_submit_window_size(size_t submit_window_size);
 int nosv_flush_submit_window(void);
 ```
+
+### Suspend API
+
+The suspend API allows the finalization of the task body without completing the task. If a task calls `nosv_suspend()` during the execution of its body, when the body ends, the task will be suspended instead of completed. In essence, this means that the nOS-V runtime will assume its body hasn't finished yet. When the task is resumed, however, **it is not guaranteed to be on the same pthread**.
+
+Combined with an external state, such as stackless coroutines, the suspension mechanism can replicate the behavior of the blocking API without pausing the thread.
+
+By default, a suspended task will only be rescheduled to complete its body if it is re-submitted through `nosv_submit`. However, this behavior can be changed through the `nosv_set_suspend_mode` call. Four suspend modes are provided, with different behaviors:
+ - `NOSV_SUSPEND_MODE_NONE`: Default behavior
+ - `NOSV_SUSPEND_MODE_SUBMIT`: Submits the task immediately upon suspension. It can be used to yield execution to other ready tasks. If `args` = 1, it will behave like a `nosv_yield()` call, where the task is not rescheduled until all remaining tasks have been.
+ - `NOSV_SUSPEND_MODE_TIMEOUT_SUBMIT`: Submits the task with a specific deadline upon suspension. The deadline can be specified in ns through the `args` argument.
+ - `NOSV_SUSPEND_MODE_EVENT_SUBMIT`: Submits the task when it has no remaining events. This is used in combination with the event API, and it allows suspending a task until every event has occurred, at which point it will be resubmitted by nOS-V.
+
+```c
+int nosv_set_suspend_mode(
+	nosv_suspend_mode_t suspend_mode,
+	uint64_t args);
+
+int nosv_suspend(void);
+```
