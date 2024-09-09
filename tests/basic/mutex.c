@@ -5,6 +5,7 @@
 */
 
 #include <nosv.h>
+#include <nosv/affinity.h>
 #include <sched.h>
 #include <stdatomic.h>
 #include <stdlib.h>
@@ -12,7 +13,6 @@
 
 #include "test.h"
 #include "common/utils.h"
-#include "nosv-internal.h"
 
 #define NTASKS 128
 
@@ -44,7 +44,7 @@ void task_comp(nosv_task_t task)
 	atomic_fetch_add_explicit(&track_completed, 1, memory_order_relaxed);
 }
 
-void mutex_test(const char *msg, char trylock)
+void mutex_test(const char *msg, char trylock, char affinity)
 {
 	atomic_store_explicit(&track_init, 0, memory_order_relaxed);
 	atomic_store_explicit(&track_mid, 0, memory_order_relaxed);
@@ -61,10 +61,26 @@ void mutex_test(const char *msg, char trylock)
 	else
 		CHECK(nosv_mutex_trylock(mutex));
 
+	// Number of available CPUs
+	int cpus = get_cpus();
+	// Array containing all the system CPU ids
+	int *cpu_indexes = get_cpu_array();
+
 	// Submit all tasks. Each task will block until the main thread unblocks
 	// them one by one
-	for (int i = 0; i < NTASKS; i++)
+	for (int i = 0; i < NTASKS; i++) {
+		if (affinity) {
+			// Get system CPU id
+			int cpu = cpu_indexes[i % cpus];
+
+			nosv_affinity_t aff = nosv_affinity_get(cpu, NOSV_AFFINITY_LEVEL_CPU, NOSV_AFFINITY_TYPE_STRICT);
+			nosv_set_task_affinity(tasks[i], &aff);
+		}
+
 		CHECK(nosv_submit(tasks[i], NOSV_SUBMIT_NONE));
+	}
+
+	free(cpu_indexes);
 
 	// Wait for all tasks to have a chance to run
 	while (atomic_load_explicit(&track_init, memory_order_relaxed) != NTASKS)
@@ -141,7 +157,7 @@ int main()
 {
 	nosv_task_t task;
 
-	test_init(&test, 4);
+	test_init(&test, 5);
 
 	// Init nosv
 	CHECK(nosv_init());
@@ -149,13 +165,16 @@ int main()
 	CHECK(nosv_type_init(&task_type, task_run, NULL, task_comp, "task", NULL, NULL, NOSV_TYPE_INIT_NONE));
 
 	// Run mutex tests
-	mutex_test("new", 0);
+	mutex_test("new", 0, 0);
 	// Repeat (reuse mutex after reinit)
-	mutex_test("reuse", 0);
+	mutex_test("reuse", 0, 0);
+	// Run with affinity
+	mutex_test("affinity", 0, 1);
+
 	// Basic trylock test
 	trylock_test("trylock");
 	// Repeat, mutex test, but now with initial lock taken with trylock
-	mutex_test("trylock_reuse", 1);
+	mutex_test("trylock_reuse", 1, 0);
 
 	// Shutdown nosv
 	CHECK(nosv_detach(NOSV_DETACH_NONE));
