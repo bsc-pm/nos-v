@@ -25,6 +25,7 @@ atomic_uint track_mid;
 atomic_uint track_completed;
 nosv_mutex_t mutex;
 
+atomic_uint affinity_ok = 0;
 
 void task_run(nosv_task_t task)
 {
@@ -32,6 +33,13 @@ void task_run(nosv_task_t task)
 	atomic_fetch_add_explicit(&track_init, 1, memory_order_relaxed);
 	// Block
 	CHECK(nosv_mutex_lock(mutex));
+
+	nosv_affinity_t aff = nosv_get_task_affinity(nosv_self());
+	if (aff.level == NOSV_AFFINITY_LEVEL_CPU &&
+			aff.type == NOSV_AFFINITY_TYPE_STRICT &&
+			nosv_get_current_system_cpu() == aff.index) {
+		atomic_fetch_add_explicit(&affinity_ok, 1, memory_order_relaxed);
+	}
 
 	atomic_fetch_add_explicit(&track_mid, 1, memory_order_relaxed);
 
@@ -49,6 +57,7 @@ void mutex_test(const char *msg, char trylock, char affinity)
 	atomic_store_explicit(&track_init, 0, memory_order_relaxed);
 	atomic_store_explicit(&track_mid, 0, memory_order_relaxed);
 	atomic_store_explicit(&track_completed, 0, memory_order_relaxed);
+	atomic_store_explicit(&affinity_ok, 0, memory_order_relaxed);
 
 	for (int i = 0; i < NTASKS; i++)
 		CHECK(nosv_create(&tasks[i], task_type, 0, NOSV_CREATE_NONE));
@@ -119,6 +128,10 @@ void mutex_test(const char *msg, char trylock, char affinity)
 	// Wait for all tasks to have a chance to run
 	test_check_waitfor(&test, atomic_load_explicit(&track_completed, memory_order_relaxed) == NTASKS, 10000,
 					   "%s: All tasks were unlocked correctly", msg);
+
+	if (affinity && atomic_load_explicit(&affinity_ok, memory_order_relaxed) != NTASKS) {
+		test_error(&test, "%s: tasks did not run on their affine cpus", msg);
+	}
 
 	for (int i = 0; i < NTASKS; i++)
 		CHECK(nosv_destroy(tasks[i], NOSV_DESTROY_NONE));
