@@ -63,6 +63,7 @@ void scheduler_init(int initialize)
 	governor_init(&scheduler->governor);
 
 	scheduler->in_queue = mpsc_alloc(cpu_count, nosv_config.sched_in_queue_size);
+
 	list_init(&scheduler->queues);
 	scheduler->tasks = 0;
 	scheduler->served_tasks = 0;
@@ -182,9 +183,6 @@ static inline int scheduler_get_from_queue(scheduler_queue_t *queue, nosv_task_t
 		nosv_task_t t = *task;
 		int32_t degree = atomic_load_explicit(&(t->degree), memory_order_relaxed);
 
-		// The only cases where scheduled_count may not be zero here
-		// are when dealing with parallel tasks or blocked tasks
-		assert(task_is_parallel(t) || t->worker || t->scheduled_count == 0);
 		t->scheduled_count++;
 		assert(t->scheduled_count > 0);
 
@@ -520,6 +518,7 @@ static inline void scheduler_deadline_purge_internal(int count)
 				if (state == NOSV_DEADLINE_READY) {
 					RB_REMOVE(deadline_tree, &sched->deadline_tasks, task);
 					task->deadline = 0;
+					atomic_store_explicit(&task->deadline_state, NOSV_DEADLINE_NONE, memory_order_relaxed);
 					scheduler_add_queue(&sched->queue, task);
 					to_purge--;
 					if (!to_purge)

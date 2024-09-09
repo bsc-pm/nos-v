@@ -27,7 +27,7 @@ extern "C" {
 
 /* Support Macros */
 #define __ZEROBITS ((uint64_t)0)
-#define __BIT(n) ((uint64_t)(1 << (n)))
+#define __BIT(n) (((uint64_t)1) << (n))
 
 typedef uint64_t nosv_flags_t;
 
@@ -185,6 +185,13 @@ int nosv_destroy(
 int nosv_increase_event_counter(
 	uint64_t increment);
 
+/* Return if the current task has events */
+/* This call is intended as a hint */
+/* Another thread can decrease the events at any time */
+/* The only case where the result is guaranteed to be correct is when there are no events */
+/* Restriction: Can only be called from a task context */
+int nosv_has_events(void);
+
 /* Restriction: Can only be called from a nOS-V Worker */
 int nosv_decrease_event_counter(
 	nosv_task_t task,
@@ -279,6 +286,23 @@ int nosv_set_submit_window_size(size_t submit_batch_size);
 /* Flush the current submit window */
 /* Restriction: Can only be called from a task context */
 int nosv_flush_submit_window(void);
+
+/* Suspend API */
+/* Suspend Modes */
+typedef enum nosv_suspend_mode {
+	NOSV_SUSPEND_MODE_NONE = 0,
+	NOSV_SUSPEND_MODE_SUBMIT,
+	NOSV_SUSPEND_MODE_TIMEOUT_SUBMIT,
+	NOSV_SUSPEND_MODE_EVENT_SUBMIT,
+} nosv_suspend_mode_t;
+
+/* Set a suspend mode and its arguments if needed */
+/* Restriction: Can only be called from a task context */
+int nosv_set_suspend_mode(nosv_suspend_mode_t suspend_mode, uint64_t args);
+
+/* Marks the task to suspend, the task will suspend, instead of complete, when returns from the body */
+/* Restriction: Can only be called from a task context */
+int nosv_suspend(void);
 
 #ifdef __cplusplus
 }

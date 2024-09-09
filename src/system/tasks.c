@@ -219,6 +219,16 @@ int nosv_type_destroy(
 	return NOSV_SUCCESS;
 }
 
+static inline nosv_flags_t task_get_internal_flags(nosv_flags_t flags)
+{
+	nosv_flags_t internal_flags = 0;
+
+	if (flags & NOSV_CREATE_PARALLEL)
+		internal_flags |= TASK_FLAG_CREATE_PARALLEL;
+
+	return internal_flags;
+}
+
 static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	nosv_task_type_t type,
 	size_t metadata_size,
@@ -254,10 +264,12 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 
 	atomic_store_explicit(&(res->degree), 1, memory_order_relaxed);
 	res->scheduled_count = 0;
-	res->flags = flags;
+	res->flags = task_get_internal_flags(flags);
 
 	task_group_init(&res->submit_window);
 	res->submit_window_maxsize = 1;
+
+	res->suspend_args = 0;
 
 	// Initialize hardware counters and monitoring for the task
 	hwcounters_task_created(res, /* enabled */ 1);
@@ -543,6 +555,21 @@ int nosv_cancel(
 	return NOSV_SUCCESS;
 }
 
+static inline int set_task_deadline(nosv_task_t task, const uint64_t start_time, uint64_t timeout)
+{
+	task->deadline = start_time + timeout;
+	deadline_state_t expected = NOSV_DEADLINE_NONE;
+	deadline_state_t desired = NOSV_DEADLINE_PENDING;
+	if (!atomic_compare_exchange_strong_explicit(&task->deadline_state, &expected, desired, memory_order_relaxed, memory_order_relaxed)) {
+		assert(expected == NOSV_DEADLINE_READY);
+		atomic_store_explicit(&task->deadline_state, NOSV_DEADLINE_NONE, memory_order_relaxed);
+		// Unblocked
+		task->deadline = 0;
+		return 0;
+	}
+	return 1;
+}
+
 /* Deadline tasks */
 int nosv_waitfor(
 	uint64_t target_ns,
@@ -573,24 +600,16 @@ int nosv_waitfor(
 	instr_task_pause((uint32_t)task->taskid, bodyid);
 
 	const uint64_t start_ns = clock_ns();
-	task->deadline = start_ns + target_ns;
+	int res = set_task_deadline(task, start_ns, target_ns);
 
-	// Only sleep if the task has not been attempted to be woken up yet
-	deadline_state_t expected = NOSV_DEADLINE_NONE;
-	deadline_state_t desired = NOSV_DEADLINE_PENDING;
-	if (atomic_compare_exchange_strong_explicit(&task->deadline_state, &expected, desired, memory_order_relaxed, memory_order_relaxed)) {
+	if(res) {
 		// Submit the task to re-schedule when the deadline is done
 		// Forego the current
 		scheduler_submit_single(task);
 		// Block until the deadline expires
 		worker_yield();
-	} else {
-		assert(expected == NOSV_DEADLINE_READY);
 	}
-	atomic_store_explicit(&task->deadline_state, NOSV_DEADLINE_NONE, memory_order_relaxed);
 
-	// Unblocked
-	task->deadline = 0;
 
 	if (actual_ns)
 		*actual_ns = clock_ns() - start_ns;
@@ -744,6 +763,52 @@ static inline void task_complete(nosv_task_t task)
 		nosv_submit(wakeup, NOSV_SUBMIT_UNLOCKED);
 }
 
+static inline void task_suspend(nosv_task_t task)
+{
+	uint32_t res = 0;
+
+	nosv_flags_t flags = task->flags & TASK_FLAG_SUSPEND_MODE_MASK;
+	uint64_t args =  task->suspend_args;
+	int32_t count;
+
+	task->suspend_args = 0;
+	task->flags &= ~TASK_FLAG_SUSPEND_MODE_MASK;
+	task->flags &= ~TASK_FLAG_SUSPEND;
+
+	switch (flags) {
+		case 0: // NOSV_SUSPEND_NONE
+			count = atomic_fetch_add_explicit(&task->blocking_count, 1, memory_order_relaxed) + 1;
+
+			// If blocking_count was <= -1, some task tried resubmit the current task and was not able to do it, instead resubmit the task here
+			if (count <= 0)
+				scheduler_submit_single(task);
+			break;
+		case TASK_FLAG_SUSPEND_MODE_TIMEOUT:
+			// Independently of the result of this operation the task must be resubmitted	
+			res = set_task_deadline(task, clock_ns(), args);
+			assert(res);
+			scheduler_submit_single(task);
+			break;
+		case TASK_FLAG_SUSPEND_MODE_SUBMIT:
+			assert(args == 1 || args == 0);
+			// If args = 1, it is a yield
+			task->yield = args;
+			scheduler_submit_single(task);
+			break;
+		case TASK_FLAG_SUSPEND_MODE_EVENT:
+			res = atomic_fetch_or_explicit(&task->event_count, TASK_WAITING_FOR_EVENTS, memory_order_relaxed);
+			res = res & ~TASK_WAITING_FOR_EVENTS;
+
+			// If res (old value) is 1, it wasn't waiting for events and we have to re-submit here
+			if (res == 1) {
+				// Remove the flag from the event_count
+				atomic_fetch_and_explicit(&task->event_count, ~TASK_WAITING_FOR_EVENTS, memory_order_relaxed);
+				scheduler_submit_single(task);
+			}
+			break;
+	}
+}
+
 void task_execute(task_execution_handle_t handle)
 {
 	nosv_task_t task = handle.task;
@@ -784,20 +849,24 @@ void task_execute(task_execution_handle_t handle)
 	monitoring_task_changed_status(task, paused_status);
 
 	// After the run and end callbacks, we can safely reset the task in case it has to be re-entrant
-	// Reset the blocking count
-	atomic_store_explicit(&task->blocking_count, 1, memory_order_relaxed);
 	// Remove stack frame
 	// Remove the worker assigned to this task
 	task->worker = NULL;
 	// Remove the task assigned to the worker as well
 	worker->handle = EMPTY_TASK_EXECUTION_HANDLE;
 
-	uint64_t res = atomic_fetch_sub_explicit(&task->event_count, 1, memory_order_relaxed) - 1;
-	if (!res) {
-		task_complete(task);
-	}
-	// Warning: from this point forward, "task" may have been freed, and thus it is not safe to access
+	if (task_should_suspend(task)) {
+		task_suspend(task);
+	} else {
+		// Reset the blocking count
+		atomic_store_explicit(&task->blocking_count, 1, memory_order_relaxed);
 
+		uint32_t res = atomic_fetch_sub_explicit(&task->event_count, 1, memory_order_relaxed) - 1;
+		if (!res) {
+			task_complete(task);
+		}
+		// Warning: from this point forward, "task" may have been freed, and thus it is not safe to access
+	}
 	instr_task_end(taskid, bodyid);
 }
 
@@ -818,6 +887,23 @@ int nosv_increase_event_counter(
 	return NOSV_SUCCESS;
 }
 
+/* Return if the current task has events */
+/* This call is intended as a hint */
+/* Another thread can decrease the events at any time */
+/* The only case where the result is guaranteed to be correct is when there are no events */
+/* Restriction: Can only be called from a task context */
+int nosv_has_events(void)
+{
+	nosv_task_t current = worker_current_task();
+	if (!current)
+		return NOSV_ERR_OUTSIDE_TASK;
+
+	uint32_t res = atomic_load_explicit(&current->event_count, memory_order_relaxed);
+	// Remove events waiting flag
+	res = res & ~TASK_WAITING_FOR_EVENTS;
+	return (res > 1);
+}
+
 /* Restriction: Can only be called from a nOS-V Worker */
 int nosv_decrease_event_counter(
 	nosv_task_t task,
@@ -836,7 +922,16 @@ int nosv_decrease_event_counter(
 		monitoring_task_changed_status(current, paused_status);
 	}
 
-	uint64_t r = atomic_fetch_sub_explicit(&task->event_count, decrement, memory_order_relaxed) - 1;
+	uint32_t r = atomic_fetch_sub_explicit(&task->event_count, decrement, memory_order_relaxed) - decrement;
+	const uint32_t r_count = r & ~TASK_WAITING_FOR_EVENTS;
+	const uint32_t r_flag = r & TASK_WAITING_FOR_EVENTS;
+
+	if (r_flag) {
+		if (r_count == 1) {
+			atomic_fetch_and_explicit(&task->event_count, ~TASK_WAITING_FOR_EVENTS, memory_order_relaxed);
+			scheduler_submit_single(task);
+		}
+	}
 
 	if (!r) {
 		task_complete(task);
@@ -1020,7 +1115,7 @@ void nosv_set_task_degree(nosv_task_t task, int32_t degree)
 {
 	assert(degree > 0);
 	assert(task);
-	assert(task->flags & NOSV_CREATE_PARALLEL);
+	assert(task->flags & TASK_FLAG_CREATE_PARALLEL);
 	atomic_store_explicit(&(task->degree), degree, memory_order_relaxed);
 }
 
@@ -1077,6 +1172,52 @@ int nosv_set_submit_window_size(size_t submit_window_size)
 
 	if (submit_window_size == 1)
 		nosv_flush_submit_window();
+
+	return NOSV_SUCCESS;
+}
+
+int nosv_set_suspend_mode(nosv_suspend_mode_t suspend_mode, uint64_t args)
+{
+	nosv_task_t current = worker_current_task();
+	if (!current)
+		return NOSV_ERR_OUTSIDE_TASK;
+
+	current->flags &= ~TASK_FLAG_SUSPEND_MODE_MASK;
+	switch (suspend_mode) {
+		case NOSV_SUSPEND_MODE_NONE:
+			break;
+		case NOSV_SUSPEND_MODE_SUBMIT:
+			if (args != 1 && args != 0)
+				return NOSV_ERR_INVALID_PARAMETER;
+			current->flags |= TASK_FLAG_SUSPEND_MODE_SUBMIT;
+			break;
+		case NOSV_SUSPEND_MODE_TIMEOUT_SUBMIT:
+			current->flags |= TASK_FLAG_SUSPEND_MODE_TIMEOUT;
+			break;
+		case NOSV_SUSPEND_MODE_EVENT_SUBMIT:
+			current->flags |= TASK_FLAG_SUSPEND_MODE_EVENT;
+			break;
+		default:
+			return NOSV_ERR_INVALID_PARAMETER;
+	}
+
+	current->suspend_args = args;
+
+	return NOSV_SUCCESS;
+}
+
+int nosv_suspend(void)
+{
+	nosv_worker_t *worker = worker_current();
+	nosv_task_t current = worker_current_task();
+
+	if (!current)
+		return NOSV_ERR_OUTSIDE_TASK;
+
+	if (!worker->in_task_body)
+		return NOSV_ERR_OUTSIDE_TASK;
+
+	current->flags |= TASK_FLAG_SUSPEND;
 
 	return NOSV_SUCCESS;
 }

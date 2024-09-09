@@ -127,6 +127,21 @@ int alpi_task_events_increase(struct alpi_task *handle, uint64_t increment)
 	return 0;
 }
 
+int alpi_task_events_test(struct alpi_task *handle, uint64_t *has_events)
+{
+	nosv_task_t task = worker_current_task();
+	if (!task)
+		return ALPI_ERR_OUTSIDE_TASK;
+	if (task != (nosv_task_t) handle)
+		return ALPI_ERR_PARAMETER;
+	if (!has_events)
+		return ALPI_ERR_PARAMETER;
+
+	*has_events = nosv_has_events();
+
+	return 0;
+}
+
 int alpi_task_events_decrease(struct alpi_task *handle, uint64_t decrement)
 {
 	nosv_task_t task = (nosv_task_t) handle;
@@ -303,5 +318,33 @@ int alpi_cpu_system_id(uint64_t *system_id)
 		return translate_error(ret);
 
 	*system_id = ret;
+	return 0;
+}
+
+int alpi_task_suspend_mode_set(struct alpi_task *handle, alpi_suspend_mode_t suspend_mode, uint64_t args)
+{
+	nosv_task_t task = worker_current_task();
+	if (!task)
+		return ALPI_ERR_OUTSIDE_TASK;
+	if (task != (nosv_task_t) handle)
+		return ALPI_ERR_PARAMETER;
+
+	int err = nosv_set_suspend_mode((nosv_suspend_mode_t) suspend_mode, args);
+	if (err)
+		return translate_error(err);
+	return 0;
+}
+
+int alpi_task_suspend(struct alpi_task *handle)
+{
+	nosv_task_t task = worker_current_task();
+	if (!task)
+		return ALPI_ERR_OUTSIDE_TASK;
+	if (task != (nosv_task_t) handle)
+		return ALPI_ERR_PARAMETER;
+
+	int err = nosv_suspend();
+	if (err)
+		return translate_error(err);
 	return 0;
 }
