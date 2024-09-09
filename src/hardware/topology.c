@@ -917,12 +917,12 @@ void topology_free(void)
     for (int lvl = 0; lvl < NOSV_TOPO_LEVEL_COUNT; ++lvl) {
         // Per level, free first system to logical map array
         if (topology->s_to_l[lvl]) {
-            sfree(topology->s_to_l[lvl], topology_get_level_max(lvl) + 1, 0);
+            sfree(topology->s_to_l[lvl], sizeof(int) * (topology_get_level_max(lvl) + 1), 0);
             topology->s_to_l[lvl] = NULL;
         }
         // Per level, free domain array
         if (topology->per_level_domains[lvl]) {
-            sfree(topology->per_level_domains[lvl], topology_get_level_count(lvl), 0);
+            sfree(topology->per_level_domains[lvl], sizeof(topo_domain_t) * topology_get_level_count(lvl), 0);
             topology->per_level_domains[lvl] = NULL;
         }
     }
