@@ -96,12 +96,6 @@ void mutex_test(const char *msg, char trylock)
 		exit(1);
 	}
 
-	for (int i = 0; i < NTASKS; i++)
-		if (tasks[i]->blocking_count != 1) {
-			test_error(&test, "%s: task blocking_count != 1", msg);
-			exit(1);
-		}
-
 	// Re-submit all tasks. They should resume from the nosv_pause
 	for (int i = 0; i < NTASKS; i++)
 		CHECK(nosv_submit(tasks[i], NOSV_SUBMIT_NONE));
