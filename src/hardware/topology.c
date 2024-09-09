@@ -453,6 +453,8 @@ static inline bool topology_check_numa_is_valid_libnuma(int numa_system, cpu_bit
             break;
         }
     }
+
+    numa_free_cpumask(cpus_in_numa);
     return valid_numa;
 }
 
