@@ -540,6 +540,7 @@ void run_getaffinity_after_attach_test(cpu_set_t *original, cpu_set_t *target, n
 
 	// repeat, but using a default attr with cpuset
 	parg.msg = "default attr with cpuset";
+	pthread_attr_init(&attr);
 	pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), target);
 	pthread_setattr_default_np(&attr);
 	atomic_store_explicit(&parg.set, target, memory_order_relaxed);
