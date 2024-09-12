@@ -77,12 +77,12 @@ typedef struct topology {
 	topo_domain_t *(per_level_domains[NOSV_TOPO_LEVEL_COUNT]); // Should be accessed through topology_get_level_domains
 
 	int *s_to_l[NOSV_TOPO_LEVEL_COUNT]; // System id to logical id mapping
-	int s_max[NOSV_TOPO_LEVEL_COUNT]; // Max system id in this system for each level
+	int s_max[NOSV_TOPO_LEVEL_COUNT];	// Max system id in this system for each level
 } topology_t;
 
 typedef struct cpumanager {
-	int *pids_cpus;			// Map from "Logical" PIDs to CPUs
-	cpu_t cpus[];           // Flexible array
+	int *pids_cpus; // Map from "Logical" PIDs to CPUs
+	cpu_t cpus[];	// Flexible array
 } cpumanager_t;
 
 __internal void topology_init(int initialize);
@@ -107,8 +107,8 @@ __internal int topology_get_system_id(nosv_topo_level_t level, int logical_id);
 __internal int topology_get_level_count(nosv_topo_level_t level);
 __internal int topology_get_level_max(nosv_topo_level_t level);
 __internal int topology_get_default_affinity(char **out);
-__internal cpu_bitset_t* topology_get_cpu_logical_mask(nosv_topo_level_t level, int lid);
-__internal cpu_bitset_t* topology_get_cpu_system_mask(nosv_topo_level_t level, int lid);
+__internal cpu_bitset_t *topology_get_cpu_logical_mask(nosv_topo_level_t level, int lid);
+__internal cpu_bitset_t *topology_get_cpu_system_mask(nosv_topo_level_t level, int lid);
 __internal cpu_bitset_t *topology_get_valid_domains_mask(nosv_topo_level_t level);
 __internal const char *topology_get_level_name(nosv_topo_level_t level);
 __internal void topology_free(void);

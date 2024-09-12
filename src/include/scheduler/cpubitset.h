@@ -102,7 +102,7 @@ static inline int cpu_bitset_parse_str(cpu_bitset_t *set, char *string_to_parse)
 		nosv_abort("Could not allocate memory");
 
 	char *tok = strtok(string_to_parse, ",");
-	while(tok) {
+	while (tok) {
 		int first_id, last_id, stride;
 		int ret = sscanf(tok, "%d-%d:%d", &first_id, &last_id, &stride);
 
