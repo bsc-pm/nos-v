@@ -138,7 +138,7 @@ failed:
 #define CPU_BITSET_FOREACH(bs, var) \
 	for ((var) = cpu_bitset_ffs((bs)); (var) >= 0; (var) = (cpu_bitset_ffs_at((bs), (var))))
 
-void cpu_bitset_to_cpuset(cpu_set_t *dst, cpu_bitset_t *src)
+static inline void cpu_bitset_to_cpuset(cpu_set_t *dst, cpu_bitset_t *src)
 {
 	assert(CPU_COUNT(dst) >= cpu_bitset_count(src));
 

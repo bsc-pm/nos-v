@@ -5,7 +5,6 @@
 */
 
 #include <assert.h>
-#include <errno.h>
 #include <linux/limits.h>
 #include <numa.h>
 #include <stdbool.h>
