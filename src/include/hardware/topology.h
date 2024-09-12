@@ -4,8 +4,8 @@
 	Copyright (C) 2024 Barcelona Supercomputing Center (BSC)
 */
 
-#ifndef CPUS_H
-#define CPUS_H
+#ifndef TOPOLOGY_H
+#define TOPOLOGY_H
 
 #include <assert.h>
 #include <stdbool.h>
@@ -99,7 +99,6 @@ __internal int cpu_get_logical_id(cpu_t *cpu);
 __internal int cpu_get_system_id(cpu_t *cpu);
 __internal int cpu_get_parent_logical_id(cpu_t *cpu, nosv_topo_level_t level);
 
-
 __internal int topology_get_parent_logical_id(nosv_topo_level_t son_level, int son_logical_id, nosv_topo_level_t parent);
 __internal int topology_get_parent_system_id(nosv_topo_level_t son_level, int son_logical_id, nosv_topo_level_t parent);
 __internal int topology_get_logical_id(nosv_topo_level_t level, int system_id);
@@ -133,4 +132,4 @@ static inline int cpu_get_pid(int cpu)
 	return cpumanager->pids_cpus[cpu];
 }
 
-#endif // CPUS_H
+#endif // TOPOLOGY_H

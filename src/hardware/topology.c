@@ -42,19 +42,19 @@ __internal topology_t *topology;
 		offset += ret;                                                         \
 	} while (0)
 
-int topology_get_logical_id_check(nosv_topo_level_t level, int system_id)
+static inline int topology_get_logical_id_check(nosv_topo_level_t level, int system_id)
 {
 	int lid = topology_get_logical_id(level, system_id);
-	if (lid < 0) {
+	if (lid < 0)
 		nosv_abort("system_id %d is invalid for topology level %s", system_id, nosv_topo_level_names[level]);
-	}
+
 	return lid;
 }
-
 
 // Init system id to logical id mapping. Sets all values to -1, and inits topology->s_max[level]
 static inline int *topology_init_domain_s_to_l(nosv_topo_level_t level, int max)
 {
+	topology->s_max[level] = max;
 	int size = max + 1;
 	int **s_to_l = &topology->s_to_l[level];
 	assert(*s_to_l == NULL); // assert we have not initialized this level yet
@@ -62,7 +62,6 @@ static inline int *topology_init_domain_s_to_l(nosv_topo_level_t level, int max)
 	for (int i = 0; i < size; ++i) {
 		(*s_to_l)[i] = -1;
 	}
-	topology->s_max[level] = max;
 	return *s_to_l;
 }
 
@@ -96,7 +95,7 @@ static inline void topology_domain_set_parent(topo_domain_t *domain, nosv_topo_l
 	domain->parents[parent_lvl] = parent_logical;
 }
 
-void topology_domain_set_ids(topo_domain_t *domain, int system_id, int logical_id)
+static inline void topology_domain_set_ids(topo_domain_t *domain, int system_id, int logical_id)
 {
 	assert(domain->level >= NOSV_TOPO_LEVEL_NODE);
 	assert(domain->level <= NOSV_TOPO_LEVEL_CPU);
@@ -167,9 +166,8 @@ static inline void topology_set_complex_set_in_core_cpus(int core_logical, int c
 	cpu_bitset_t *core_cpus_sid = topology_get_cpu_system_mask(NOSV_TOPO_LEVEL_CORE, core_logical);
 	int cpu_sid;
 	CPU_BITSET_FOREACH (core_cpus_sid, cpu_sid) {
-		if (cpu_bitset_isset(valid_cpus, cpu_sid)) {
+		if (cpu_bitset_isset(valid_cpus, cpu_sid))
 			topology_update_cpu_and_parents(cpu_sid, NOSV_TOPO_LEVEL_COMPLEX_SET, cs_lid);
-		}
 	}
 }
 
@@ -177,9 +175,9 @@ static inline bool bitset_has_valid_cpus(const cpu_bitset_t *bitset, const cpu_b
 {
 	int cpu_system;
 	CPU_BITSET_FOREACH (bitset, cpu_system) {
-		if (cpu_bitset_isset(valid_cpus, cpu_system)) {
+		if (cpu_bitset_isset(valid_cpus, cpu_system))
 			return true;
-		}
+
 	}
 	return false;
 }
@@ -206,20 +204,17 @@ static inline void topology_init_complex_sets(cpu_bitset_t *valid_cpus, cpu_bits
 	for (cs_system = 0; cs_system < config_cs->n; ++cs_system) {
 		char *bitset_str = ((char **) config_cs->items)[cs_system];
 		cpu_bitset_t cs_cpus;
-		if (cpu_bitset_parse_str(&cs_cpus, bitset_str)) {
+		if (cpu_bitset_parse_str(&cs_cpus, bitset_str))
 			nosv_abort("Could not parse complex set %d: %s", cs_system, bitset_str);
-		}
 
 		// Ignore complex sets that have no valid cpus
-		if (!cpu_bitset_overlap(&cs_cpus, valid_cpus)) {
+		if (!cpu_bitset_overlap(&cs_cpus, valid_cpus))
 			continue;
-		}
 
 		if (cpu_bitset_count(&cs_cpus) == 0) {
 			nosv_warn("All complex sets should have at least 1 cpu in the config file. Ignoring complex set %d.", cs_system);
 			continue;
 		}
-
 		topology_init_domain(NOSV_TOPO_LEVEL_COMPLEX_SET, cs_system, cs_logical);
 
 		int cpu_system;
@@ -227,17 +222,16 @@ static inline void topology_init_complex_sets(cpu_bitset_t *valid_cpus, cpu_bits
 			int cpu_logical = topology_get_logical_id_check(NOSV_TOPO_LEVEL_CPU, cpu_system);
 			int core_logical = topology_get_parent_logical_id(NOSV_TOPO_LEVEL_CPU, cpu_logical, NOSV_TOPO_LEVEL_CORE);
 			int core_system = topology_get_system_id(NOSV_TOPO_LEVEL_CORE, core_logical);
-			if (!cpu_bitset_isset(valid_cores, core_system)) {
+			if (!cpu_bitset_isset(valid_cores, core_system))
 				continue;
-			}
-			if (cpu_bitset_isset(&visited_cores, core_system)) {
+
+			if (cpu_bitset_isset(&visited_cores, core_system))
 				nosv_abort("system core %d configured to be included in complex set %d, but it is already included in another complex set.", core_system, cs_system);
-			}
+
 			cpu_bitset_set(&visited_cores, (int) core_system);
 
 			topology_set_complex_set_in_core_cpus(core_logical, cs_logical, valid_cpus);
 		}
-
 		cs_logical++;
 	}
 
@@ -251,13 +245,13 @@ static inline void topology_init_complex_sets(cpu_bitset_t *valid_cpus, cpu_bits
 			topology_set_complex_set_in_core_cpus(core_lid, cs_logical, valid_cpus);
 
 			cs_system++;
-			++cs_logical;
+			cs_logical++;
 		}
 	}
 
 	// Move malloc'd CSs to shared memory
 	topo_domain_t *shmem_cs = salloc(sizeof(topo_domain_t) * cs_logical, 0);
-	memmove(shmem_cs, topo_complex_sets, sizeof(topo_domain_t) * cs_logical);
+	memcpy(shmem_cs, topo_complex_sets, sizeof(topo_domain_t) * cs_logical);
 	free(topo_complex_sets);
 	topology->per_level_domains[NOSV_TOPO_LEVEL_COMPLEX_SET] = shmem_cs;
 	topology->per_level_count[NOSV_TOPO_LEVEL_COMPLEX_SET] = cs_logical;
@@ -273,25 +267,26 @@ static inline int topology_get_core_valid_cpus(const int cpu_system, const cpu_b
 	// First, open thread_siblings file and read content
 	char siblings_filename[PATH_MAX];
 	int would_be_size = snprintf(siblings_filename, PATH_MAX, SYS_CPU_PATH "/cpu%d/topology/thread_siblings_list", cpu_system);
-	if (would_be_size >= PATH_MAX) {
+	if (would_be_size >= PATH_MAX)
 		nosv_abort("snprintf failed to format siblings_filename string. String too big with size %d", would_be_size);
-	}
-	errno = 0;
-	FILE *siblings_fp = fopen(siblings_filename, "r");
-	if (!siblings_fp || errno != 0) {
-		nosv_abort("Couldn't open cpu thread siblings list file %s", siblings_filename);
-	}
-	char core_cpus_str[40];
-	fgets(core_cpus_str, 40, siblings_fp);
-	fclose(siblings_fp);
-	// Check closed correctly
-	if (errno != 0) {
-		nosv_abort("Couldn't close cpu thread siblings list file %s", siblings_filename);
-	}
 
-	if (cpu_bitset_parse_str(core_cpus, core_cpus_str)) {
+	FILE *siblings_fp = fopen(siblings_filename, "r");
+	if (!siblings_fp)
+		nosv_abort("Couldn't open cpu thread siblings list file %s", siblings_filename);
+
+	char core_cpus_str[40];
+	char *fgets_ret = fgets(core_cpus_str, 40, siblings_fp);
+	if (!fgets_ret)
+		nosv_abort("Couldn't read cpu thread siblings list file %s", siblings_filename);
+
+	int fclose_ret = fclose(siblings_fp);
+	// Check closed correctly
+	if (fclose_ret == EOF)
+		nosv_abort("Couldn't close cpu thread siblings list file %s", siblings_filename);
+
+	if (cpu_bitset_parse_str(core_cpus, core_cpus_str))
 		nosv_abort("Could not parse core cpu list: %s", core_cpus_str);
-	}
+
 	cpu_bitset_and(core_cpus, valid_cpus);
 	return cpu_bitset_ffs(core_cpus);
 }
@@ -337,7 +332,7 @@ static inline void topology_init_cores(cpu_bitset_t const *const valid_cpus)
 	assert(core_logical == (*topo_core_cnt));
 
 	topo_domain_t *shmem_cores = salloc(sizeof(topo_domain_t) * (*topo_core_cnt), 0);
-	memmove(shmem_cores, topo_cores, sizeof(topo_domain_t) * (*topo_core_cnt));
+	memcpy(shmem_cores, topo_cores, sizeof(topo_domain_t) * (*topo_core_cnt));
 	free(topo_cores);
 	topology->per_level_domains[NOSV_TOPO_LEVEL_CORE] = shmem_cores;
 }
@@ -370,9 +365,9 @@ static inline void topology_init_numa_from_config(cpu_bitset_t *valid_cpus, gene
 	assert(config_numa_count);
 	cpu_bitset_init(topology_get_valid_domains_mask(NOSV_TOPO_LEVEL_NUMA), NR_CPUS);
 
-	if (config_numa_count > cpus_cnt) {
+	if (config_numa_count > cpus_cnt)
 		nosv_warn("Error parsing config file. Number of numas (%d) is greater than number of cpus (%d).", config_numa_count, cpus_cnt);
-	}
+
 
 	// Temporary malloc'd array
 	topo_domain_t *topo_numas = (topo_domain_t *) malloc(sizeof(topo_domain_t) * config_numa_count);
@@ -384,37 +379,32 @@ static inline void topology_init_numa_from_config(cpu_bitset_t *valid_cpus, gene
 	int numa_logical = 0;
 	for (int numa_system = 0; numa_system < config_numa_count; ++numa_system) {
 		char *bitset_str = ((char **) all_numa_config->items)[numa_system];
-		if (!bitset_str || !*bitset_str) {
+		if (!bitset_str || !*bitset_str)
 			nosv_abort("Error parsing config file. Null or empty string as numa configuration.");
-		}
 
 		cpu_bitset_t numa_cpus;
-		if (cpu_bitset_parse_str(&numa_cpus, bitset_str)) {
+		if (cpu_bitset_parse_str(&numa_cpus, bitset_str))
 			nosv_abort("Could not parse complex set %d: %s", numa_system, bitset_str);
-		}
 
-		if (cpu_bitset_count(&numa_cpus) == 0) {
+		if (cpu_bitset_count(&numa_cpus) == 0)
 			nosv_warn("Error parsing config file. All numas must have at least 1 cpu in the config file.");
-		}
 
 		// Ignore numas that have no valid cpus
-		if (!bitset_has_valid_cpus(&numa_cpus, valid_cpus)) {
+		if (!bitset_has_valid_cpus(&numa_cpus, valid_cpus))
 			continue;
-		}
 
 		topology_init_domain(NOSV_TOPO_LEVEL_NUMA, numa_system, numa_logical);
 
 		int cpu_system;
 		CPU_BITSET_FOREACH (&numa_cpus, cpu_system) {
 			// Check cpu is valid
-			if (!cpu_bitset_isset(valid_cpus, cpu_system)) {
+			if (!cpu_bitset_isset(valid_cpus, cpu_system))
 				continue;
-			}
 
 			// Check cpu is not already included
-			if (cpu_bitset_isset(&visited_cpus, cpu_system)) {
+			if (cpu_bitset_isset(&visited_cpus, cpu_system))
 				nosv_abort("cpu %d configured to be included in numa %d, but cpu is already included in another numa.", cpu_system, numa_system);
-			}
+
 			cpu_bitset_set(&visited_cpus, cpu_system);
 
 			// Update topology tree
@@ -424,13 +414,12 @@ static inline void topology_init_numa_from_config(cpu_bitset_t *valid_cpus, gene
 		numa_logical++;
 	}
 
-	if (cpu_bitset_cmp(&visited_cpus, topology_get_valid_domains_mask(NOSV_TOPO_LEVEL_CPU))) {
-		nosv_abort("Numa config has more cpus or less cpus than all the valid cpus..");
-	}
+	if (cpu_bitset_cmp(&visited_cpus, topology_get_valid_domains_mask(NOSV_TOPO_LEVEL_CPU)))
+		nosv_abort("Numa config has different cpu count than the valid cpus");
 
 	// Move malloc'd CSs to shared memory
 	topo_domain_t *shmem_numa = salloc(sizeof(topo_domain_t) * numa_logical, 0);
-	memmove(shmem_numa, topo_numas, sizeof(topo_domain_t) * numa_logical);
+	memcpy(shmem_numa, topo_numas, sizeof(topo_domain_t) * numa_logical);
 	free(topo_numas);
 	topology->per_level_domains[NOSV_TOPO_LEVEL_NUMA] = shmem_numa;
 	topology->per_level_count[NOSV_TOPO_LEVEL_NUMA] = numa_logical;
@@ -440,11 +429,10 @@ static inline void topology_init_numa_from_config(cpu_bitset_t *valid_cpus, gene
 static inline bool topology_check_numa_is_valid_libnuma(int numa_system, cpu_bitset_t *valid_cpus)
 {
 	struct bitmask *cpus_in_numa = numa_allocate_cpumask();
-	errno = 0;
 	int ret = numa_node_to_cpus(numa_system, cpus_in_numa);
-	if (ret < 0) {
-		nosv_abort("Error: Could not get cpus for numa node %d. Error: %s", numa_system, strerror(errno));
-	}
+	if (ret < 0)
+		nosv_abort("Error: Could not get cpus for numa node %d", numa_system);
+
 	int valid_cpu;
 	bool valid_numa = false;
 	CPU_BITSET_FOREACH (valid_cpus, valid_cpu) {
@@ -467,9 +455,9 @@ static inline void topology_init_numa_from_libnuma(cpu_bitset_t *valid_cpus)
 	topology->per_level_count[NOSV_TOPO_LEVEL_NUMA] = numa_count;
 	int numa_max = numa_max_node();
 	topology_init_domain_s_to_l(NOSV_TOPO_LEVEL_NUMA, numa_max);
-	if (numa_max < 0) {
+	if (numa_max < 0)
 		nosv_abort("Error: Number of numa nodes is %d, which is invalid.", numa_max);
-	}
+
 	cpu_bitset_init(topology_get_valid_domains_mask(NOSV_TOPO_LEVEL_NUMA), NR_CPUS);
 
 	topology->per_level_domains[NOSV_TOPO_LEVEL_NUMA] = (topo_domain_t *) salloc(sizeof(topo_domain_t) * numa_count, 0);
@@ -493,15 +481,13 @@ static inline void topology_init_numa_from_libnuma(cpu_bitset_t *valid_cpus)
 	int cpu_sid;
 	CPU_BITSET_FOREACH (valid_cpus, cpu_sid) {
 		int numa_system = numa_node_of_cpu(cpu_sid); // notice this is libnuma
-		if (numa_system < 0) {
+		if (numa_system < 0)
 			nosv_abort("Internal error: Could not find NUMA system id for cpu %d", cpu_sid);
-		}
 
 		// Check logical id is valid
 		int numa_logical = topology_get_logical_id_check(NOSV_TOPO_LEVEL_NUMA, numa_system);
-		if (numa_logical < 0 || numa_logical >= numa_count) {
+		if (numa_logical < 0 || numa_logical >= numa_count)
 			nosv_abort("Internal error: Could not find NUMA logical id for cpu %d", cpu_sid);
-		}
 
 		assert(!cpu_bitset_isset(&visited_cpus, cpu_sid));
 		cpu_bitset_set(&visited_cpus, cpu_sid);
@@ -509,13 +495,11 @@ static inline void topology_init_numa_from_libnuma(cpu_bitset_t *valid_cpus)
 		topology_update_cpu_and_parents(cpu_sid, NOSV_TOPO_LEVEL_NUMA, numa_logical);
 	}
 
-	if (cpu_bitset_cmp(&visited_cpus, valid_cpus)) {
+	if (cpu_bitset_cmp(&visited_cpus, valid_cpus))
 		nosv_abort("Not all cpus from valid cpus bitset were visited when parsing numas from libnuma");
-	}
 
-	if ((cpu_bitset_count(topology_get_valid_domains_mask(NOSV_TOPO_LEVEL_NUMA)) + libnuma_invalid_numas) != numa_count) {
+	if ((cpu_bitset_count(topology_get_valid_domains_mask(NOSV_TOPO_LEVEL_NUMA)) + libnuma_invalid_numas) != numa_count)
 		nosv_abort("Not all numas from libnuma were visited when parsing numas");
-	}
 }
 
 // Init numa if no numa config and libnuma is not available
@@ -558,27 +542,6 @@ static inline void topology_init_numa(cpu_bitset_t *valid_cpus)
 	}
 }
 
-// Parse a CPU set which is specified in separation by "-" and "," into a CPU set
-static inline void cpu_parse_set(cpu_set_t *set, char *string_to_parse)
-{
-	CPU_ZERO(set);
-
-	char *tok = strtok(string_to_parse, ",");
-	while (tok) {
-		int first_id, last_id;
-		int ret = sscanf(tok, "%d-%d", &first_id, &last_id);
-		if (ret == 1)
-			last_id = first_id;
-		else if (ret == 0)
-			nosv_abort("Could not parse cpu list");
-
-		for (int i = first_id; i <= last_id; ++i)
-			CPU_SET(i, set);
-
-		tok = strtok(NULL, ",");
-	}
-}
-
 // Get a valid binding mask which includes all online CPUs in the system
 void cpu_get_all_mask(const char **mask)
 {
@@ -599,7 +562,11 @@ void cpu_get_all_mask(const char **mask)
 	fgets(online_mask, sizeof(online_mask), fp);
 	fclose(fp);
 
-	cpu_parse_set(&set, online_mask);
+	// Parse the online mask and copy it to a cpu_set_t (needed for sched_setaffinity API)
+	cpu_bitset_t parsed;
+	cpu_bitset_init(&parsed, CPU_SETSIZE);
+	cpu_bitset_parse_str(&parsed, online_mask);
+	cpu_bitset_to_cpuset(&set, &parsed);
 
 	// Now the A64FX dance
 	bypass_sched_getaffinity(0, sizeof(cpu_set_t), &bkp);
@@ -652,9 +619,8 @@ static inline void cpus_get_binding_mask(const char *binding, cpu_bitset_t *cpus
 		bypass_sched_getaffinity(0, sizeof(cpu_set_t), &glibc_cpuset);
 		assert(CPU_COUNT(&glibc_cpuset) > 0);
 	} else {
-		if (binding[0] != '0' || (binding[1] != 'x' && binding[1] != 'X')) {
+		if (binding[0] != '0' || (binding[1] != 'x' && binding[1] != 'X'))
 			nosv_abort("invalid binding mask");
-		}
 
 		const int len = strlen(binding);
 		for (int c = len - 1, b = 0; c >= 2; --c, b += 4) {
@@ -747,7 +713,7 @@ static inline void topology_init_cpus(cpu_bitset_t *valid_cpus)
 	}
 }
 
-void topology_print(void)
+static inline void topology_print(void)
 {
 	int maxsize = 100 * topology_get_level_count(NOSV_TOPO_LEVEL_CORE)															   // core lines
 				  + 35 * topology_get_level_count(NOSV_TOPO_LEVEL_CPU)															   // HT lines
@@ -756,9 +722,8 @@ void topology_print(void)
 	char *msg = malloc(maxsize * sizeof(char));
 
 	int offset = snprintf(msg, maxsize, "NOSV: Printing locality domains");
-	if (offset >= maxsize) {
+	if (offset >= maxsize)
 		nosv_abort("Failed to format locality domains");
-	}
 
 	snprintf_check(msg, offset, maxsize, "\nNOSV: NODE: 1");
 
@@ -814,22 +779,23 @@ void topology_print(void)
 	nosv_warn("%s", msg);
 	free(msg);
 }
+
 // Asserts parent is set in domain structure
-static inline void topology_assert_parent_is_set(nosv_topo_level_t son, nosv_topo_level_t parent)
+static inline void topology_assert_parent_is_set(nosv_topo_level_t child, nosv_topo_level_t parent)
 {
-	assert(son >= NOSV_TOPO_LEVEL_NUMA && son <= NOSV_TOPO_LEVEL_CPU);
+	assert(child >= NOSV_TOPO_LEVEL_NUMA && child <= NOSV_TOPO_LEVEL_CPU);
 	assert(parent >= NOSV_TOPO_LEVEL_NODE && parent <= NOSV_TOPO_LEVEL_CORE);
 
-	topo_domain_t *arr = topology_get_level_domains(son);
-	for (int i = 0; i < topology->per_level_count[son]; ++i) {
+	topo_domain_t *arr = topology_get_level_domains(child);
+	for (int i = 0; i < topology->per_level_count[child]; ++i) {
 		if (arr[i].parents[parent] < 0) {
 			nosv_abort("parent %s not set for %s with idx %d. Check initialization of %s",
-				topology_get_level_name(parent), topology_get_level_name(son), arr[i].system_id, topology_get_level_name(parent));
+				topology_get_level_name(parent), topology_get_level_name(child), arr[i].system_id, topology_get_level_name(parent));
 		}
 	}
 }
 
-// Asserts that for every brother domain, the parents are the same
+// Asserts that for every sibling domain, the parents are the same
 static inline void topology_assert_siblings_have_same_parent(void)
 {
 	for (int level = NOSV_TOPO_LEVEL_CORE; level >= NOSV_TOPO_LEVEL_NUMA; level--) {
@@ -867,9 +833,9 @@ static inline void topology_assert_siblings_have_same_parent(void)
 
 static inline void topology_assert_parents_set(void)
 {
-	for (int son = NOSV_TOPO_LEVEL_NUMA; son <= NOSV_TOPO_LEVEL_CPU; son++) {
-		for (int parent = NOSV_TOPO_LEVEL_NODE; parent < son; parent++) {
-			topology_assert_parent_is_set(son, parent);
+	for (int child = NOSV_TOPO_LEVEL_NUMA; child <= NOSV_TOPO_LEVEL_CPU; child++) {
+		for (int parent = NOSV_TOPO_LEVEL_NODE; parent < child; parent++) {
+			topology_assert_parent_is_set(child, parent);
 		}
 	}
 }
@@ -905,9 +871,8 @@ void topology_init(int initialize)
 	topology_assert_siblings_have_same_parent();
 
 	const char *env_print_locality_domains = getenv("NOSV_PRINT_TOPOLOGY");
-	if (env_print_locality_domains != NULL && (strcmp(env_print_locality_domains, "TRUE") == 0 || strcmp(env_print_locality_domains, "true") == 0)) {
+	if (env_print_locality_domains != NULL && (strcmp(env_print_locality_domains, "TRUE") == 0 || strcmp(env_print_locality_domains, "true") == 0))
 		topology_print();
-	}
 }
 
 void topology_free(void)
@@ -1003,13 +968,11 @@ int topology_get_level_max(nosv_topo_level_t level)
 int topology_get_logical_id(nosv_topo_level_t level, int system_id)
 {
 	assert(level >= NOSV_TOPO_LEVEL_NODE && level <= NOSV_TOPO_LEVEL_CPU);
-	if (topology->s_max[level] < 0) {
+	if (topology->s_max[level] < 0)
 		return TOPO_ID_UNSET; // Level not yet initialized
-	}
 
-	if (system_id > topology->s_max[level]) {
+	if (system_id > topology->s_max[level])
 		nosv_abort("system_id %d is larger than the maximum system_id %d for topology level %s", system_id, topology->s_max[level], nosv_topo_level_names[level]);
-	}
 
 	assert(topology->s_to_l[level][system_id] >= -1);
 	return topology->s_to_l[level][system_id];
@@ -1020,9 +983,8 @@ int topology_get_system_id(nosv_topo_level_t level, int logical_id)
 {
 	assert(logical_id >= 0 && topology->per_level_count[level]);
 	assert(level >= NOSV_TOPO_LEVEL_NODE && level <= NOSV_TOPO_LEVEL_CPU);
-	if (topology->s_max[level] < 0) {
+	if (topology->s_max[level] < 0)
 		return TOPO_ID_UNSET; // Level not yet initialized
-	}
 
 	topo_domain_t *domains = topology_get_level_domains(level);
 	int system_id = domains[logical_id].system_id;
@@ -1047,29 +1009,29 @@ const char *topology_get_level_name(nosv_topo_level_t level)
 }
 
 // Returns the logical id of the parent
-int topology_get_parent_logical_id(nosv_topo_level_t son_level, int son_logical_id, nosv_topo_level_t parent)
+int topology_get_parent_logical_id(nosv_topo_level_t child_level, int child_logical_id, nosv_topo_level_t parent)
 {
 	// Node does not have parents
-	assert(son_level >= NOSV_TOPO_LEVEL_NUMA && son_level <= NOSV_TOPO_LEVEL_CPU);
+	assert(child_level >= NOSV_TOPO_LEVEL_NUMA && child_level <= NOSV_TOPO_LEVEL_CPU);
 	assert(parent >= NOSV_TOPO_LEVEL_NODE && parent <= NOSV_TOPO_LEVEL_CORE);
-	assert(son_logical_id >= 0 && son_logical_id < topology_get_level_count(son_level));
-	assert(son_level > parent);
+	assert(child_logical_id >= 0 && child_logical_id < topology_get_level_count(child_level));
+	assert(child_level > parent);
 
-	return topology->per_level_domains[son_level][son_logical_id].parents[parent];
+	return topology->per_level_domains[child_level][child_logical_id].parents[parent];
 }
 
 // Returns the system id of the parent
-int topology_get_parent_system_id(nosv_topo_level_t son_level, int son_logical_id, nosv_topo_level_t parent)
+int topology_get_parent_system_id(nosv_topo_level_t child_level, int child_logical_id, nosv_topo_level_t parent)
 {
 	// Node does not have parents
-	assert(son_level >= NOSV_TOPO_LEVEL_NUMA && son_level <= NOSV_TOPO_LEVEL_CPU);
+	assert(child_level >= NOSV_TOPO_LEVEL_NUMA && child_level <= NOSV_TOPO_LEVEL_CPU);
 	assert(parent >= NOSV_TOPO_LEVEL_NODE && parent <= NOSV_TOPO_LEVEL_CORE);
-	assert(son_logical_id >= 0 && son_logical_id < topology_get_level_max(son_level));
-	assert(son_level > parent);
+	assert(child_logical_id >= 0 && child_logical_id < topology_get_level_max(child_level));
+	assert(child_level > parent);
 
-	int logical_id = topology->per_level_domains[son_level][son_logical_id].parents[parent];
+	int logical_id = topology->per_level_domains[child_level][child_logical_id].parents[parent];
 
-	return topology_get_system_id(son_level, logical_id);
+	return topology_get_system_id(child_level, logical_id);
 }
 
 // Returns the cpu_bitset_t of system cpus for the domain (given by level and logical id)
@@ -1111,9 +1073,9 @@ cpu_t *cpu_get_from_logical_id(int cpu_logical_id)
 cpu_t *cpu_get_from_system_id(int cpu_system_id)
 {
 	int cpu_logical_id = topology_get_logical_id(NOSV_TOPO_LEVEL_CPU, cpu_system_id);
-	if (cpu_logical_id < 0) {
+	if (cpu_logical_id < 0)
 		return NULL;
-	}
+
 	return &cpumanager->cpus[cpu_logical_id];
 }
 
@@ -1223,9 +1185,9 @@ int nosv_get_logical_numa_id(int system_numa_id)
 int nosv_get_num_cpus_in_numa(int system_numa_id)
 {
 	int logical_node = topology_get_logical_id(NOSV_TOPO_LEVEL_NUMA, system_numa_id);
-	if (logical_node < 0) {
+	if (logical_node < 0)
 		return NOSV_ERR_INVALID_PARAMETER;
-	}
+
 	topo_domain_t *numa = topology_get_domain(NOSV_TOPO_LEVEL_NUMA, logical_node);
 	return cpu_bitset_count(&(numa->cpu_sid_mask));
 }
