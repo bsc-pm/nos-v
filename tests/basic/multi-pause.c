@@ -15,13 +15,11 @@
 
 #define NTASKS 128
 
-
 test_t test;
 nosv_task_type_t task_type;
 nosv_task_t tasks[NTASKS];
 atomic_uint track_init;
 atomic_uint track_completed;
-
 
 void task_run(nosv_task_t task)
 {
@@ -73,8 +71,8 @@ void pause_test(unsigned int npauses)
 	}
 
 	// Wait for all tasks to have a chance to finish
-	test_check_timeout(&test, atomic_load_explicit(&track_completed, memory_order_relaxed) == NTASKS, 2000,
-					   "%u: All tasks were unlocked correctly", npauses);
+	test_check_waitfor(&test, atomic_load_explicit(&track_completed, memory_order_relaxed) == NTASKS, 2000,
+		"%u: All tasks were unlocked correctly", npauses);
 
 	for (int i = 0; i < NTASKS; i++)
 		CHECK(nosv_destroy(tasks[i], NOSV_DESTROY_NONE));
@@ -85,7 +83,7 @@ int main()
 	nosv_task_t task;
 
 	const unsigned int npauses[] = {2, 8, 32};
-	const size_t n = sizeof(npauses)/sizeof(unsigned int);
+	const size_t n = sizeof(npauses) / sizeof(unsigned int);
 
 	test_init(&test, n);
 
