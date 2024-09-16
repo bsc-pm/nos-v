@@ -34,7 +34,7 @@ basic_tests = basic-error-code.test \
 	basic-parallel-init.test \
 	basic-alpi.test \
 	basic-submit-window.test \
-	basic-multi_pause.test \
+	basic-multi-pause.test \
 	basic-suspend.test
 
 # Tests that won't work with AddressSanitizer
@@ -152,7 +152,7 @@ basic_submit_window_test_SOURCES = basic/submit-window.c
 basic_submit_window_test_CFLAGS = $(AM_CFLAGS)
 basic_submit_window_test_LDFLAGS = $(AM_LDFLAGS)
 
-basic_multi_pause_test_SOURCES = basic/multi_pause.c
+basic_multi_pause_test_SOURCES = basic/multi-pause.c
 basic_multi_pause_test_CFLAGS = $(AM_CFLAGS)
 basic_multi_pause_test_LDFLAGS = $(AM_LDFLAGS)
 
