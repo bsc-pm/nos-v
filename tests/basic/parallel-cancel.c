@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2023 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2023-2024 Barcelona Supercomputing Center (BSC)
 */
 
 #include "test.h"
@@ -57,7 +57,9 @@ int main() {
 	CHECK(nosv_type_init(&task_type, task_run, NULL, task_comp, "task", NULL, NULL, NOSV_TYPE_INIT_NONE));
 
 	// Double the number of CPUs in degree to guarantee that we cannot execute everything in parallel
-	degree = nosv_get_num_cpus() * 2;
+	// Then, +1 because the "cancel" works on the *next* iteration, so it is theoretically possible we execute
+	// tasks exactly twice (and will surely happen with NCPUS=1!)
+	degree = nosv_get_num_cpus() * 2 + 1;
 
 	// The submitted tasks will execute after we yield, since they also are on CPU 0
 	for (int t = 0; t < NTASKS; ++t) {
