@@ -37,9 +37,6 @@ typedef struct hwcounters_backend {
 // Load backends and counter configuration
 __internal void load_configuration(void);
 
-// Check if multiple backends and/or other modules are enabled and incompatible
-__internal void check_incompatibilities(void);
-
 // Initialize the hardware counters API
 __internal void hwcounters_initialize(void);
 
