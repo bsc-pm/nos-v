@@ -43,7 +43,6 @@ static inline spsc_queue_t *spsc_alloc(size_t size)
 	queue->size = size;
 	atomic_init(&queue->head, 0);
 	atomic_init(&queue->tail, 0);
-	queue->tail = 0;
 
 	return queue;
 }
