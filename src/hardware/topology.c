@@ -1012,9 +1012,9 @@ int topology_get_parent_logical_id(nosv_topo_level_t child_level, int child_logi
 {
 	// Node does not have parents
 	assert(child_level >= NOSV_TOPO_LEVEL_NUMA && child_level <= NOSV_TOPO_LEVEL_CPU);
-	assert(parent >= NOSV_TOPO_LEVEL_NODE && parent <= NOSV_TOPO_LEVEL_CORE);
+	assert(parent >= NOSV_TOPO_LEVEL_NODE && parent <= NOSV_TOPO_LEVEL_CPU);
 	assert(child_logical_id >= 0 && child_logical_id < topology_get_level_count(child_level));
-	assert(child_level > parent);
+	assert(child_level >= parent);
 
 	return topology->per_level_domains[child_level][child_logical_id].parents[parent];
 }
@@ -1060,7 +1060,7 @@ cpu_bitset_t *topology_get_valid_domains_mask(nosv_topo_level_t level)
 // Returns the logical id of the parent in the topology level 'parent'
 int cpu_get_parent_logical_id(cpu_t *cpu, nosv_topo_level_t parent)
 {
-	assert(parent >= NOSV_TOPO_LEVEL_NODE && parent <= NOSV_TOPO_LEVEL_CORE);
+	assert(parent >= NOSV_TOPO_LEVEL_NODE && parent <= NOSV_TOPO_LEVEL_CPU);
 	return topology_get_parent_logical_id(NOSV_TOPO_LEVEL_CPU, cpu_get_logical_id(cpu), parent);
 }
 
