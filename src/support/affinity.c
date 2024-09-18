@@ -108,7 +108,7 @@ static void check_lokup_scope_order(void)
 	struct lockup_scope_data lsc = {NULL, NULL, 0, LSD_STATUS_NONE};
 
 	// This function ensures that libnosv.so appears before the libc or
-	// libpthread in the shared library loockup scope. This is needed for
+	// libpthread in the shared library lookup scope. This is needed for
 	// the interposed nosv symbols to work correctly.
 
 	// First, we need to know the name of the shared library where nosv is
@@ -172,7 +172,7 @@ void affinity_support_init(void)
 {
 	int __maybe_unused ret;
 
-	// We need to initialze the affinity support facility as early as
+	// We need to initialize the affinity support facility as early as
 	// possible, because the interposed system calls might be called from
 	// library constructors and we need the fallback calls loaded before any
 	// of these is called. To do so, symbols can either be loaded at runtime

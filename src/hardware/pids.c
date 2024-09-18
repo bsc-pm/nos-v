@@ -32,7 +32,7 @@ void pidmanager_register(void)
 	// Xor with all ones to get the "not set" bits to be one.
 	BIT_XOR(MAX_PIDS, &set, &pidmanager->pids_alloc);
 	// Now find the first set bit, being the first free logical PID
-	// Its a 1-index, so we have to substract one
+	// Its a 1-index, so we have to subtract one
 	logic_pid = BIT_FFS(MAX_PIDS, &set) - 1;
 
 	if (logic_pid == -1)

@@ -62,7 +62,7 @@ static void smem_config_initialize(smem_config_t *config)
 	memset(config->per_pid_structures, 0, MAX_PIDS * sizeof(void *));
 }
 
-// Boostrap of the shared memory for the first process
+// Bootstrap of the shared memory for the first process
 static void smem_initialize_first(void)
 {
 	pid_slot_config = 0;
@@ -266,7 +266,7 @@ static void segment_unregister(void)
 
 	int cnt = --(st_config.config->count);
 	if (!cnt) {
-		// Before unmaping memory, if this is the last process, shutdown every
+		// Before unmapping memory, if this is the last process, shutdown every
 		// module that has to be shutdown only once (by the last process)
 		segment_unregister_last();
 	}

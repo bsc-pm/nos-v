@@ -38,7 +38,7 @@ int nosv_barrier_init(
 	if (!count)
 		return NOSV_ERR_INVALID_PARAMETER;
 
-	// Initialize mutex object
+	// Initialize barrier object
 	bptr = malloc(sizeof(*bptr));
 	if (!bptr)
 		return NOSV_ERR_OUT_OF_MEMORY;

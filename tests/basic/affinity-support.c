@@ -112,7 +112,7 @@ static void pr_cpuset(const char *msg, size_t cpusetsize, const cpu_set_t *cpuse
 		}
 	}
 
-	// write an "X" to indicate that some data migth be lost
+	// write an "X" to indicate that some data might be lost
 	if (written == BUFFER_SIZE)
 		buf[written-2] = 'X';
 	else if (written)
@@ -668,7 +668,7 @@ int main() {
 	// run remote affinity test
 	run_looping_rat_test(&original, &target);
 
-	// TODO add parallel rat test
+	// TODO: add parallel rat test
 
 	// finalize test
 	nosv_detach(NOSV_DETACH_NONE);

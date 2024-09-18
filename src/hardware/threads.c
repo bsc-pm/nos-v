@@ -96,7 +96,7 @@ static inline void common_pthread_create(
 
 static inline void delegate_thread_create(thread_manager_t *threadmanager)
 {
-	// TODO Standalone should have affinity here?
+	// TODO: Standalone should have affinity here?
 	// We use the address of the threadmanager structure as it
 	// provides a unique tag known to this thread and the delegate.
 	instr_thread_create(-1, (uint64_t) threadmanager);
@@ -190,11 +190,11 @@ void threadmanager_shutdown(thread_manager_t *threadmanager)
 	// This thread coordinates the shutdown of all workers in this process.
 	// The objective is to alert all active workers to exit the scheduler
 	// and finish the idle workers. To end the idle workers in a coordinated
-	// maner we need to give them a core to run. To schedule idle workers to
+	// manner we need to give them a core to run. To schedule idle workers to
 	// cores we need an active worker (a worker that owns a core) to
 	// relinquish its own core in favor of the idle thread. However, it
 	// could happen that all cores are owned by workers that belong to
-	// another process. Therfore, our idle workers have no chance of being
+	// another process. Therefore, our idle workers have no chance of being
 	// scheduled. To fix this, we spawn a special task called "killer" task,
 	// that will force a worker of this process to run it.  At the same
 	// turn, the code of the killer task signals this process to start the
@@ -273,7 +273,7 @@ static inline void worker_coordinate_shutdown(void)
 
 	// This core participates in a coordinated effort to shutdown all idle
 	// workers. To do so, the current worker will attempt to wake an idle
-	// worker in this core. If the wake is sucessful, the current worker
+	// worker in this core. If the wake is successful, the current worker
 	// exits this function, the thread ends, and the woken worker repeats
 	// the same procedure once it reaches this function.
 	//
