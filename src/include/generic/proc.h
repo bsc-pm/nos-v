@@ -27,7 +27,7 @@ static inline int parse_proc_stat(process_identifier_t *pi, FILE *fp)
 	// We only get the first field, which is the PID, and then the start time, which is the 20th field
 	// However, parsing proc stat is annoying because the second field is the name of the executable file,
 	// enclosed by parenthesis "()", but the executable may have spaces and/or parenthesis as well, which
-	// for some reason are not scaped.
+	// for some reason are not escaped.
 	// So we *first* parse the PID and then seek the file past the last closing parenthesis.
 
 	int ret = fscanf(fp, "%d", &pi->pid);

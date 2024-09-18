@@ -66,7 +66,7 @@ __internal void papi_hwcounters_initialize(
 	bool status_events[HWC_TOTAL_NUM_EVENTS]
 );
 
-//! \brief Retreive the mapping from a counters_t identifier to the inner
+//! \brief Retrieve the mapping from a counters_t identifier to the inner
 //! identifier of arrays with only enabled events
 //! \param[in] type The identifier to translate
 //! \return An integer with the relative position in arrays of only enabled

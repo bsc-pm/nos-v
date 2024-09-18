@@ -46,7 +46,7 @@ typedef struct task_stats task_stats_t;
 #define TASK_FLAG_SUSPEND_MODE_MASK ( TASK_FLAG_SUSPEND_MODE_SUBMIT | TASK_FLAG_SUSPEND_MODE_TIMEOUT | TASK_FLAG_SUSPEND_MODE_EVENT )
 
 // event_count flag
-// Indicates if the task is waitning for events
+// Indicates if the task is waiting for events
 #define TASK_WAITING_FOR_EVENTS        __BIT(31)
 
 struct nosv_task_type {

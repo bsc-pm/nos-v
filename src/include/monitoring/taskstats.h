@@ -147,7 +147,7 @@ static inline double task_stats_get_elapsed_time(task_stats_t *stats)
 	return chrono_get_elapsed(&(stats->chronos[executing_status]));
 }
 
-//! \brief Retreive the size needed to allocate dynamic structures
+//! \brief Retrieve the size needed to allocate dynamic structures
 static inline size_t task_stats_get_allocation_size(void)
 {
 	return (hwcounters_get_num_enabled_counters() * sizeof(double));

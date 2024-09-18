@@ -48,7 +48,7 @@ static inline void accumulator_init(accumulator_t *acc)
 //! \brief Add a value to the accumulator
 static inline void accumulator_add(accumulator_t *acc, double val)
 {
-	// Update global statitics
+	// Update global statistics
 	acc->total_sum += val;
 	acc->total_num++;
 
