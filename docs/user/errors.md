@@ -3,7 +3,7 @@
 
 In nOS-V, most public functions return an integer code that indicates the successful completion of the operation, or a possible error during the function execution. When the function succeeded, `NOSV_SUCCESS` is returned. This value is guaranteed to be zero, while all errors are negative and non-zero. The `nosv/errors.h` header defines the complete API regarding the error codes and error handling. This header is automatically included by the main `nosv.h` header.
 
-The nOS-V runtime provides the following API function to obtain the string description of a error code programmatically:
+The nOS-V runtime provides the following API function to obtain the string description of an error code programmatically:
 
 ```c
 const char *nosv_get_error_string(int error_code);
@@ -24,7 +24,7 @@ if (err != NOSV_SUCCESS) {
 
 Some functions could return an error or a valid integer value (which may be zero).
 In such functions, a negative returned value always implies that the function failed for some reason. In contrast, when returning zero or positive, that is the valid integer which the function should return.
-In this case, it is recommended to check using the condition that errors are negative and these functions
+In this case, it is recommended to check using the condition that errors are negative, and these functions
 only return valid positive values:
 
 ```c
@@ -48,7 +48,7 @@ The operation succeeded with no errors. This value is guaranteed to always be ze
 
 ### `NOSV_ERR_NOT_INITIALIZED`
 
-The operation failed because nOS-V is not initialized. For intance, the `nosv_init` may not called yet, or a `nosv_shutdown` already finalized the runtime.
+The operation failed because nOS-V is not initialized. For instance, the `nosv_init` may not have been called yet, or a `nosv_shutdown` already finalized the runtime.
 
 ### `NOSV_ERR_INVALID_CALLBACK`
 
@@ -72,7 +72,7 @@ The function tried to allocate memory and the memory allocator failed to provide
 
 ### `NOSV_ERR_OUTSIDE_TASK`
 
-The operation requires to be in a task context but the user called it from outside a task. For instance, the only tasks can run the `nosv_yield`, `nosv_pause` and `nosv_increase_event_counter` operations.
+The operation requires being in a task context, but the user called it from outside a task. For instance, the only tasks can run the `nosv_yield`, `nosv_pause` and `nosv_increase_event_counter` operations.
 
 ### `NOSV_ERR_UNKNOWN`
 
