@@ -674,7 +674,7 @@ static inline void topology_init_cpus(cpu_bitset_t *valid_cpus)
 
 	// Find out maximum CPU id
 	int maxcpu = cpu_bitset_fls(valid_cpus);
-	assert(maxcpu > 0);
+	assert(maxcpu >= 0);
 
 	// Inform the instrumentation of all available CPUsvalid_cpus
 	instr_cpu_count(cnt, maxcpu);
