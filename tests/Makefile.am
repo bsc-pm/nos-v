@@ -13,6 +13,7 @@ unit_SOURCES = unit/main.c
 
 basic_tests = basic-error-code.test \
 	basic-init.test \
+	basic-topology-numa-cpu.test \
 	basic-reinit.test \
 	basic-init-multicall.test \
 	basic-mix.test \
@@ -71,6 +72,10 @@ basic_reinit_test_LDFLAGS = $(AM_LDFLAGS)
 basic_init_multicall_test_SOURCES = basic/init-multicall.c
 basic_init_multicall_test_CFLAGS = $(AM_CFLAGS)
 basic_init_multicall_test_LDFLAGS = $(AM_LDFLAGS)
+
+basic_topology_numa_cpu_test_SOURCES = basic/topology-numa-cpu.c
+basic_topology_numa_cpu_test_CFLAGS = $(AM_CFLAGS)
+basic_topology_numa_cpu_test_LDFLAGS = $(AM_LDFLAGS)
 
 basic_init_procs_test_SOURCES = basic/init-procs.c
 basic_init_procs_test_CFLAGS = $(AM_CFLAGS)
