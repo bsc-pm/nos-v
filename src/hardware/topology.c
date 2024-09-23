@@ -65,23 +65,6 @@ static inline int *topology_init_domain_s_to_l(nosv_topo_level_t level, int max)
 	return *s_to_l;
 }
 
-// Returns the array of topo_domain_t structs for the given topology level.
-static inline topo_domain_t *topology_get_level_domains(nosv_topo_level_t level)
-{
-	assert(level >= NOSV_TOPO_LEVEL_NODE && level <= NOSV_TOPO_LEVEL_CPU);
-	return topology->per_level_domains[level];
-}
-
-// Returns the topo_domain_t struct for the given level and logical id.
-static inline topo_domain_t *topology_get_domain(nosv_topo_level_t level, int logical_id)
-{
-	assert(level >= NOSV_TOPO_LEVEL_NODE && level <= NOSV_TOPO_LEVEL_CPU);
-	assert(logical_id >= 0);
-
-	topo_domain_t *domains = topology_get_level_domains(level);
-	return &domains[logical_id];
-}
-
 static inline void topology_domain_set_parent(topo_domain_t *domain, nosv_topo_level_t parent_lvl, int parent_logical)
 {
 	assert(domain->level >= NOSV_TOPO_LEVEL_NODE);
@@ -957,170 +940,6 @@ int topology_get_default_affinity(char **out)
 	return 0;
 }
 
-// Returns max system id for the given topology level
-int topology_get_level_max(nosv_topo_level_t level)
-{
-	assert(level >= NOSV_TOPO_LEVEL_NODE && level <= NOSV_TOPO_LEVEL_CPU);
-	return topology->s_max[level];
-}
-
-// Returns the logical id given the topology level and system id, -1 if not yet initialized
-int topology_get_logical_id(nosv_topo_level_t level, int system_id)
-{
-	assert(level >= NOSV_TOPO_LEVEL_NODE && level <= NOSV_TOPO_LEVEL_CPU);
-	if (topology->s_max[level] < 0)
-		return TOPO_ID_UNSET; // Level not yet initialized
-
-	if (system_id > topology->s_max[level])
-		nosv_abort("system_id %d is larger than the maximum system_id %d for topology level %s", system_id, topology->s_max[level], nosv_topo_level_names[level]);
-
-	assert(topology->s_to_l[level][system_id] >= -1);
-	return topology->s_to_l[level][system_id];
-}
-
-// Returns the system id given the topology level and logical id
-int topology_get_system_id(nosv_topo_level_t level, int logical_id)
-{
-	assert(logical_id >= 0 && topology->per_level_count[level]);
-	assert(level >= NOSV_TOPO_LEVEL_NODE && level <= NOSV_TOPO_LEVEL_CPU);
-	if (topology->s_max[level] < 0)
-		return TOPO_ID_UNSET; // Level not yet initialized
-
-	topo_domain_t *domains = topology_get_level_domains(level);
-	int system_id = domains[logical_id].system_id;
-	assert(system_id >= 0 && system_id <= topology->s_max[level]);
-	return system_id;
-}
-
-// Returns the number of domains in the given topology level
-int topology_get_level_count(nosv_topo_level_t level)
-{
-	assert(level >= NOSV_TOPO_LEVEL_NODE && level <= NOSV_TOPO_LEVEL_CPU);
-	assert(topology->per_level_count[level] >= 1);
-
-	return topology->per_level_count[level];
-}
-
-// Returns the name (char array) of the given topology level
-const char *topology_get_level_name(nosv_topo_level_t level)
-{
-	assert(level >= NOSV_TOPO_LEVEL_NODE && level <= NOSV_TOPO_LEVEL_CPU);
-	return nosv_topo_level_names[level];
-}
-
-// Returns the logical id of the parent
-int topology_get_parent_logical_id(nosv_topo_level_t child_level, int child_logical_id, nosv_topo_level_t parent)
-{
-	// Node does not have parents
-	assert(child_level >= NOSV_TOPO_LEVEL_NUMA && child_level <= NOSV_TOPO_LEVEL_CPU);
-	assert(parent >= NOSV_TOPO_LEVEL_NODE && parent <= NOSV_TOPO_LEVEL_CPU);
-	assert(child_logical_id >= 0 && child_logical_id < topology_get_level_count(child_level));
-	assert(child_level >= parent);
-
-	return topology->per_level_domains[child_level][child_logical_id].parents[parent];
-}
-
-// Returns the system id of the parent
-int topology_get_parent_system_id(nosv_topo_level_t child_level, int child_logical_id, nosv_topo_level_t parent)
-{
-	// Node does not have parents
-	assert(child_level >= NOSV_TOPO_LEVEL_NUMA && child_level <= NOSV_TOPO_LEVEL_CPU);
-	assert(parent >= NOSV_TOPO_LEVEL_NODE && parent <= NOSV_TOPO_LEVEL_CORE);
-	assert(child_logical_id >= 0 && child_logical_id < topology_get_level_max(child_level));
-	assert(child_level > parent);
-
-	int logical_id = topology->per_level_domains[child_level][child_logical_id].parents[parent];
-
-	return topology_get_system_id(child_level, logical_id);
-}
-
-// Returns the cpu_bitset_t of system cpus for the domain (given by level and logical id)
-cpu_bitset_t *topology_get_cpu_system_mask(nosv_topo_level_t level, int lid)
-{
-	assert(level >= NOSV_TOPO_LEVEL_NODE && level <= NOSV_TOPO_LEVEL_CPU);
-	topo_domain_t *domain = topology_get_domain(level, lid);
-	return &(domain->cpu_sid_mask);
-}
-
-// Returns the cpu_bitset_t of logical cpus for the domain (given by level and logical id)
-cpu_bitset_t *topology_get_cpu_logical_mask(nosv_topo_level_t level, int lid)
-{
-	assert(level >= NOSV_TOPO_LEVEL_NODE && level <= NOSV_TOPO_LEVEL_CPU);
-	topo_domain_t *domain = topology_get_domain(level, lid);
-	return &(domain->cpu_lid_mask);
-}
-
-// Returns a pointer to the cpu_bitset_t of valid domains for the given topology level
-cpu_bitset_t *topology_get_valid_domains_mask(nosv_topo_level_t level)
-{
-	assert(level >= NOSV_TOPO_LEVEL_NODE && level <= NOSV_TOPO_LEVEL_CPU);
-
-	return &(topology->per_level_valid_domains[level]);
-}
-
-// Allocates an array of size topology_get_level_count(lvl) and returns it filled with the available system ids of said level
-int *topology_get_system_id_arr(nosv_topo_level_t lvl)
-{
-	int *system_ids = malloc(topology_get_level_count(lvl) * sizeof(int));
-	for (int i = 0; i < topology_get_level_count(lvl); i++) {
-		system_ids[i] = topology_get_system_id(lvl, i);
-	}
-	return system_ids;
-}
-
-// Returns the logical id of the parent in the topology level 'parent'
-int cpu_get_parent_logical_id(cpu_t *cpu, nosv_topo_level_t parent)
-{
-	assert(parent >= NOSV_TOPO_LEVEL_NODE && parent <= NOSV_TOPO_LEVEL_CPU);
-	return topology_get_parent_logical_id(NOSV_TOPO_LEVEL_CPU, cpu_get_logical_id(cpu), parent);
-}
-
-cpu_t *cpu_get_from_logical_id(int cpu_logical_id)
-{
-	return &cpumanager->cpus[cpu_logical_id];
-}
-
-cpu_t *cpu_get_from_system_id(int cpu_system_id)
-{
-	int cpu_logical_id = topology_get_logical_id(NOSV_TOPO_LEVEL_CPU, cpu_system_id);
-	if (cpu_logical_id < 0)
-		return NULL;
-
-	return &cpumanager->cpus[cpu_logical_id];
-}
-
-cpu_t *cpu_pop_free(int pid)
-{
-	for (int i = 0; i < topology_get_level_count(NOSV_TOPO_LEVEL_CPU); ++i) {
-		if (cpumanager->pids_cpus[i] == -1) {
-			cpumanager->pids_cpus[i] = pid;
-
-			// A CPU is going to become active
-			monitoring_cpu_active(i);
-
-			return cpu_get_from_logical_id(i);
-		}
-	}
-
-	return NULL;
-}
-
-int cpu_get_logical_id(cpu_t *cpu)
-{
-	return cpu->cpu_domain->logical_cpu;
-}
-
-int cpu_get_system_id(cpu_t *cpu)
-{
-	return cpu->cpu_domain->system_id;
-}
-
-void cpu_set_pid(cpu_t *cpu, int pid)
-{
-	assert(cpumanager->pids_cpus[cpu_get_logical_id(cpu)] < MAX_PIDS);
-	cpumanager->pids_cpus[cpu_get_logical_id(cpu)] = pid;
-}
-
 void cpu_mark_free(cpu_t *cpu)
 {
 	cpumanager->pids_cpus[cpu_get_logical_id(cpu)] = -1;
@@ -1148,6 +967,22 @@ void cpu_affinity_reset(void)
 		CPU_SET(cpu, &glibc_all_set);
 	}
 	bypass_sched_setaffinity(0, sizeof(glibc_all_set), &glibc_all_set);
+}
+
+cpu_t *cpu_pop_free(int pid)
+{
+	for (int i = 0; i < topology_get_level_count(NOSV_TOPO_LEVEL_CPU); ++i) {
+		if (cpumanager->pids_cpus[i] == -1) {
+			cpumanager->pids_cpus[i] = pid;
+
+			// A CPU is going to become active
+			monitoring_cpu_active(i);
+
+			return cpu_get_from_logical_id(i);
+		}
+	}
+
+	return NULL;
 }
 
 int nosv_get_num_cpus(void)
