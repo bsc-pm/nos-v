@@ -24,6 +24,7 @@
 #include "monitoring/monitoring.h"
 #include "nosv.h"
 #include "nosv/error.h"
+#include "nosv/hwinfo.h"
 #include "scheduler/cpubitset.h"
 #include "support/affinity.h"
 
@@ -985,75 +986,117 @@ cpu_t *cpu_pop_free(int pid)
 	return NULL;
 }
 
+/* Public nOS-V API */
+/* Generic Topology API */
+
+int nosv_get_num_domains(nosv_topo_level_t level)
+{
+	int ret = topology_get_level_count(level);
+	if (ret < 0)
+		return NOSV_ERR_UNKNOWN;
+
+	return ret;
+}
+
+int *nosv_get_available_domains(nosv_topo_level_t level)
+{
+	int *ret = topology_get_system_id_arr(level);
+	assert(ret);
+	return ret;
+}
+
+int nosv_get_current_logical_domain(nosv_topo_level_t level)
+{
+	if (!worker_is_in_task())
+		return NOSV_ERR_OUTSIDE_TASK;
+
+	cpu_t *cpu = cpu_get_from_logical_id(cpu_get_current());
+	assert(cpu);
+
+	int dom_lid = cpu_get_parent_logical_id(cpu, level);
+	if (dom_lid < 0)
+		return NOSV_ERR_UNKNOWN;
+
+	return dom_lid;
+}
+
+int nosv_get_current_system_domain(nosv_topo_level_t level)
+{
+	if (!worker_is_in_task())
+		return NOSV_ERR_OUTSIDE_TASK;
+
+	cpu_t *cpu = cpu_get_from_logical_id(cpu_get_current());
+	assert(cpu);
+
+	int dom_lid = cpu_get_parent_logical_id(cpu, level);
+	if (dom_lid < 0)
+		return NOSV_ERR_UNKNOWN;
+
+	int sid = topology_get_system_id(level, dom_lid);
+	if (sid < 0)
+		return NOSV_ERR_UNKNOWN;
+
+	return sid;
+}
+
+int nosv_get_num_cpus_in_domain(nosv_topo_level_t level, int sid)
+{
+	int lid = topology_get_logical_id(level, sid);
+	if (lid < 0)
+		return NOSV_ERR_INVALID_PARAMETER;
+
+	cpu_bitset_t *cpus = topology_get_cpu_system_mask(level, lid);
+	assert(cpus);
+	return cpu_bitset_count(cpus);
+}
+
+/* CPU Topology API */
+
 int nosv_get_num_cpus(void)
 {
-	return topology_get_level_count(NOSV_TOPO_LEVEL_CPU);
+	return nosv_get_num_domains(NOSV_TOPO_LEVEL_CPU);
 }
 
 int *nosv_get_available_cpus(void)
 {
-	return topology_get_system_id_arr(NOSV_TOPO_LEVEL_CPU);
+	return nosv_get_available_domains(NOSV_TOPO_LEVEL_CPU);
 }
 
 int nosv_get_current_logical_cpu(void)
 {
-	if (!worker_is_in_task())
-		return NOSV_ERR_OUTSIDE_TASK;
-
-	return cpu_get_current();
+	return nosv_get_current_logical_domain(NOSV_TOPO_LEVEL_CPU);
 }
 
 int nosv_get_current_system_cpu(void)
 {
-	if (!worker_is_in_task())
-		return NOSV_ERR_OUTSIDE_TASK;
-
-	cpu_t *cpu = cpu_get_from_logical_id(cpu_get_current());
-	assert(cpu);
-
-	return cpu_get_system_id(cpu);
+	return nosv_get_current_system_domain(NOSV_TOPO_LEVEL_CPU);
 }
 
-int nosv_get_current_logical_numa_node(void)
-{
-	if (!worker_is_in_task())
-		return NOSV_ERR_OUTSIDE_TASK;
-
-	cpu_t *cpu = cpu_get_from_logical_id(cpu_get_current());
-	assert(cpu);
-
-	int numa_lid = cpu_get_parent_logical_id(cpu, NOSV_TOPO_LEVEL_NUMA);
-	return numa_lid;
-}
-
-int nosv_get_current_system_numa_node(void)
-{
-	if (!worker_is_in_task())
-		return NOSV_ERR_OUTSIDE_TASK;
-
-	cpu_t *cpu = cpu_get_from_logical_id(cpu_get_current());
-	assert(cpu);
-
-	int numa_lid = cpu_get_parent_logical_id(cpu, NOSV_TOPO_LEVEL_NUMA);
-	return topology_get_system_id(NOSV_TOPO_LEVEL_NUMA, numa_lid);
-}
+/* NUMA Topology API */
 
 int nosv_get_num_numa_nodes(void)
 {
-	return topology_get_level_count(NOSV_TOPO_LEVEL_NUMA);
+	return nosv_get_num_domains(NOSV_TOPO_LEVEL_NUMA);
 }
 
 int *nosv_get_available_numa_nodes(void)
 {
-	return topology_get_system_id_arr(NOSV_TOPO_LEVEL_NUMA);
+	return nosv_get_available_domains(NOSV_TOPO_LEVEL_NUMA);
+}
+
+int nosv_get_current_logical_numa_node(void)
+{
+	return nosv_get_current_logical_domain(NOSV_TOPO_LEVEL_NUMA);
+}
+
+int nosv_get_current_system_numa_node(void)
+{
+	return nosv_get_current_system_domain(NOSV_TOPO_LEVEL_NUMA);
 }
 
 int nosv_get_system_numa_id(int logical_numa_id)
 {
-	if (logical_numa_id >= topology_get_level_count(NOSV_TOPO_LEVEL_NUMA))
-		return NOSV_ERR_INVALID_PARAMETER;
-
-	return topology_get_system_id(NOSV_TOPO_LEVEL_NUMA, logical_numa_id);
+	return nosv_get_current_system_domain(NOSV_TOPO_LEVEL_NUMA);
 }
 
 int nosv_get_logical_numa_id(int system_numa_id)
@@ -1063,12 +1106,7 @@ int nosv_get_logical_numa_id(int system_numa_id)
 
 int nosv_get_num_cpus_in_numa(int system_numa_id)
 {
-	int logical_node = topology_get_logical_id(NOSV_TOPO_LEVEL_NUMA, system_numa_id);
-	if (logical_node < 0)
-		return NOSV_ERR_INVALID_PARAMETER;
-
-	topo_domain_t *numa = topology_get_domain(NOSV_TOPO_LEVEL_NUMA, logical_node);
-	return cpu_bitset_count(&(numa->cpu_sid_mask));
+	return nosv_get_num_cpus_in_domain(NOSV_TOPO_LEVEL_NUMA, system_numa_id);
 }
 
 #undef snprintf_check

@@ -264,46 +264,6 @@ int nosv_barrier_destroy(
 int nosv_barrier_wait(
 	nosv_barrier_t barrier);
 
-/* CPU Information API */
-/* Get number of CPUs leveraged by the nOS-V runtime */
-int nosv_get_num_cpus(void);
-
-/* Get array of CPUs leveraged by the nOS-V runtime */
-int *nosv_get_available_cpus(void);
-
-/* Get the logical identifier of the CPU where the current task is running */
-/* The range of logical identifiers is [0, number of cpus) */
-/* Restriction: Can only be called from a task context */
-int nosv_get_current_logical_cpu(void);
-
-/* Get the system identifier of the CPU where the current task is running */
-/* Restriction: Can only be called from a task context */
-int nosv_get_current_system_cpu(void);
-
-/* Get the logical identifier of the NUMA where the current task is running */
-/* The range of logical identifiers is [0, number of numa nodes) */
-/* Restriction: Can only be called from a task context */
-int nosv_get_current_logical_numa_node(void);
-
-/* Get the system identifier of the NUMA node where the current task is running */
-/* Restriction: Can only be called from a task context */
-int nosv_get_current_system_numa_node(void);
-
-/* Get the number of NUMA nodes seen by nOS-V (containing cpus allowed in this process)*/
-int nosv_get_num_numa_nodes(void);
-
-/* Get array of NUMAs leveraged by the nOS-V runtime */
-int *nosv_get_available_numa_nodes(void);
-
-/* Get the system identifier of the NUMA node given the logical identifier */
-int nosv_get_system_numa_id(int logical_numa_id);
-
-/* Get the logical identifier of the NUMA node given the system identifier */
-int nosv_get_logical_numa_id(int system_numa_id);
-
-/* Get the number of CPUs in the NUMA node given the system identifier */
-int nosv_get_num_cpus_in_numa(int system_numa_id);
-
 /* Batch Submit API */
 /* Set the maximum size of the submit window */
 /* submit_batch_size > 0 */

@@ -75,7 +75,7 @@ basic_init_multicall_test_LDFLAGS = $(AM_LDFLAGS)
 
 basic_topology_numa_cpu_test_SOURCES = basic/topology-numa-cpu.c
 basic_topology_numa_cpu_test_CFLAGS = $(AM_CFLAGS)
-basic_topology_numa_cpu_test_LDFLAGS = $(AM_LDFLAGS)
+basic_topology_numa_cpu_test_LDFLAGS = $(AM_LDFLAGS) -lnuma
 
 basic_init_procs_test_SOURCES = basic/init-procs.c
 basic_init_procs_test_CFLAGS = $(AM_CFLAGS)

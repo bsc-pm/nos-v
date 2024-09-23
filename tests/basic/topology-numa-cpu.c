@@ -17,6 +17,7 @@
 
 #include <nosv.h>
 #include <nosv/affinity.h>
+#include <nosv/hwinfo.h>
 
 #include "test.h"
 #include "common/utils.h"
@@ -47,7 +48,7 @@ int *libnuma_get_numa_nodes_array(void);
 // Search val in arr
 int search_in_arr(int *arr, int size, int val);
 // Test all values in arr exist in nosv_arr
-int test_arr(test_t *t, int *arr, int size, int *nosv_arr, int nosv_size, char *type_str);
+void test_arr(test_t *t, int *arr, int size, int *nosv_arr, int nosv_size, char *type_str);
 
 int main(void)
 {
@@ -127,7 +128,7 @@ int search_in_arr(int *arr, int size, int val)
 	return 0;
 }
 
-int test_arr(test_t *t, int *arr, int size, int *nosv_arr, int nosv_size, char *type_str)
+void test_arr(test_t *t, int *arr, int size, int *nosv_arr, int nosv_size, char *type_str)
 {
 	for (int i = 0; i < size; ++i) {
 		int sid = arr[i];

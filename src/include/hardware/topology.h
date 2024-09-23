@@ -23,15 +23,6 @@ enum {
 	TOPO_ID_UNSET = -2
 };
 
-typedef enum nosv_topo_level {
-	NOSV_TOPO_LEVEL_NODE = 0,
-	NOSV_TOPO_LEVEL_NUMA,
-	NOSV_TOPO_LEVEL_COMPLEX_SET,
-	NOSV_TOPO_LEVEL_CORE,
-	NOSV_TOPO_LEVEL_CPU,
-	NOSV_TOPO_LEVEL_COUNT
-} nosv_topo_level_t;
-
 static const char *const nosv_topo_level_names[] = {
 	"node",
 	"numa",
