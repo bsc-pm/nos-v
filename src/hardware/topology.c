@@ -1058,6 +1058,16 @@ cpu_bitset_t *topology_get_valid_domains_mask(nosv_topo_level_t level)
 	return &(topology->per_level_valid_domains[level]);
 }
 
+// Allocates an array of size topology_get_level_count(lvl) and returns it filled with the available system ids of said level
+int *topology_get_system_id_arr(nosv_topo_level_t lvl)
+{
+	int *system_ids = malloc(topology_get_level_count(lvl) * sizeof(int));
+	for (int i = 0; i < topology_get_level_count(lvl); i++) {
+		system_ids[i] = topology_get_system_id(lvl, i);
+	}
+	return system_ids;
+}
+
 // Returns the logical id of the parent in the topology level 'parent'
 int cpu_get_parent_logical_id(cpu_t *cpu, nosv_topo_level_t parent)
 {
@@ -1145,6 +1155,11 @@ int nosv_get_num_cpus(void)
 	return topology_get_level_count(NOSV_TOPO_LEVEL_CPU);
 }
 
+int *nosv_get_available_cpus(void)
+{
+	return topology_get_system_id_arr(NOSV_TOPO_LEVEL_CPU);
+}
+
 int nosv_get_current_logical_cpu(void)
 {
 	if (!worker_is_in_task())
@@ -1164,7 +1179,7 @@ int nosv_get_current_system_cpu(void)
 	return cpu_get_system_id(cpu);
 }
 
-int nosv_get_current_logical_numa(void)
+int nosv_get_current_logical_numa_node(void)
 {
 	if (!worker_is_in_task())
 		return NOSV_ERR_OUTSIDE_TASK;
@@ -1176,7 +1191,7 @@ int nosv_get_current_logical_numa(void)
 	return numa_lid;
 }
 
-int nosv_get_current_system_numa(void)
+int nosv_get_current_system_numa_node(void)
 {
 	if (!worker_is_in_task())
 		return NOSV_ERR_OUTSIDE_TASK;
@@ -1191,6 +1206,11 @@ int nosv_get_current_system_numa(void)
 int nosv_get_num_numa_nodes(void)
 {
 	return topology_get_level_count(NOSV_TOPO_LEVEL_NUMA);
+}
+
+int *nosv_get_available_numa_nodes(void)
+{
+	return topology_get_system_id_arr(NOSV_TOPO_LEVEL_NUMA);
 }
 
 int nosv_get_system_numa_id(int logical_numa_id)
