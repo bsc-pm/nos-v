@@ -53,8 +53,8 @@ typedef struct rt_config {
 	const char *topology_binding;
 
 	// Affinity
-	const char *task_affinity;
-	const char *task_affinity_policy;
+	const char *task_affinity_default;
+	const char *task_affinity_default_policy;
 	int thread_affinity_compat_support;
 	generic_array_t topology_numa_nodes;
 	generic_array_t topology_complex_sets;

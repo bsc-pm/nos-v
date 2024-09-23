@@ -54,7 +54,7 @@ static inline nosv_affinity_t parse_affinity_from_config(void)
 	nosv_affinity_t ret;
 
 	// Start by splitting the prefix and the index
-	char *sep = strchr(nosv_config.task_affinity, '-');
+	char *sep = strchr(nosv_config.task_affinity_default, '-');
 
 	// Check if sep is NULL (not found)
 	if (!sep)
@@ -64,9 +64,9 @@ static inline nosv_affinity_t parse_affinity_from_config(void)
 	// NULL-terminate the string to parse it
 	*sep = '\0';
 
-	if (!strcmp(nosv_config.task_affinity, "cpu"))
+	if (!strcmp(nosv_config.task_affinity_default, "cpu"))
 		ret.level = NOSV_AFFINITY_LEVEL_CPU;
-	else if (!strcmp(nosv_config.task_affinity, "numa"))
+	else if (!strcmp(nosv_config.task_affinity_default, "numa"))
 		ret.level = NOSV_AFFINITY_LEVEL_NUMA;
 	else
 		nosv_abort("Unknown default affinity level");
@@ -79,7 +79,7 @@ static inline nosv_affinity_t parse_affinity_from_config(void)
 
 	ret.index = parsed_index;
 
-	if (!strcmp(nosv_config.task_affinity_policy, "strict"))
+	if (!strcmp(nosv_config.task_affinity_default_policy, "strict"))
 		ret.type = NOSV_AFFINITY_TYPE_STRICT;
 	else
 		ret.type = NOSV_AFFINITY_TYPE_PREFERRED;
@@ -90,7 +90,7 @@ static inline nosv_affinity_t parse_affinity_from_config(void)
 // Initialize the task default affinity parsing the configuration
 void task_affinity_init(void)
 {
-	if (!strcmp(nosv_config.task_affinity, "all")) {
+	if (!strcmp(nosv_config.task_affinity_default, "all")) {
 		default_affinity.index = default_affinity.level = default_affinity.type = 0;
 	} else {
 		default_affinity = parse_affinity_from_config();

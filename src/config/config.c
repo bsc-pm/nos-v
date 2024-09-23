@@ -61,10 +61,10 @@ static inline void config_init(rt_config_t *config)
 	config->governor_policy = strdup("hybrid");
 	config->governor_spins = 10000;
 
-	config->topology_binding = strdup(CPUMANAGER_BINDING);
-	config->task_affinity = strdup(AFFINITY_DEFAULT);
-	config->task_affinity_policy = strdup(AFFINITY_DEFAULT_POLICY);
-	config->thread_affinity_compat_support = AFFINITY_COMPAT_SUPPORT;
+	config->topology_binding = strdup(TOPOLOGY_BINDING);
+	config->task_affinity_default = strdup(TASK_AFFINITY_DEFAULT);
+	config->task_affinity_default_policy = strdup(TASK_AFFINITY_DEFAULT_POLICY);
+	config->thread_affinity_compat_support = THREAD_AFFINITY_COMPAT_SUPPORT;
 	config->topology_numa_nodes.n = 0;
 	config->topology_complex_sets.n = 0;
 
@@ -135,9 +135,9 @@ static inline int config_check(rt_config_t *config)
 
 	sanity_check(config->topology_binding, "The CPU binding for the CPU manager cannot be empty");
 
-	sanity_check(config->task_affinity, "The default affinity cannot be empty");
-	sanity_check(config->task_affinity_policy, "The default affinity policy cannot be empty");
-	sanity_check_str(config->task_affinity_policy, "Affinity policy must be one of: strict or preferred", "strict", "preferred");
+	sanity_check(config->task_affinity_default, "The default affinity cannot be empty");
+	sanity_check(config->task_affinity_default_policy, "The default affinity policy cannot be empty");
+	sanity_check_str(config->task_affinity_default_policy, "Affinity policy must be one of: strict or preferred", "strict", "preferred");
 
 	sanity_check_str(config->hwcounters_backend, "Currently available hardware counter backends: papi, none", "none", "papi");
 
@@ -801,9 +801,9 @@ static inline void config_preset_isolated(void)
 	free((void *)nosv_config.topology_binding);
 	nosv_config.topology_binding = strdup("inherit");
 
-	assert(nosv_config.task_affinity);
-	free((void *)nosv_config.task_affinity);
-	nosv_config.task_affinity = strdup("all");
+	assert(nosv_config.task_affinity_default);
+	free((void *)nosv_config.task_affinity_default);
+	nosv_config.task_affinity_default = strdup("all");
 }
 
 static inline void config_preset_shared_mpi(void)
@@ -816,9 +816,9 @@ static inline void config_preset_shared_mpi(void)
 	free((void *)nosv_config.topology_binding);
 	cpu_get_all_mask(&nosv_config.topology_binding);
 
-	assert(nosv_config.task_affinity_policy);
-	free((void *)nosv_config.task_affinity_policy);
-	nosv_config.task_affinity_policy = strdup("preferred");
+	assert(nosv_config.task_affinity_default_policy);
+	free((void *)nosv_config.task_affinity_default_policy);
+	nosv_config.task_affinity_default_policy = strdup("preferred");
 
 	// Now, see if we can have a best guess at determining a core or NUMA affinity by default
 	char *new_affinity = NULL;
@@ -830,8 +830,8 @@ static inline void config_preset_shared_mpi(void)
 				  " affinity does not constrain to a single core or NUMA node, and therefore a valid nOS-V affinity annotation"
 				  " does not exist");
 	} else {
-		free((void *) nosv_config.task_affinity);
-		nosv_config.task_affinity = new_affinity;
+		free((void *) nosv_config.task_affinity_default);
+		nosv_config.task_affinity_default = new_affinity;
 	}
 }
 
