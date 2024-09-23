@@ -277,6 +277,15 @@ int nosv_get_current_logical_cpu(void);
 /* Restriction: Can only be called from a task context */
 int nosv_get_current_system_cpu(void);
 
+/* Get the logical identifier of the NUMA where the current task is running */
+/* The range of logical identifiers is [0, number of numas) */
+/* Restriction: Can only be called from a task context */
+int nosv_get_current_logical_numa(void);
+
+/* Get the system identifier of the NUMA node where the current task is running */
+/* Restriction: Can only be called from a task context */
+int nosv_get_current_system_numa(void);
+
 /* Get the number of NUMA nodes seen by nOS-V (containing cpus allowed in this process)*/
 int nosv_get_num_numa_nodes(void);
 

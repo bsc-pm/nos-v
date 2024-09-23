@@ -22,6 +22,7 @@
 #include "memory/sharedmemory.h"
 #include "memory/slab.h"
 #include "monitoring/monitoring.h"
+#include "nosv.h"
 #include "nosv/error.h"
 #include "scheduler/cpubitset.h"
 #include "support/affinity.h"
@@ -1161,6 +1162,30 @@ int nosv_get_current_system_cpu(void)
 	assert(cpu);
 
 	return cpu_get_system_id(cpu);
+}
+
+int nosv_get_current_logical_numa(void)
+{
+	if (!worker_is_in_task())
+		return NOSV_ERR_OUTSIDE_TASK;
+
+	cpu_t *cpu = cpu_get_from_logical_id(cpu_get_current());
+	assert(cpu);
+
+	int numa_lid = cpu_get_parent_logical_id(cpu, NOSV_TOPO_LEVEL_NUMA);
+	return numa_lid;
+}
+
+int nosv_get_current_system_numa(void)
+{
+	if (!worker_is_in_task())
+		return NOSV_ERR_OUTSIDE_TASK;
+
+	cpu_t *cpu = cpu_get_from_logical_id(cpu_get_current());
+	assert(cpu);
+
+	int numa_lid = cpu_get_parent_logical_id(cpu, NOSV_TOPO_LEVEL_NUMA);
+	return topology_get_system_id(NOSV_TOPO_LEVEL_NUMA, numa_lid);
 }
 
 int nosv_get_num_numa_nodes(void)
