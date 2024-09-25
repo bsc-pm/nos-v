@@ -435,8 +435,7 @@ static inline void topology_init_numa_from_libnuma(cpu_bitset_t *valid_cpus)
 {
 	// Use numa_all_nodes_ptr as that contains only the nodes that are actually available,
 	// not all configured. On some machines, some nodes are configured but unavailable.
-	int numa_count = numa_bitmask_weight(numa_all_nodes_ptr);
-	topology->per_level_count[NOSV_TOPO_LEVEL_NUMA] = numa_count;
+	int libnuma_count = numa_bitmask_weight(numa_all_nodes_ptr);
 	int numa_max = numa_max_node();
 	topology_init_domain_s_to_l(NOSV_TOPO_LEVEL_NUMA, numa_max);
 	if (numa_max < 0)
@@ -444,7 +443,7 @@ static inline void topology_init_numa_from_libnuma(cpu_bitset_t *valid_cpus)
 
 	cpu_bitset_init(topology_get_valid_domains_mask(NOSV_TOPO_LEVEL_NUMA), NR_CPUS);
 
-	topology->per_level_domains[NOSV_TOPO_LEVEL_NUMA] = (topo_domain_t *) salloc(sizeof(topo_domain_t) * numa_count, 0);
+	topology->per_level_domains[NOSV_TOPO_LEVEL_NUMA] = (topo_domain_t *) salloc(sizeof(topo_domain_t) * libnuma_count, 0);
 
 	int libnuma_invalid_numas = 0;
 	int logical_id = 0;
@@ -458,6 +457,15 @@ static inline void topology_init_numa_from_libnuma(cpu_bitset_t *valid_cpus)
 			}
 		}
 	}
+	int numa_count = logical_id;
+
+	// Allocate just enough memory after knowing all valid numas, move initialized domains and free old memory
+	topo_domain_t *tmp = (topo_domain_t *) salloc(sizeof(topo_domain_t) * logical_id, 0);
+	memcpy(tmp, topology->per_level_domains[NOSV_TOPO_LEVEL_NUMA], sizeof(topo_domain_t) * logical_id);
+	sfree(topology->per_level_domains[NOSV_TOPO_LEVEL_NUMA], sizeof(topo_domain_t) * libnuma_count, 0);
+	topology->per_level_domains[NOSV_TOPO_LEVEL_NUMA] = tmp;
+
+	topology->per_level_count[NOSV_TOPO_LEVEL_NUMA] = numa_count;
 
 	// Update cpus, cores and complex sets with numa logical id
 	cpu_bitset_t visited_cpus;
@@ -482,7 +490,7 @@ static inline void topology_init_numa_from_libnuma(cpu_bitset_t *valid_cpus)
 	if (cpu_bitset_cmp(&visited_cpus, valid_cpus))
 		nosv_abort("Not all cpus from valid cpus bitset were visited when parsing numas from libnuma");
 
-	if ((cpu_bitset_count(topology_get_valid_domains_mask(NOSV_TOPO_LEVEL_NUMA)) + libnuma_invalid_numas) != numa_count)
+	if ((cpu_bitset_count(topology_get_valid_domains_mask(NOSV_TOPO_LEVEL_NUMA)) + libnuma_invalid_numas) != libnuma_count)
 		nosv_abort("Not all numas from libnuma were visited when parsing numas");
 }
 
