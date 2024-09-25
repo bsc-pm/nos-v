@@ -52,46 +52,49 @@ void test_arr(test_t *t, int *arr, int size, int *nosv_arr, int nosv_size, char 
 int main(void)
 {
 	// Number of available CPUs
-	int num_cpus = get_cpus();
+	int num_cpus = 0;
 	// Array containing all the system CPU ids
-	int *cpu_sys_ids = get_cpu_array();
+	int *cpu_sys_ids = NULL;
 	// Number of available NUMAs
-	int *numa_sys_ids;
-	int num_numas = libnuma_get_numa_nodes_array(cpu_sys_ids, num_cpus, &numa_sys_ids);
+	int *numa_sys_ids = NULL;
+	int num_numas = 0;
 
 	int ntests = 0;
 	#ifndef SKIP_CPU_TEST
+		num_cpus = get_cpus();
+		cpu_sys_ids = get_cpu_array();;
 		ntests += 1 + num_cpus;
-	#endif
-	if (numa_available() >= 0)
+	if (numa_available() != -1) {
+		num_numas = libnuma_get_numa_nodes_array(cpu_sys_ids, num_cpus, &numa_sys_ids);
 		ntests += 1 + num_numas;
+	}
+	#endif
 	test_init(&t, ntests);
 
 
 	CHECK(nosv_init());
 
 	#ifndef SKIP_CPU_TEST
-		test_check(&t, num_cpus == nosv_get_num_cpus(), "Number of CPUs returned by nOS-V is equal to glibc's");
+		int nosv_num_cpus = nosv_get_num_cpus();
+		int *nosv_cpus = nosv_get_available_cpus();
+
+		// Check that all CPUs found in this process' mask are seen by nOS-V
+		test_check(&t, num_cpus == nosv_get_num_cpus(), "Number of CPUs returned by nOS-V (%d) is equal to glibc's (%d).", nosv_num_cpus, num_cpus);
+		test_arr(&t, cpu_sys_ids, num_cpus, nosv_cpus, nosv_num_cpus, "CPU");
+		free(cpu_sys_ids);
+		free(nosv_cpus);
+
+	if (numa_available() != -1) {
+		int nosv_num_numas = nosv_get_num_numa_nodes();
+		int *nosv_numas = nosv_get_available_numa_nodes();
+
+		// Check that all NUMA nodes found by libnumam in this process are seen by nOS-V
+		test_check(&t, num_numas == nosv_get_num_numa_nodes(), "Number of NUMA nodes returned by nOS-V (%d) is equal to the ones where we have enabled CPUs (%d).", nosv_num_numas, num_numas);
+		test_arr(&t, numa_sys_ids, num_numas, nosv_numas, nosv_num_numas, "NUMA node");
+		free(numa_sys_ids);
+		free(nosv_numas);
+	}
 	#endif
-
-	if (numa_available() >= 0)
-		test_check(&t, num_numas == nosv_get_num_numa_nodes(), "Number of NUMA nodes returned by nOS-V is equal to glibc's");
-
-
-	// Check that all CPUs found in this process' mask are seen by nOS-V
-	int nosv_num_cpus = nosv_get_num_cpus();
-	int *nosv_cpus = nosv_get_available_cpus();
-	test_arr(&t, cpu_sys_ids, num_cpus, nosv_cpus, nosv_num_cpus, "CPU");
-
-	// Check that all NUMA nodes found by libnumam in this process are seen by nOS-V
-	int nosv_num_numas = nosv_get_num_numa_nodes();
-	int *nosv_numas = nosv_get_available_numa_nodes();
-	test_arr(&t, numa_sys_ids, num_numas, nosv_numas, nosv_num_numas, "NUMA node");
-
-	free(cpu_sys_ids);
-	free(numa_sys_ids);
-	free(nosv_cpus);
-	free(nosv_numas);
 
 	CHECK(nosv_shutdown());
 
