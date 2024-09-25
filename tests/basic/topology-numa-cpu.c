@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/syscall.h>
+#include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
 
@@ -41,10 +42,8 @@ test_t t;
 
 volatile unsigned int test = 0;
 
-// Get number of NUMA nodes with libnuma
-int libnuma_get_numa_nodes(void);
-// Get array of NUMA nodes with libnuma
-int *libnuma_get_numa_nodes_array(void);
+// Get array of NUMA nodes with libnuma, and return size
+int libnuma_get_numa_nodes_array(int *cpus_enabled, int size, int **out_numanodes);
 // Search val in arr
 int search_in_arr(int *arr, int size, int val);
 // Test all values in arr exist in nosv_arr
@@ -57,9 +56,8 @@ int main(void)
 	// Array containing all the system CPU ids
 	int *cpu_sys_ids = get_cpu_array();
 	// Number of available NUMAs
-	int num_numas = libnuma_get_numa_nodes();
-	// Array containing all the system NUMA ids
-	int *numa_sys_ids = libnuma_get_numa_nodes_array();
+	int *numa_sys_ids;
+	int num_numas = libnuma_get_numa_nodes_array(cpu_sys_ids, num_cpus, &numa_sys_ids);
 
 	int ntests = 0;
 	#ifndef SKIP_CPU_TEST
@@ -102,21 +100,33 @@ int main(void)
 }
 
 
-int libnuma_get_numa_nodes(void)
+int libnuma_get_numa_nodes_array(int *cpus_enabled, int size, int **out_numanodes)
 {
-	return numa_num_task_nodes();
-}
+	struct bitmask *node_bm = numa_allocate_nodemask();
+	if (!node_bm)
+		return -1;
 
-int *libnuma_get_numa_nodes_array(void)
-{
-	int *numa_array = malloc(sizeof(int) * libnuma_get_numa_nodes());
-	int i = 0;
-	for (int numa = 0; numa < numa_num_configured_nodes(); ++numa) {
-		if (numa_bitmask_isbitset(numa_all_nodes_ptr, numa))
-			numa_array[i++] = numa;
+	// Traverse all CPUs in cpus_enabled and ask for which NUMA they belong to
+	// These may be a subset of all NUMA nodes enabled, but that is the NUMA nOS-V recognizes
+	for (int i = 0; i < size; ++i) {
+		int numa = numa_node_of_cpu(cpus_enabled[i]);
+		assert(numa >= 0);
+		numa_bitmask_setbit(node_bm, numa);
 	}
-	assert(i == libnuma_get_numa_nodes());
-	return numa_array;
+	int numa_nodes_size = numa_bitmask_weight(node_bm);
+
+	// Now, traverse the bitmask and collect all the NUMA nodes in an array
+	*out_numanodes = malloc((numa_nodes_size) * sizeof(int));
+	int idx = 0;
+	for (int i = 0; i < numa_num_possible_nodes(); ++i) {
+		if (numa_bitmask_isbitset(node_bm, i)) {
+			(*out_numanodes)[idx++] = i;
+		}
+	}
+	assert(idx = numa_nodes_size);
+	numa_free_nodemask(node_bm);
+
+	return numa_nodes_size;
 }
 
 int search_in_arr(int *arr, int size, int val)
