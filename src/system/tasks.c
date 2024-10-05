@@ -254,6 +254,7 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	res->priority = 0;
 	res->had_events = 0;
 	list_init(&res->list_hook);
+	list_init(&res->list_hook_cond);
 
 	res->deadline = 0;
 	atomic_init(&res->deadline_state, NOSV_DEADLINE_NONE);

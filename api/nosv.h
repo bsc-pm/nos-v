@@ -41,6 +41,8 @@ struct nosv_mutex;
 typedef struct nosv_mutex *nosv_mutex_t;
 struct nosv_barrier;
 typedef struct nosv_barrier *nosv_barrier_t;
+struct nosv_cond;
+typedef struct nosv_cond *nosv_cond_t;
 
 typedef void (*nosv_task_run_callback_t)(nosv_task_t);
 typedef void (*nosv_task_end_callback_t)(nosv_task_t);
@@ -267,6 +269,38 @@ int nosv_barrier_destroy(
 /* Restriction: Can only be called from a task context */
 int nosv_barrier_wait(
 	nosv_barrier_t barrier);
+
+/* Flags */
+#define NOSV_COND_NONE __ZEROBITS
+
+int nosv_cond_init(
+    nosv_cond_t *cond,
+    nosv_flags_t flags);
+
+int nosv_cond_destroy(
+	nosv_cond_t cond);
+
+/* Wake ONE tasks waiting (blocked) on variable. Does nothing if there are no
+ * waiters */
+int nosv_cond_signal(nosv_cond_t cond);
+
+/* Wake ALL tasks waiting (blocked) on variable. Does nothing if there are no
+ * waiters */
+int nosv_cond_broadcast(nosv_cond_t cond);
+
+/* Similar to pthread_cond_wait, block until signaled */
+/* Restriction: Can only be called with mutex locked */
+int nosv_cond_wait(
+    nosv_cond_t cond,
+    nosv_mutex_t mutex);
+
+/* Similar to pthread_cond_timedwait, block until signaled or the deadline
+ * expires */
+/* Restriction: Can only be called with mutex locked */
+int nosv_cond_timedwait(
+    nosv_cond_t cond,
+    nosv_mutex_t mutex,
+    const struct timespec *abstime);
 
 /* Batch Submit API */
 /* Set the maximum size of the submit window */

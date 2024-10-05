@@ -78,6 +78,7 @@ struct nosv_task {
 	int had_events;
 	int priority;
 	list_head_t list_hook;
+	list_head_t list_hook_cond;
 
 	// Maybe this could be on-demand allocated
 	deadline_t deadline;
