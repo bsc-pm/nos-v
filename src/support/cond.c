@@ -160,7 +160,7 @@ int nosv_cond_timedwait(
 	}
 	nosv_spin_unlock(&cond->lock);
 
-	err = nosv_mutex_unlock(mutex);
+	err = nosv_mutex_unlock_internal(mutex, false);
 	if (unlikely(err != NOSV_SUCCESS)) {
 		nosv_abort("Failed to unlock nosv mutex");
 	}

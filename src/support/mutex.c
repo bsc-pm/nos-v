@@ -119,7 +119,7 @@ int nosv_mutex_trylock(nosv_mutex_t mutex)
 	return rc;
 }
 
-int nosv_mutex_unlock(nosv_mutex_t mutex)
+__internal int nosv_mutex_unlock_internal(nosv_mutex_t mutex, char yield_allowed)
 {
 	nosv_task_t task;
 	list_head_t *elem;
@@ -154,7 +154,7 @@ int nosv_mutex_unlock(nosv_mutex_t mutex)
 
 		cpu_t *current_cpu = cpu_ptr(cpu_get_current());
 
-		if (task_affine(task, current_cpu)) {
+		if (yield_allowed && task_affine(task, current_cpu)) {
 			// Since the task is affine, yield the current core to the unblocked task to speed things up
 			// and forego the scheduler
 
@@ -173,4 +173,8 @@ int nosv_mutex_unlock(nosv_mutex_t mutex)
 	instr_mutex_unlock_exit();
 
 	return NOSV_SUCCESS;
+}
+
+int nosv_mutex_unlock(nosv_mutex_t mutex) {
+	return nosv_mutex_unlock_internal(mutex, 1);
 }
