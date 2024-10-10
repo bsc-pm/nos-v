@@ -206,8 +206,6 @@ static inline void topology_init_complex_sets(cpu_bitset_t *valid_cpus, cpu_bits
 			int cpu_logical = topology_get_logical_id_check(NOSV_TOPO_LEVEL_CPU, cpu_system);
 			int core_logical = topology_get_parent_logical_id(NOSV_TOPO_LEVEL_CPU, cpu_logical, NOSV_TOPO_LEVEL_CORE);
 			int core_system = topology_get_system_id(NOSV_TOPO_LEVEL_CORE, core_logical);
-			if (!cpu_bitset_isset(valid_cores, core_system))
-				continue;
 
 			if (cpu_bitset_isset(&visited_cores, core_system))
 				nosv_abort("system core %d configured to be included in complex set %d, but it is already included in another complex set.", core_system, cs_system);
