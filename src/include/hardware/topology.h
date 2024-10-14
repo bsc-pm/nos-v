@@ -77,8 +77,8 @@ typedef struct cpumanager {
 } cpumanager_t;
 
 // Internal Topology API
-void topology_init(int initialize);
-void topology_free(void);
+__internal void topology_init(int initialize);
+__internal void topology_free(void);
 static inline int topology_get_parent_logical_id(nosv_topo_level_t son_level, int son_logical_id, nosv_topo_level_t parent);
 static inline int topology_get_parent_system_id(nosv_topo_level_t son_level, int son_logical_id, nosv_topo_level_t parent);
 static inline int topology_get_logical_id(nosv_topo_level_t level, int system_id);
@@ -110,7 +110,8 @@ __internal extern thread_local int __current_cpu;
 __internal extern cpumanager_t *cpumanager;
 __internal extern topology_t *topology;
 
-/* Static functions for the Topology API */
+// Static functions for the Topology API
+
 // Returns the logical id given the topology level and system id, -1 if not yet initialized
 static inline int topology_get_logical_id(nosv_topo_level_t level, int system_id)
 {
@@ -118,10 +119,9 @@ static inline int topology_get_logical_id(nosv_topo_level_t level, int system_id
 	if (topology->s_max[level] < 0)
 		return TOPO_ID_UNSET; // Level not yet initialized
 
-	if (system_id > topology->s_max[level])
-		nosv_abort("system_id %d is larger than the maximum system_id %d for topology level %s", system_id, topology->s_max[level], nosv_topo_level_names[level]);
-
+	assert(system_id <= topology->s_max[level]);
 	assert(topology->s_to_l[level][system_id] >= -1);
+
 	return topology->s_to_l[level][system_id];
 }
 
@@ -233,9 +233,10 @@ static inline cpu_bitset_t *topology_get_valid_domains_mask(nosv_topo_level_t le
 static inline int *topology_get_system_id_arr(nosv_topo_level_t lvl)
 {
 	int *system_ids = malloc(topology_get_level_count(lvl) * sizeof(int));
-	for (int i = 0; i < topology_get_level_count(lvl); i++) {
+
+	for (int i = 0; i < topology_get_level_count(lvl); i++)
 		system_ids[i] = topology_get_system_id(lvl, i);
-	}
+
 	return system_ids;
 }
 
