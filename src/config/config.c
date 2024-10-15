@@ -61,12 +61,15 @@ static inline void config_init(rt_config_t *config)
 	config->governor_policy = strdup("hybrid");
 	config->governor_spins = 10000;
 
-	config->topology_binding = strdup(TOPOLOGY_BINDING);
 	config->task_affinity_default = strdup(TASK_AFFINITY_DEFAULT);
 	config->task_affinity_default_policy = strdup(TASK_AFFINITY_DEFAULT_POLICY);
+
 	config->thread_affinity_compat_support = THREAD_AFFINITY_COMPAT_SUPPORT;
+
+	config->topology_binding = strdup(TOPOLOGY_BINDING);
 	config->topology_numa_nodes.n = 0;
 	config->topology_complex_sets.n = 0;
+	config->topology_print = 0;
 
 	config->debug_dump_config = 0;
 

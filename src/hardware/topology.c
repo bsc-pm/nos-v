@@ -860,8 +860,7 @@ void topology_init(int initialize)
 	topology_assert_parents_set();
 	topology_assert_siblings_have_same_parent();
 
-	const char *env_print_locality_domains = getenv("NOSV_PRINT_TOPOLOGY");
-	if (env_print_locality_domains != NULL && (strcmp(env_print_locality_domains, "TRUE") == 0 || strcmp(env_print_locality_domains, "true") == 0))
+	if (nosv_config.topology_print)
 		topology_print();
 }
 

@@ -76,6 +76,7 @@ static config_spec_t config_spec_list[] = {
 	DECLARE_CONFIG(TYPE_STR,  "topology.binding", topology_binding),
 	DECLARE_CONFIG_ARRAY(1, TYPE_STR, "topology.numa_nodes", topology_numa_nodes),
 	DECLARE_CONFIG_ARRAY(1, TYPE_STR, "topology.complex_sets", topology_complex_sets),
+	DECLARE_CONFIG(TYPE_BOOL, "topology.print", topology_print),
 	DECLARE_CONFIG(TYPE_BOOL, "debug.dump_config", debug_dump_config),
 	DECLARE_CONFIG(TYPE_STR, "governor.policy", governor_policy),
 	DECLARE_CONFIG(TYPE_UINT64, "governor.spins", governor_spins),

@@ -49,15 +49,18 @@ typedef struct rt_config {
 	size_t shm_size;
 	void *shm_start;
 
-	// CPU Manager
-	const char *topology_binding;
-
-	// Affinity
+	// Task affinity
 	const char *task_affinity_default;
 	const char *task_affinity_default_policy;
+
+	// Thread affinity
 	int thread_affinity_compat_support;
+
+	// Topology
+	const char *topology_binding;
 	generic_array_t topology_numa_nodes;
 	generic_array_t topology_complex_sets;
+	int topology_print;
 
 	// Scheduler
 	uint64_t sched_cpus_per_queue;
