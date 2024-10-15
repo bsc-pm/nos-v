@@ -11,7 +11,7 @@
 
 void governor_init(governor_t *governor)
 {
-	int actual_cpus = topology_get_level_count(NOSV_TOPO_LEVEL_CPU);
+	int actual_cpus = topo_lvl_cnt(TOPO_CPU);
 
 	cpu_bitset_init(&governor->sleepers, actual_cpus);
 	cpu_bitset_init(&governor->waiters, actual_cpus);

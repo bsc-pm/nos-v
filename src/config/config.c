@@ -825,7 +825,7 @@ static inline void config_preset_shared_mpi(void)
 
 	// Now, see if we can have a best guess at determining a core or NUMA affinity by default
 	char *new_affinity = NULL;
-	int ret = topology_get_default_affinity(&new_affinity);
+	int ret = topo_get_default_aff(&new_affinity);
 	nosv_warn("new_affinity: %s", new_affinity ? new_affinity : "NULL"); // TODO: Be aware of this in affinity scheduling
 
 	if (ret) {

@@ -121,7 +121,7 @@ static inline void worker_wake_internal(nosv_worker_t *worker, cpu_t *cpu)
 	// if the worker was not previously bound to the core where it
 	// is going to wake up now, bind it remotely now
 	if (worker->cpu != cpu) {
-		instr_affinity_remote(cpu_get_logical_id(cpu), worker->tid);
+		instr_affinity_remote(cpu_lid(cpu), worker->tid);
 		if (unlikely(bypass_sched_setaffinity(worker->tid, sizeof(cpu->cpuset), &cpu->cpuset)))
 			nosv_abort("Cannot change thread affinity");
 	}
@@ -166,7 +166,7 @@ static void killer_task_run_callback(nosv_task_t task)
 	assert(current_worker);
 	assert(current_worker->cpu);
 	assert(current_process_manager);
-	atomic_store_explicit(&current_process_manager->leader_shutdown_cpu, cpu_get_logical_id(current_worker->cpu), memory_order_relaxed);
+	atomic_store_explicit(&current_process_manager->leader_shutdown_cpu, cpu_lid(current_worker->cpu), memory_order_relaxed);
 
 	// Ask the delegate thread to shutdown as well
 	creation_event_t event;
@@ -269,7 +269,7 @@ static inline void worker_coordinate_shutdown(void)
 
 	// Figure out if this is the shutdown leader core.
 	int leader_id = atomic_load_explicit(&current_process_manager->leader_shutdown_cpu, memory_order_relaxed);
-	char leader_shutdown_cpu = cpu_get_logical_id(current_worker->cpu) == leader_id;
+	char leader_shutdown_cpu = cpu_lid(current_worker->cpu) == leader_id;
 
 	// This core participates in a coordinated effort to shutdown all idle
 	// workers. To do so, the current worker will attempt to wake an idle
@@ -384,7 +384,7 @@ static inline void *worker_start_routine(void *arg)
 	current_worker = (nosv_worker_t *)arg;
 	assert(current_worker);
 	assert(current_worker->cpu);
-	cpu_set_current(cpu_get_logical_id(current_worker->cpu));
+	cpu_set_current(cpu_lid(current_worker->cpu));
 	current_worker->tid = gettid();
 	pid = current_worker->logic_pid;
 	assert(current_process_manager);
@@ -399,7 +399,7 @@ static inline void *worker_start_routine(void *arg)
 	arch_configure_turbo(nosv_config.turbo_enabled);
 
 	instr_thread_init();
-	instr_thread_execute(cpu_get_logical_id(current_worker->cpu), current_worker->creator_tid, (uint64_t) arg);
+	instr_thread_execute(cpu_lid(current_worker->cpu), current_worker->creator_tid, (uint64_t) arg);
 	instr_worker_enter();
 	instr_kernel_init(&kinstr);
 
@@ -561,7 +561,7 @@ int worker_yield_if_needed(nosv_task_t current_task)
 	instr_sched_hungry();
 
 	// Try to get a ready task without blocking
-	task_execution_handle_t handle = scheduler_get(cpu_get_logical_id(cpu), SCHED_GET_NONBLOCKING);
+	task_execution_handle_t handle = scheduler_get(cpu_lid(cpu), SCHED_GET_NONBLOCKING);
 
 	instr_sched_fill();
 
@@ -595,7 +595,7 @@ void worker_block(void)
 	cpu_t *cpu = current_worker->cpu;
 
 	assert(cpu);
-	cpu_set_current(cpu_get_logical_id(cpu));
+	cpu_set_current(cpu_lid(cpu));
 
 	instr_thread_resume();
 }
@@ -655,7 +655,7 @@ nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, 
 	// We use the address of the worker structure as the tag of the
 	// thread create event, as it provides a unique value known to
 	// both threads.
-	instr_thread_create(cpu_get_logical_id(cpu), (uint64_t) worker);
+	instr_thread_create(cpu_lid(cpu), (uint64_t) worker);
 
 	common_pthread_create(&worker->kthread, worker_start_routine, worker, &cpu->cpuset);
 

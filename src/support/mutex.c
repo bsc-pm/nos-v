@@ -152,7 +152,7 @@ int nosv_mutex_unlock(nosv_mutex_t mutex)
 		// unlocking contended tasks
 		task = list_elem(elem, struct nosv_task, list_hook);
 
-		cpu_t *current_cpu = cpu_get_from_logical_id(cpu_get_current());
+		cpu_t *current_cpu = cpu_ptr(cpu_get_current());
 
 		if (task_affine(task, current_cpu)) {
 			// Since the task is affine, yield the current core to the unblocked task to speed things up
