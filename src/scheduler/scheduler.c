@@ -385,7 +385,7 @@ static inline void scheduler_process_ready_tasks(int fromServer)
 	const uint64_t batch_size = nosv_config.sched_batch_size;
 	size_t cnt = 0;
 
-	// TODO maybe we want to limit how many tasks we pop
+	// TODO: maybe we want to limit how many tasks we pop
 	while ((cnt = mpsc_pop_batch(scheduler->in_queue, (void **) task_batch_buffer, batch_size))) {
 		for (size_t i = 0; i < cnt; ++i) {
 			if (fromServer)
@@ -512,7 +512,7 @@ static inline void scheduler_deadline_purge_internal(int count)
 	it = (sched) ? &sched->list_hook : list_front(&scheduler->queues);
 	stop = it;
 
-	// Itreate over all processes deadline red-black trees and remove from
+	// Iterate over all processes deadline red-black trees and remove from
 	// them up to "count" tasks. Add these tasks to the ready queues.
 	do {
 		sched = list_elem(it, process_scheduler_t, list_hook);
@@ -679,7 +679,7 @@ static inline nosv_task_t scheduler_find_task_process(process_scheduler_t *sched
 			goto task_obtained;
 		}
 
-		// Not affine. Insert to an appropiate queue
+		// Not affine. Insert to an appropriate queue
 		scheduler_insert_affine(sched, task);
 	}
 
@@ -693,7 +693,7 @@ static inline nosv_task_t scheduler_find_task_process(process_scheduler_t *sched
 			goto task_obtained;
 		}
 
-		// Not affine. Insert to an appropiate queue
+		// Not affine. Insert to an appropriate queue
 		scheduler_insert_affine(sched, task);
 	}
 
@@ -728,7 +728,7 @@ static inline nosv_task_t scheduler_find_task_process(process_scheduler_t *sched
 		// Remove from queue
 		scheduler_pop_queue(&sched->queue, task);
 
-		// Not affine. Insert to an appropiate queue
+		// Not affine. Insert to an appropriate queue
 		scheduler_insert_affine(sched, task);
 	}
 
@@ -907,7 +907,7 @@ static inline void scheduler_serve(nosv_task_t task, uint32_t scheduled_count, i
 static inline size_t scheduler_serve_batch(int *cpus_were_skipped, cpu_bitset_t *cpus_to_serve)
 {
 	// Serve a task batch
-	// TODO instead of call scheduler_get_internal in a loop,
+	// TODO: instead of call scheduler_get_internal in a loop,
 	// do something smarter
 	size_t served = 0;
 	int cpu_delegated = 0;

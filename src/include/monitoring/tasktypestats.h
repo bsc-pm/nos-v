@@ -179,7 +179,7 @@ static inline double tasktype_stats_get_timing_prediction(tasktype_stats_t *stat
 
 	double prediction = PREDICTION_UNAVAILABLE;
 
-	// Try to inferr a prediction
+	// Try to infer a prediction
 	nosv_spin_lock(&(stats->timing_lock));
 	if (accumulator_total_num(&(stats->timing_accumulator))) {
 		prediction = ((double) cost * accumulator_mean(&(stats->timing_accumulator)));
@@ -199,14 +199,14 @@ static inline void tasktype_stats_insert_normalized_counter(
 ) {
 	assert(type_stats != NULL);
 
-	// Try to inferr a prediction
+	// Try to infer a prediction
 	nosv_spin_lock(&(type_stats->counters_lock));
 	accumulator_add(&(type_stats->normalized_counter_accumulators[counter_id]), value);
 	nosv_spin_unlock(&(type_stats->counters_lock));
 }
 */
 
-//! \brief Retreive, for a certain type of counter, the sum of accumulated
+//! \brief Retrieve, for a certain type of counter, the sum of accumulated
 //! values of all tasks from this type
 static inline double tasktype_stats_get_counter_sum(
 	tasktype_stats_t *type_stats, size_t counter_id
@@ -220,7 +220,7 @@ static inline double tasktype_stats_get_counter_sum(
 	return sum;
 }
 
-//! \brief Retreive, for a certain type of counter, the average of all
+//! \brief Retrieve, for a certain type of counter, the average of all
 //! accumulated values of this task type
 static inline double tasktype_stats_get_counter_average(
 	tasktype_stats_t *type_stats, size_t counter_id
@@ -235,7 +235,7 @@ static inline double tasktype_stats_get_counter_average(
 	return (sum / count);
 }
 
-//! \brief Retreive, for a certain type of counter, the standard deviation
+//! \brief Retrieve, for a certain type of counter, the standard deviation
 //! taking into account all the values in the accumulator of this task type
 static inline double tasktype_stats_get_counter_stddev(
 	tasktype_stats_t *type_stats, size_t counter_id
@@ -249,7 +249,7 @@ static inline double tasktype_stats_get_counter_stddev(
 	return stddev;
 }
 
-//! \brief Retreive, for a certain type of counter, the amount of values
+//! \brief Retrieve, for a certain type of counter, the amount of values
 //! in the accumulator (i.e., the number of tasks)
 static inline size_t tasktype_stats_get_counter_num_instances(
 	tasktype_stats_t *type_stats, size_t counter_id
@@ -263,7 +263,7 @@ static inline size_t tasktype_stats_get_counter_num_instances(
 	return count;
 }
 
-//! \brief Retreive, for a certain type of counter, the average of all
+//! \brief Retrieve, for a certain type of counter, the average of all
 //! accumulated normalized values of this task type
 static inline double tasktype_stats_get_normalized_counter_rolling_average(
 	tasktype_stats_t *type_stats, size_t counter_id
@@ -277,7 +277,7 @@ static inline double tasktype_stats_get_normalized_counter_rolling_average(
 	return avg;
 }
 
-//! \brief Retreive, for a certain type of counter, the average accuracy
+//! \brief Retrieve, for a certain type of counter, the average accuracy
 //! of counter predictions of this tasktype
 static inline double tasktype_stats_get_counter_accuracy(
 	tasktype_stats_t *type_stats, size_t counter_id
@@ -311,7 +311,7 @@ static inline double tasktype_stats_get_counter_prediction(
 
 //    SHARED FUNCTIONS: MONITORING + HWC    //
 
-//! \brief Accumulate a task's timing statisics and counters to inferr
+//! \brief Accumulate a task's timing statistics and counters to infer
 //! predictions. More specifically, this function:
 //! - Normalizes task metrics with its cost to later insert these normalized
 //!   metrics into accumulators

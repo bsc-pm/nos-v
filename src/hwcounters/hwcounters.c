@@ -62,19 +62,6 @@ void load_configuration(void)
 	hwcbackend.any_backend_enabled = hwcbackend.enabled[PAPI_BACKEND];
 }
 
-//! \brief Check if multiple backends and/or other modules are enabled and incompatible
-__internal void check_incompatibilities(void)
-{
-	// TODO: When Instrumentation is implemented
-	// If extrae is enabled, disable PAPI to avoid hardware counter collisions
-// #ifdef EXTRAE_ENABLED
-// 	if (enabled[PAPI_BACKEND]) {
-// 		// NOTE: Warn?
-// 		enabled[PAPI_BACKEND] = 0;
-// 	}
-// #endif
-}
-
 void hwcounters_initialize(void)
 {
 	// Initialize default values
@@ -91,9 +78,6 @@ void hwcounters_initialize(void)
 
 	// Load the configuration to check which backends and events are enabled
 	load_configuration();
-
-	// Check if there's an incompatibility between backends
-	check_incompatibilities();
 
 	// If verbose is enabled and no backends are available, warn the user
 	if (!hwcbackend.any_backend_enabled && hwcbackend.verbose) {

@@ -726,7 +726,7 @@ static inline int config_parse_single_override(rt_config_t *config, char *option
 	while (*value == ' ')
 		++value;
 
-	// Parse the found option acording to its spec.
+	// Parse the found option according to its spec.
 	switch (spec->type) {
 		case TYPE_INT64:
 			return string_parse_int64(PTR_TO(int64_t, config, spec->member_offset), value);

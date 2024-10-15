@@ -23,7 +23,7 @@
 // which affects codegen
 #define unlikely(x) __builtin_expect(!!(x), 0)
 
-// nOS-V Symbols in headers must be explicitely marked.
+// nOS-V Symbols in headers must be explicitly marked.
 // A __public symbol is exported and can be called by programs linking to the library
 // While an __internal symbol is local to the DSO domain.
 #define __public __attribute__((visibility("default")))

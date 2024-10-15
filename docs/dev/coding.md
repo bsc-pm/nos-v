@@ -34,14 +34,14 @@ However, the following extensions are forbidden:
 
 All code should go inside the `src/` directory, and tests under the `tests/` directory.
 
-Inside the `src/` directory, you should create sub-directories to group all files that do related things or form a component of the runtime. For example, all of the source related to memory management goes into `src/memory`.
+Inside the `src/` directory, you should create subdirectories to group all files that do related things or form a component of the runtime. For example, all the source code related to memory management goes into `src/memory`.
 
 Headers should be separated from the source, and go into `src/include`, which should have exactly the same directory structure as `src/`.
 Note the following conventions:
 
  - Generic headers containing only constants or **re-usable** data structures go into `src/include/generic`.
  - Architecture-specific code should go into `src/include/generic/arch/[x86|arm64|power].h`
- - **Very** high-level or extremely common headers may go into `src/include` without any sub-directory.
+ - **Very** high-level or extremely common headers may go into `src/include` without any subdirectory.
  - The **public** nOS-V API headers should be placed in `api/`.
 
 ## Copyright
@@ -60,7 +60,7 @@ Every file in nOS-V should be licensed under the GNU GPLv3, and contain the stan
 
 In general, each `.c` file will have an associated `.h` file in the same path but under `src/include`.
 
-All headers should be self-contained (no special rules to include them, no hidden dependencies). This means that each header has the appropiate header guards, and includes **all** other headers it uses.
+All headers should be self-contained (no special rules to include them, no hidden dependencies). This means that each header has the appropriate header guards, and includes **all** other headers it uses.
 
 Make a best-effort to include only the headers that are *strictly necessary*, as it will reduce compilation time. However, do not use forward declarations just to reduce included headers. Use forward declarations only to break dependency cycles.
 
@@ -105,20 +105,20 @@ Include headers in two groups: C system headers (first), and then internal heade
 #include "scheduler/scheduler.h"
 ```
 
-## Variables, linkage and storage classes
+## Variables, linkage, and storage classes
 
 ### Internal linkage
 
 As nOS-V is a shared library, **only** functions and variables defined in the public API should be exported. Any other function should have internal linkage.
 
-For functions that are only used inside of a single `.c` file, declare them `static` or `static inline`.
+For functions that are only used inside a single `.c` file, declare them `static` or `static inline`.
 Functions that are used in multiple places throughout the library should be declared in their header with the `__internal` specifier from the `compiler.h` header.
 
 ### Local variables
 
 Place local variables in the narrowest scope possible, and prefer to initialize them in the declaration.
 
-C11 allows to mix declarations and code, and we encourage to declare the variables in the most local scope possible, and close to their first use.
+C11 allows mixing declarations and code, and we encourage declaring the variables in the most local scope possible, and close to their first use.
 
 ```c
 int a;
@@ -144,7 +144,7 @@ Static and global variables are perfectly acceptable if needed. However, remembe
 ### Arguments
 C functions have return values. If you have a function that returns only one thing, use its return value over output parameters. However, if you return multiple things, use output parameters instead of returning structs.
 
-When ordering paremeters, place any input parameters before output parameters. If you have to add a new parameter, re-order the existing ones if needed, don't just add it last.
+When ordering parameters, place any input parameters before output parameters. If you have to add a new parameter, re-order the existing ones if needed, don't just add it last.
 
 Avoid input/output parameters when possible.
 
@@ -244,7 +244,7 @@ if (a)
 	b(), c();
 ```
 
-## Assertions and error-checkings
+## Assertions and error-checking
 Check for errors as much as possible.
 
  - Make liberal use of `assert()`, but only to check for things that **should never happen**.

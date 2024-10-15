@@ -2,7 +2,7 @@
 
 The behaviour of nOS-V can be tuned through the use of its configuration options. These options are specified in the configuration file using [TOML 1.0](https://toml.io/en/v1.0.0) syntax. A default configuration file is included in `$PREFIX/share/nosv.toml`, and can be used as a base for user-defined configuration files. All possible options and its effects are explained on the default file.
 
-Moreover, individual configuration options can be overriden through the use of the `NOSV_CONFIG_OVERRIDE` environment variable. Multiple comma-separated options can be specified using this method.
+Moreover, individual configuration options can be overridden through the use of the `NOSV_CONFIG_OVERRIDE` environment variable. Multiple comma-separated options can be specified using this method.
 
 On startup, nOS-V will find and parse **one** configuration file. nOS-V will search for this configuration file in the following order of preference:
 

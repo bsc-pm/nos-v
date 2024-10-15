@@ -55,7 +55,7 @@ static inline void taskmonitor_task_submitted(nosv_task_t task)
 		// Predict metrics using past data
 		tasktype_stats_t *type_stats = task_stats->tasktypestats;
 
-		// Retreive the cost of the task
+		// Retrieve the cost of the task
 		uint64_t cost = DEFAULT_COST;
 		if (task->type->get_cost != NULL) {
 			cost = task->type->get_cost(task);

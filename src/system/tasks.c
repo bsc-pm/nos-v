@@ -204,7 +204,7 @@ const char *nosv_get_task_type_label(nosv_task_type_t type)
 	return type->label;
 }
 
-// TODO Maybe it's worth it to place the metadata at the top to prevent continuous calls to nOS-V
+// TODO: Maybe it's worth it to place the metadata at the top to prevent continuous calls to nOS-V
 void *nosv_get_task_type_metadata(nosv_task_type_t type)
 {
 	return type->metadata;
@@ -1074,7 +1074,7 @@ int nosv_detach(
 	cpu_t *cpu = worker->cpu;
 	assert(cpu);
 
-	// This thread is no longer controled by nosv, and from now on it might
+	// This thread is no longer controlled by nosv, and from now on it might
 	// overlap with other nosv threads. Therefore, we mark is as a "cooling"
 	// thread.
 	instr_thread_cool();
