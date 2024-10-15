@@ -315,7 +315,7 @@ static inline void scheduler_check_process_shutdowns(void)
 	}
 }
 
-static inline void deadline_task_woke_up(nosv_task_t task)
+static inline void deadline_task_wake_up(nosv_task_t task)
 {
 	assert(task);
 	task->deadline = 0;
@@ -350,7 +350,7 @@ static inline void scheduler_insert_ready_task(nosv_task_t task)
 		} else {
 			assert(expected == NOSV_DEADLINE_READY);
 			// the task has been lapsed, enqueue it directly
-			deadline_task_woke_up(task);
+			deadline_task_wake_up(task);
 			scheduler_add_queue(&pidqueue->queue, task);
 		}
 	} else {
@@ -525,7 +525,7 @@ static inline void scheduler_deadline_purge_internal(int count)
 				deadline_state_t state = atomic_load_explicit(&task->deadline_state, memory_order_relaxed);
 				if (state == NOSV_DEADLINE_READY) {
 					RB_REMOVE(deadline_tree, &sched->deadline_tasks, task);
-					deadline_task_woke_up(task);
+					deadline_task_wake_up(task);
 					scheduler_add_queue(&sched->queue, task);
 					to_purge--;
 					if (!to_purge)
@@ -653,7 +653,7 @@ static inline int scheduler_get_deadline_expired(process_scheduler_t *sched, nos
 
 deadline_expired:
 	RB_REMOVE(deadline_tree, &sched->deadline_tasks, res);
-	deadline_task_woke_up(res);
+	deadline_task_wake_up(res);
 	*task = res;
 	return 1;
 }

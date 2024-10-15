@@ -836,7 +836,7 @@ void task_execute(task_execution_handle_t handle)
 
 	worker->in_task_body = 0;
 
-	if (task->type->end_callback) {
+	if (!task_should_suspend(task) && task->type->end_callback) {
 		atomic_thread_fence(memory_order_acquire);
 		task->type->end_callback(task);
 		atomic_thread_fence(memory_order_release);
