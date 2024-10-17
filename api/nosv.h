@@ -124,7 +124,8 @@ int nosv_create(
 #define NOSV_SUBMIT_UNLOCKED      __BIT(0)
 /* Block the current task until the submitted task has completed */
 #define NOSV_SUBMIT_BLOCKING      __BIT(1)
-/* Hint nOS-V to execute this task in the same thread as the one currently executing, immediately after */
+/* Hint nOS-V to execute this task in the same CPU where the current task is running, immediately after finishing or pausing it */
+/* This flag can improve the cache locality exploitation if the successor accesses common data subsets. The flag also reduces the traffic in the scheduler */
 #define NOSV_SUBMIT_IMMEDIATE     __BIT(2)
 /* Execute this task inline, substituting the currently running task for this worker */
 #define NOSV_SUBMIT_INLINE        __BIT(3)
