@@ -198,6 +198,9 @@ int nosv_decrease_event_counter(
 	nosv_task_t task,
 	uint64_t decrement);
 
+/* Returns if the task has been used through the event API */
+int nosv_task_had_events(nosv_task_t task);
+
 /* Flags */
 #define NOSV_ATTACH_NONE			__ZEROBITS
 

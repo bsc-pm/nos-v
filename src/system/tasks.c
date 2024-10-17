@@ -252,6 +252,7 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	atomic_init(&res->blocking_count, 1);
 	res->affinity = default_affinity;
 	res->priority = 0;
+	res->had_events = 0;
 	list_init(&res->list_hook);
 
 	res->deadline = 0;
@@ -783,7 +784,7 @@ static inline void task_suspend(nosv_task_t task)
 				scheduler_submit_single(task);
 			break;
 		case TASK_FLAG_SUSPEND_MODE_TIMEOUT:
-			// Independently of the result of this operation the task must be resubmitted	
+			// Independently of the result of this operation the task must be resubmitted
 			res = set_task_deadline(task, clock_ns(), args);
 			assert(res);
 			scheduler_submit_single(task);
@@ -881,6 +882,7 @@ int nosv_increase_event_counter(
 	if (!current)
 		return NOSV_ERR_OUTSIDE_TASK;
 
+	current->had_events = 1;
 	atomic_fetch_add_explicit(&current->event_count, increment, memory_order_relaxed);
 
 	return NOSV_SUCCESS;
@@ -942,6 +944,14 @@ int nosv_decrease_event_counter(
 	}
 
 	return NOSV_SUCCESS;
+}
+
+int nosv_task_had_events(nosv_task_t task)
+{
+	if (!task)
+		return NOSV_ERR_INVALID_PARAMETER;
+
+	return task->had_events;
 }
 
 /*
