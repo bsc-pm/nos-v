@@ -508,29 +508,46 @@ int worker_should_shutdown(void)
 	return atomic_load_explicit(&threads_shutdown_signal, memory_order_relaxed);
 }
 
+static inline void worker_yield_to_internal(task_execution_handle_t handle)
+{
+	assert(current_worker);
+	assert(current_worker->cpu);
+
+	if (handle.task) {
+		worker_execute_or_delegate(handle, current_worker->cpu, /* busy thread */ 1);
+	} else {
+
+		// Inform the instrumentation that this thread is going to be paused
+		// *before* we wake another thread. The thread is put in the cooling
+		// state, to prevent two threads in the running state in the same CPU.
+		instr_thread_cool();
+
+		worker_wake_idle(logic_pid, current_worker->cpu, handle);
+
+		// Then, sleep and return once we have been woken up
+		worker_block();
+	}
+}
+
 void worker_yield(void)
 {
 	assert(current_worker);
 
-	// Inform the instrumentation that this thread is going to be paused
-	// *before* we wake another thread. The thread is put in the cooling
-	// state, to prevent two threads in the running state in the same CPU.
-	instr_thread_cool();
-
 	// Block this thread and place another one. This is called on nosv_pause
 	// First, wake up another worker in this cpu, one from the same PID
 	task_execution_handle_t handle = EMPTY_TASK_EXECUTION_HANDLE;
-	worker_wake_idle(logic_pid, current_worker->cpu, handle);
+	if (current_worker->immediate_successor) {
+		handle.task = current_worker->immediate_successor;
+		handle.execution_id = ++(current_worker->immediate_successor->scheduled_count);
+		current_worker->immediate_successor = NULL;
+	}
 
-	// Then, sleep and return once we have been woken up
-	worker_block();
+	worker_yield_to_internal(handle);
 }
 
 void worker_yield_to(task_execution_handle_t handle)
 {
 	assert(current_worker);
-	cpu_t *cpu = current_worker->cpu;
-	assert(cpu);
 	assert(handle.task);
 
 	nosv_task_t current_task = worker_current_task();
@@ -543,8 +560,7 @@ void worker_yield_to(task_execution_handle_t handle)
 	// We have to submit the current task so it gets resumed somewhere else
 	scheduler_submit_single(current_task);
 
-	// Wake up the corresponding thread to execute the task
-	worker_execute_or_delegate(handle, cpu, /* busy thread */ 1);
+	worker_yield_to_internal(handle);
 
 	instr_task_resume((uint32_t)current_task->taskid, bodyid);
 }
@@ -558,15 +574,23 @@ int worker_yield_if_needed(nosv_task_t current_task)
 	cpu_t *cpu = current_worker->cpu;
 	assert(cpu);
 
-	instr_sched_hungry();
+	task_execution_handle_t handle = EMPTY_TASK_EXECUTION_HANDLE;
 
-	// Try to get a ready task without blocking
-	task_execution_handle_t handle = scheduler_get(cpu_lid(cpu), SCHED_GET_NONBLOCKING);
+	if (current_worker->immediate_successor) {
+		handle.task = current_worker->immediate_successor;
+		handle.execution_id = ++(current_worker->immediate_successor->scheduled_count);
+		current_worker->immediate_successor = NULL;
+	} else {
+		instr_sched_hungry();
 
-	instr_sched_fill();
+		// Try to get a ready task without blocking
+		handle = scheduler_get(cpu_lid(cpu), SCHED_GET_NONBLOCKING);
 
-	if (!handle.task)
-		return 0;
+		instr_sched_fill();
+
+		if (!handle.task)
+			return 0;
+	}
 
 	worker_yield_to(handle);
 

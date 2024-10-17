@@ -43,6 +43,7 @@ typedef struct process_scheduler {
 	int last_shutdown;
 	atomic_int shutdown;
 	size_t tasks;
+	size_t served_tasks;
 	size_t preferred_affinity_tasks;
 	RB_HEAD(deadline_tree, nosv_task) deadline_tasks;
 	deadline_t now;
@@ -62,7 +63,6 @@ typedef struct timestamp {
 
 typedef struct scheduler {
 	size_t tasks;
-	size_t served_tasks;
 	mpsc_queue_t *in_queue;
 	timestamp_t *timestamps;
 	uint64_t quantum_ns;

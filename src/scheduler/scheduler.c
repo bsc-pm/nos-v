@@ -65,7 +65,6 @@ void scheduler_init(int initialize)
 
 	list_init(&scheduler->queues);
 	scheduler->tasks = 0;
-	scheduler->served_tasks = 0;
 	atomic_init(&scheduler->deadline_purge, 0);
 
 	for (int i = 0; i < MAX_PIDS; ++i)
@@ -250,6 +249,7 @@ static inline process_scheduler_t *scheduler_init_pid(int pid)
 	process_scheduler_t *sched = salloc(sizeof(process_scheduler_t), cpu_get_current());
 	sched->preferred_affinity_tasks = 0;
 	sched->tasks = 0;
+	sched->served_tasks = 0;
 
 	int cpus = topo_lvl_cnt(TOPO_CPU);
 	sched->per_cpu_queue_preferred = salloc(sizeof(scheduler_queue_t) * cpus, cpu_get_current());
@@ -336,7 +336,7 @@ static inline void scheduler_insert_ready_task(nosv_task_t task)
 		// This yield task will be executed when either all
 		// tasks in the global scheduler have been run or when
 		// there is no more work to do other than yield tasks
-		task->yield = scheduler->served_tasks + scheduler->tasks;
+		task->yield = pidqueue->served_tasks + pidqueue->tasks;
 		list_add_tail(&pidqueue->yield_tasks.tasks, &task->list_hook);
 	} else if (task->deadline) {
 		deadline_state_t expected = NOSV_DEADLINE_PENDING;
@@ -621,7 +621,7 @@ static inline int scheduler_get_yield_expired(process_scheduler_t *sched, nosv_t
 		return 0;
 
 	res = list_elem(head, struct nosv_task, list_hook);
-	if (res->yield <= scheduler->served_tasks) {
+	if (res->yield <= sched->served_tasks) {
 		list_pop_front(&sched->yield_tasks.tasks);
 		res->yield = 0;
 		*task = res;
@@ -859,7 +859,7 @@ static inline nosv_task_t scheduler_get_internal(int cpu)
 			nosv_task_t task = _function(sched, cpu_str, &task_removed); \
 			if (task) {                                                  \
 				scheduler->tasks -= task_removed;                        \
-				scheduler->served_tasks += task_removed;                 \
+				sched->served_tasks += task_removed;                     \
 				scheduler_update_accounting(pid, task, cpu, ts);         \
 				return task;                                             \
 			}                                                            \

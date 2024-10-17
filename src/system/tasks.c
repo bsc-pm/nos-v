@@ -408,17 +408,16 @@ int nosv_submit(
 	// However, if we're not in a worker context, or we are currently executing a task,
 	// we will ignore the request, as it would hang the program.
 	// Additionally, we will reject to place as IS parallel tasks
-	if (is_immediate && worker && !worker->in_task_body && !task_is_parallel(task)) {
-		if (worker_get_immediate()) {
-			// Setting a new immediate successor, but there was already one.
-			// Place the new one and send the old one to the scheduler
-			scheduler_batch_submit(worker_get_immediate());
-		}
-
+	if (is_immediate && worker && !task_is_parallel(task)) {
 		count = atomic_fetch_sub_explicit(&task->blocking_count, 1, memory_order_relaxed) - 1;
-		assert(count == 0);
-
-		worker_set_immediate(task);
+		if (count == 0) {
+			if (worker_get_immediate()) {
+				// Setting a new immediate successor, but there was already one.
+				// Place the new one and send the old one to the scheduler
+				scheduler_batch_submit(worker_get_immediate());
+			}
+			worker_set_immediate(task);
+		}
 	} else if (is_inline) {
 		nosv_flush_submit_window();
 
@@ -1055,6 +1054,13 @@ int nosv_detach(
 		return NOSV_SUCCESS;
 
 	nosv_task_t task = worker->handle.task;
+
+	// Before detaching, flush IS and submit_window
+	if (worker_get_immediate()) {
+		scheduler_batch_submit(worker_get_immediate());
+		worker_set_immediate(NULL);
+	}
+	nosv_flush_submit_window();
 
 	// Task just completed, read and accumulate hardware counters for the task
 	hwcounters_update_task_counters(task);
