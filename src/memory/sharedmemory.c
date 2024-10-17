@@ -17,8 +17,8 @@
 
 #include "common.h"
 #include "config/config.h"
-#include "hardware/cpus.h"
 #include "hardware/pids.h"
+#include "hardware/topology.h"
 #include "instr.h"
 #include "memory/backbone.h"
 #include "memory/sharedmemory.h"
@@ -54,6 +54,7 @@ static void smem_config_initialize(smem_config_t *config)
 	config->processes[0] = get_process_self();
 	assert(config->processes[0].pid);
 	config->cpumanager_ptr = NULL;
+	config->topology_ptr = NULL;
 	config->scheduler_ptr = NULL;
 	config->pidmanager_ptr = NULL;
 	config->monitoring_ptr = NULL;
@@ -69,7 +70,7 @@ static void smem_initialize_first(void)
 	smem_config_initialize(st_config.config);
 	backbone_alloc_init(((char *)nosv_config.shm_start) + sizeof(smem_config_t), nosv_config.shm_size - sizeof(smem_config_t), 1);
 	slab_init();
-	cpus_init(1);
+	topo_init(1);
 	pidmanager_init(1);
 	scheduler_init(1);
 	monitoring_init(1);
@@ -92,7 +93,7 @@ static void smem_initialize_rest(void)
 		nosv_abort("Maximum number of concurrent nOS-V processes surpassed");
 
 	backbone_alloc_init(((char *)nosv_config.shm_start) + sizeof(smem_config_t), nosv_config.shm_size - sizeof(smem_config_t), 0);
-	cpus_init(0);
+	topo_init(0);
 	pidmanager_init(0);
 	scheduler_init(0);
 	monitoring_init(0);
@@ -252,7 +253,7 @@ static void segment_unregister_last(void)
 
 	scheduler_free();
 	monitoring_free();
-	cpus_free();
+	topo_free();
 	pidmanager_free();
 }
 

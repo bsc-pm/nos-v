@@ -74,14 +74,24 @@
 	# When "idle" or "busy" are selected, this setting is ignored
 	spins = 10000
 
-# CPU Manager
-[cpumanager]
+# Topology config
+[topology]
 	# CPU binding for the execution. The valid values are "inherit" which inherits the cpu mask of the
 	# first process that initializes the runtime, or a CPU mask in hexadecimal with the format "0xFFFF"
 	binding = "inherit"
+	# It is also possible to define the composition of the NUMA Nodes, which will override the autodiscovered
+	# composition that nOS-V can do through libnuma.
+	# It should be deffined as an array of strings, each being a cpu list. Use the system ids for the cpus.
+        # Consider the following example in a system with 2 NUMA Nodes, each one with 8 cores:
+	# numa_nodes = ["0-3,8-11", "4-7,12-15"]
+	# Complex sets are disjoint sets of cores.
+	# complex_sets = ["0,1", "2,3", "4,5", "6,7"]
+	# Set to true if you want to print the topology at nOS-V initialization. Useful to check the computing
+	# resources available to nOS-V.
+	print = false
 
-# Affinity
-[affinity]
+# Task affinity config
+[task_affinity]
 	# Default affinity for all created tasks. This will be the default value for nosv task affinity in the
 	# current process. This setting is normally used in conjunction with "binding" and makes it possible to
 	# easily combine multiple processes in the same nOS-V instance.
@@ -91,12 +101,9 @@
 	# Default affinity policy, either "strict" or "preferred". When the default affinity is "all", this value
 	# is not used.
 	default_policy = "strict"
-	# It is also possible to define the composition of the NUMA Nodes, which will override the autodiscovered
-	# composition that nOS-V can do through libnuma.
-	# It should be deffined as a 2-dimensional array, which has one row per NUMA node, and each column is one
-	# core that belongs to that NUMA Node. Use the system ids for the cores. Consider the following example
-	# in a system with 2 NUMA Nodes, each one with 4 cores:
-	# numa_nodes = [[0, 1, 2, 3], [4, 5, 6, 7]]
+
+# Thread affinity config
+[thread_affinity]
 	# Enable affinity compatibility support. An attached thread affinity is changed by nosv. Enabling this
 	# option makes standard {sched,pthread}_{get,set}affinity calls return the affinity the thread had before
 	# attach, as if it was not attached. This is useful for libraries that read the thread affinity to setup

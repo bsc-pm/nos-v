@@ -7,7 +7,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 
-#include "hardware/cpus.h"
+#include "hardware/topology.h"
 #include "monitoring/cpumonitor.h"
 
 
@@ -15,7 +15,7 @@ void cpumonitor_initialize(cpumonitor_t *monitor)
 {
 	assert(monitor != NULL);
 
-	monitor->num_cpus = (size_t) cpus_count();
+	monitor->num_cpus = (size_t) topo_lvl_cnt(TOPO_CPU);
 	monitor->cpu_stats = (cpu_stats_t *) salloc(sizeof(cpu_stats_t) * monitor->num_cpus, -1);
 	assert(monitor->cpu_stats != NULL);
 

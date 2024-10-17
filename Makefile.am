@@ -39,8 +39,7 @@ libnosv_la_SOURCES = \
 	src/error.c \
 	src/config/config.c \
 	src/config/toml.c \
-	src/hardware/cpus.c \
-	src/hardware/locality.c \
+	src/hardware/topology.c \
 	src/hardware/pids.c \
 	src/hardware/threads.c \
 	src/hwcounters/cpuhwcounters.c \
@@ -115,11 +114,10 @@ noinst_HEADERS = \
 	src/include/generic/spinlock.h \
 	src/include/generic/tree.h \
 	src/include/generic/_null.h \
-	src/include/hardware/cpus.h \
 	src/include/hardware/eventqueue.h \
-	src/include/hardware/locality.h \
 	src/include/hardware/pids.h \
 	src/include/hardware/threads.h \
+	src/include/hardware/topology.h \
 	src/include/hwcounters/cpuhwcounters.h \
 	src/include/hwcounters/hwcounters.h \
 	src/include/hwcounters/supportedhwcounters.h \

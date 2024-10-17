@@ -9,6 +9,7 @@
 
 #include <nosv.h>
 #include <nosv/affinity.h>
+#include <nosv/hwinfo.h>
 #include <stdatomic.h>
 #include <unistd.h>
 

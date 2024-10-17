@@ -24,6 +24,7 @@ typedef struct smem_config {
 	nosv_sys_mutex_t mutex;
 	void *scheduler_ptr;
 	void *cpumanager_ptr;
+	void *topology_ptr;
 	void *pidmanager_ptr;
 	void *monitoring_ptr;
 	int count;

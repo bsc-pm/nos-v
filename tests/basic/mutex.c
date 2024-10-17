@@ -6,6 +6,7 @@
 
 #include <nosv.h>
 #include <nosv/affinity.h>
+#include <nosv/hwinfo.h>
 #include <sched.h>
 #include <stdatomic.h>
 #include <stdlib.h>

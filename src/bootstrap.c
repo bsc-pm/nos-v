@@ -11,7 +11,6 @@
 #include "common.h"
 #include "compiler.h"
 #include "config/config.h"
-#include "hardware/locality.h"
 #include "hardware/pids.h"
 #include "hardware/threads.h"
 #include "hwcounters/hwcounters.h"
@@ -41,7 +40,6 @@ static int nosv_init_impl(void)
 	if (++rt_refcount == 1) {
 		config_parse();
 		affinity_support_init();
-		locality_init();
 		smem_initialize();
 		hwcounters_initialize();
 		pidmanager_register();
@@ -87,7 +85,6 @@ static int nosv_shutdown_impl(void)
 		hwcounters_shutdown();
 
 		affinity_support_shutdown();
-		locality_shutdown();
 		config_free();
 
 		assert(th_refcount == 1);

@@ -16,7 +16,7 @@ int main() {
 
 	test_init(&test, 5);
 
-	putenv("NOSV_CONFIG_OVERRIDE=affinity.compat_support=false");
+	putenv("NOSV_CONFIG_OVERRIDE=thread_affinity.compat_support=false");
 
 	CHECK(nosv_init());
 

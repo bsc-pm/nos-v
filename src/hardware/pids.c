@@ -9,7 +9,7 @@
 #include "common.h"
 #include "compiler.h"
 #include "hardware/pids.h"
-#include "hardware/cpus.h"
+#include "hardware/topology.h"
 #include "hwcounters/hwcounters.h"
 #include "memory/sharedmemory.h"
 #include "memory/slab.h"

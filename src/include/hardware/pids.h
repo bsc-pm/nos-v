@@ -9,8 +9,8 @@
 
 #include <unistd.h>
 
-#include "hardware/cpus.h"
 #include "hardware/threads.h"
+#include "hardware/topology.h"
 
 typedef struct pid_structures {
 	thread_manager_t threadmanager;

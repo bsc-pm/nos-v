@@ -18,8 +18,8 @@
 #include "generic/mutex.h"
 #include "generic/spinlock.h"
 #include "generic/condvar.h"
-#include "hardware/cpus.h"
 #include "hardware/eventqueue.h"
+#include "hardware/topology.h"
 #include "hwcounters/threadhwcounters.h"
 #include "system/tasks.h"
 
