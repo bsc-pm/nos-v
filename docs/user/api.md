@@ -253,6 +253,15 @@ int nosv_cond_timedwait(
     nosv_cond_t cond,
     nosv_mutex_t mutex,
     const struct timespec *abstime);
+
+int nosv_cond_wait_pthread(
+    nosv_cond_t cond,
+    pthread_mutex_t *mutex);
+
+int nosv_cond_timedwait_pthread(
+    nosv_cond_t cond,
+    pthread_mutex_t *mutex,
+    const struct timespec *abstime);
 ```
 
 ### Helper functions
