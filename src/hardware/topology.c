@@ -112,6 +112,11 @@ static inline void topology_init_domain(nosv_topo_level_t level, int system_id, 
 	// Init topo_domain_t cpu_bitset_t members
 	cpu_bitset_init(&(dom->cpu_sid_mask), NR_CPUS);
 	cpu_bitset_init(&(dom->cpu_lid_mask), NR_CPUS);
+
+	if (level == NOSV_TOPO_LEVEL_CPU) {
+		cpu_bitset_set(&(dom->cpu_sid_mask), system_id);
+		cpu_bitset_set(&(dom->cpu_lid_mask), logical_id);
+	}
 }
 
 // Updates cpus, cores and complex sets domains setting the value of parent domain specified with dom_level and dom_logical
