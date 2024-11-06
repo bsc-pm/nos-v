@@ -157,6 +157,15 @@ static inline void list_replace(list_head_t *old, list_head_t *new)
 	}
 }
 
+// Moves list head to new location
+static inline void list_move_head(list_head_t *old, list_head_t *new) {
+	old->prev->next = new;
+	old->next->prev = new;
+	new->prev = old->prev;
+	new->next = old->next;
+	list_init(old);
+}
+
 // Returns the next element, and NULL if only head is in list
 static inline list_head_t *list_front(list_head_t *head)
 {

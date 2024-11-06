@@ -110,13 +110,15 @@ int nosv_cond_broadcast(nosv_cond_t cond)
 
 	instr_cond_broadcast_enter();
 
+	// Wake timedtasks inside lock
 	nosv_spin_lock(&cond->lock);
-
-	// Wake tasks
-	list_submit_cond_tasks(&cond->list, NOSV_SUBMIT_UNLOCKED);
+	list_head_t non_timed;
+	list_move_head(&cond->list, &non_timed);
 	list_submit_cond_tasks(&cond->list_timed, NOSV_SUBMIT_DEADLINE_WAKE);
-
 	nosv_spin_unlock(&cond->lock);
+
+	// Wake non timed tasks
+	list_submit_cond_tasks(&non_timed, NOSV_SUBMIT_UNLOCKED);
 
 	instr_cond_broadcast_exit();
 
