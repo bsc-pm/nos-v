@@ -56,6 +56,7 @@ libnosv_la_SOURCES = \
 	src/support/affinity.c \
 	src/support/barrier.c \
 	src/support/mutex.c \
+	src/support/cond.c \
 	src/system/tasks.c
 
 if USE_ASAN

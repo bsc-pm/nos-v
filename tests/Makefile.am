@@ -25,6 +25,7 @@ basic_tests = basic-error-code.test \
 	basic-attach-external.test \
 	basic-barrier.test \
 	basic-mutex.test \
+	basic-cond.test \
 	basic-schedpoint.test \
 	basic-yield.test \
 	basic-priority.test \
@@ -117,6 +118,10 @@ basic_barrier_test_LDFLAGS = $(AM_LDFLAGS)
 basic_mutex_test_SOURCES = basic/mutex.c
 basic_mutex_test_CFLAGS = $(AM_CFLAGS) -std=c11
 basic_mutex_test_LDFLAGS = $(AM_LDFLAGS)
+
+basic_cond_test_SOURCES = basic/cond.c
+basic_cond_test_CFLAGS = $(AM_CFLAGS)
+basic_cond_test_LDFLAGS = $(AM_LDFLAGS)
 
 basic_schedpoint_test_SOURCES = basic/schedpoint.c
 basic_schedpoint_test_CFLAGS = $(AM_CFLAGS)

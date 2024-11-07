@@ -177,6 +177,31 @@ int nosv_barrier_wait(
 	nosv_barrier_t barrier);
 ```
 
+The nosv condition variable API behaves as the pthread condition variable, but
+with the same contention mechanics as the nosv mutex.
+
+```c
+int nosv_cond_init(
+    nosv_cond_t *cond,
+    nosv_flags_t flags);
+
+int nosv_cond_destroy(
+	nosv_cond_t cond);
+
+int nosv_cond_signal(nosv_cond_t cond);
+
+int nosv_cond_broadcast(nosv_cond_t cond);
+
+int nosv_cond_wait(
+    nosv_cond_t cond,
+    nosv_mutex_t mutex);
+
+int nosv_cond_timedwait(
+    nosv_cond_t cond,
+    nosv_mutex_t mutex,
+    const struct timespec *abstime);
+```
+
 ### Helper functions
 ```c
 int nosv_get_num_cpus(void);

@@ -78,6 +78,7 @@ struct nosv_task {
 	int had_events;
 	int priority;
 	list_head_t list_hook;
+	list_head_t list_hook_cond;
 
 	// Maybe this could be on-demand allocated
 	deadline_t deadline;
@@ -115,5 +116,7 @@ static inline nosv_flags_t task_should_suspend(struct nosv_task *task)
 {
 	return ((task->flags & TASK_FLAG_SUSPEND) != 0);
 }
+
+int nosv_mutex_unlock_internal(nosv_mutex_t mutex, char yield_allowed);
 
 #endif // NOSV_INTERNAL_H
