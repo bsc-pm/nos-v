@@ -149,16 +149,6 @@ static inline void topology_update_cpu_and_parents(int cpu_system, nosv_topo_lev
 	}
 }
 
-static inline bool bitset_has_valid_cpus(const cpu_bitset_t *bitset, const cpu_bitset_t *valid_cpus)
-{
-	int cpu_system;
-	CPU_BITSET_FOREACH (bitset, cpu_system) {
-		if (cpu_bitset_isset(valid_cpus, cpu_system))
-			return true;
-	}
-	return false;
-}
-
 static inline topo_domain_t *topology_init_level(nosv_topo_level_t level, int max, int cnt)
 {
 	topology_init_domain_s_to_l(level, max);
@@ -491,14 +481,14 @@ static void cpu_get_all(cpu_set_t *set)
 	fclose(fp);
 
 	// Parse set
-	cpu_bitset_t __bitset;
-	cpu_bitset_init(&__bitset, NR_CPUS);
-	int ret = cpu_bitset_parse_str(&__bitset, online_mask);
+	cpu_bitset_t bitset;
+	cpu_bitset_init(&bitset, NR_CPUS);
+	int ret = cpu_bitset_parse_str(&bitset, online_mask);
 	if (ret)
 		nosv_abort("Could not parse %s", SYS_CPU_PATH "/online");
 
 	CPU_ZERO(set);
-	cpu_bitset_to_cpuset(set, &__bitset);
+	cpu_bitset_to_cpuset(set, &bitset);
 
 	// Filter usable cpus
 	cpu_filter_usable(set);
@@ -534,16 +524,16 @@ static inline void cpus_get_binding_mask(const char *binding, cpu_bitset_t *cpu_
 	cpu_bitset_init(cpu_bitset, NR_CPUS);
 
 	// We have to interact with glibc functions, which expect a cpu_set_t
-	cpu_set_t __glibc_cpuset;
-	CPU_ZERO(&__glibc_cpuset);
+	cpu_set_t glibc_cpuset;
+	CPU_ZERO(&glibc_cpuset);
 
 	if (strcmp(binding, "inherit") == 0) {
-		bypass_sched_getaffinity(0, sizeof(cpu_set_t), &__glibc_cpuset);
-		assert(CPU_COUNT(&__glibc_cpuset) > 0);
-		cpu_bitset_from_cpuset(cpu_bitset, &__glibc_cpuset);
+		bypass_sched_getaffinity(0, sizeof(cpu_set_t), &glibc_cpuset);
+		assert(CPU_COUNT(&glibc_cpuset) > 0);
+		cpu_bitset_from_cpuset(cpu_bitset, &glibc_cpuset);
 	} else if (strcmp(binding, "all") == 0 || strcmp(binding, "cores") == 0) {
-		cpu_get_all(&__glibc_cpuset);
-		cpu_bitset_from_cpuset(cpu_bitset, &__glibc_cpuset);
+		cpu_get_all(&glibc_cpuset);
+		cpu_bitset_from_cpuset(cpu_bitset, &glibc_cpuset);
 		if (strcmp(binding, "cores") == 0)
 			cpu_remove_smt(cpu_bitset);
 	} else {
@@ -553,9 +543,10 @@ static inline void cpus_get_binding_mask(const char *binding, cpu_bitset_t *cpu_
 			nosv_abort("Could not parse CPU list in config option topology.binding");
 
 		free(tmp_binding);
-
-		return; // no need to copy from glibc cpu_set_t
 	}
+
+	if (nosv_config.debug_print_binding)
+		cpu_bitset_print_mask(cpu_bitset);
 }
 
 // Inits topo_domain_t structures without the numa, core and complex set info

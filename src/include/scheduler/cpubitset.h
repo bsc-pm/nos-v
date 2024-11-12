@@ -154,6 +154,49 @@ failed:
 	return ret;
 }
 
+static inline void cpu_bitset_print_mask(cpu_bitset_t *set)
+{
+	assert(set);
+	char buffer[4096];
+
+	int first_cpu, last_cpu;
+	first_cpu = last_cpu = -1;
+	char *curr = buffer;
+
+	for (int i = 0; i < set->size; ++i) {
+		if (cpu_bitset_isset(set, i)) {
+			if (first_cpu == -1)
+				first_cpu = i;
+			last_cpu = i;
+		} else {
+			// End range
+			if (first_cpu != -1) {
+				if (first_cpu == last_cpu)
+					curr += sprintf(curr, "%d,", first_cpu);
+				else
+					curr += sprintf(curr, "%d-%d,", first_cpu, last_cpu);
+			}
+
+			first_cpu = -1;
+		}
+	}
+
+	if (first_cpu != -1) {
+		if (first_cpu == last_cpu)
+			curr += sprintf(curr, "%d,", first_cpu);
+		else
+			curr += sprintf(curr, "%d-%d,", first_cpu, last_cpu);
+	}
+
+	// IFF we have printed something (was not all zeros) remove trailing comma.
+	if (last_cpu != -1)
+		curr[-1] = '\0';
+	else
+		buffer[0] = '\0';
+
+	nosv_warn("Effective binding: %s", buffer);
+}
+
 #define CPU_BITSET_FOREACH(bs, var) \
 	for ((var) = cpu_bitset_ffs((bs)); (var) >= 0; (var) = (cpu_bitset_ffs_at((bs), (var))))
 
