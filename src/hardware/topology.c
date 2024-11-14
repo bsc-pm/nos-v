@@ -1028,7 +1028,7 @@ int nosv_get_current_system_numa_node(void)
 
 int nosv_get_system_numa_id(int logical_numa_id)
 {
-	return nosv_get_current_system_domain(TOPO_NUMA);
+	return topo_dom_sid(TOPO_NUMA, logical_numa_id);
 }
 
 int nosv_get_logical_numa_id(int system_numa_id)
