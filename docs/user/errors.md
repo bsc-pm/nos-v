@@ -1,4 +1,3 @@
-
 # Error Handling
 
 In nOS-V, most public functions return an integer code that indicates the successful completion of the operation, or a possible error during the function execution. When the function succeeded, `NOSV_SUCCESS` is returned. This value is guaranteed to be zero, while all errors are negative and non-zero. The `nosv/errors.h` header defines the complete API regarding the error codes and error handling. This header is automatically included by the main `nosv.h` header.
