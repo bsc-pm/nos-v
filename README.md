@@ -1,4 +1,6 @@
-# nOS-V Library
+<img src="/docs/img/nos-v-logo-full.png" width=35% height=35%>
+
+# nOS-V
 
 nOS-V is a runtime library that implements the nOS-V tasking API,
 developed by the [*Programming Models group*](https://pm.bsc.es/)
