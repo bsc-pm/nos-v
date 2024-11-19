@@ -149,7 +149,7 @@ int main()
 	// Number of available CPUs
 	int cpus = nosv_get_num_cpus();
 	// Array containing all the system CPU ids
-	int *cpu_indexes = get_cpu_array();
+	int *cpu_indexes = nosv_get_available_cpus();
 
 	for (int i = 0; i < 100; ++i) {
 		CHECK(nosv_create(&task, type, sizeof(int), NOSV_CREATE_NONE));
@@ -164,8 +164,6 @@ int main()
 
 		CHECK(nosv_submit(task, NOSV_SUBMIT_NONE));
 	}
-
-	free(cpu_indexes);
 
 	CHECK(nosv_create(&task, type, sizeof(int), NOSV_CREATE_NONE));
 	int *metadata = nosv_get_task_metadata(task);
