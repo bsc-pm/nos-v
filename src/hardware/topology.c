@@ -900,6 +900,7 @@ int nosv_get_num_domains(nosv_topo_level_t level)
 	return ret;
 }
 
+// Returns a malloc'd array of system IDs of domains in the given level. User must free it
 int *nosv_get_available_domains(nosv_topo_level_t level)
 {
 	int *ret = topo_lvl_sid_arr(level);
@@ -952,6 +953,32 @@ int nosv_get_num_cpus_in_domain(nosv_topo_level_t level, int sid)
 	return cpu_bitset_count(cpus);
 }
 
+// Returns a malloc'd array of system IDs of CPUs in the given domain. User must free it
+int *nosv_get_available_cpus_in_domain(nosv_topo_level_t level, int sid)
+{
+	if (level < TOPO_NODE || level > TOPO_CPU)
+		return NULL;
+
+	int lid = topo_dom_lid(level, sid);
+	if (lid < 0)
+		return NULL;
+
+	cpu_bitset_t *cpus = topo_dom_cpu_sid_bitset(level, lid);
+	assert(cpus);
+
+	int *ret = malloc(sizeof(int) * cpu_bitset_count(cpus));
+	if (!ret)
+		return NULL;
+
+	int i = 0;
+	int cpu;
+	CPU_BITSET_FOREACH (cpus, cpu) {
+		ret[i++] = cpu;
+	}
+
+	return ret;
+}
+
 /* CPU Topology API */
 
 int nosv_get_num_cpus(void)
@@ -959,6 +986,7 @@ int nosv_get_num_cpus(void)
 	return nosv_get_num_domains(TOPO_CPU);
 }
 
+// Returns a malloc'd array of system IDs of CPUs. User must free it
 int *nosv_get_available_cpus(void)
 {
 	return nosv_get_available_domains(TOPO_CPU);
