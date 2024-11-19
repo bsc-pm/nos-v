@@ -89,6 +89,7 @@ void mutex_test(const char *msg, char trylock, char affinity)
 
 		CHECK(nosv_submit(tasks[i], NOSV_SUBMIT_NONE));
 	}
+        free(cpu_indexes);
 
 	// Wait for all tasks to have a chance to run
 	while (atomic_load_explicit(&track_init, memory_order_relaxed) != NTASKS)

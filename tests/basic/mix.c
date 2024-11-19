@@ -164,6 +164,7 @@ int main()
 
 		CHECK(nosv_submit(task, NOSV_SUBMIT_NONE));
 	}
+        free(cpu_indexes);
 
 	CHECK(nosv_create(&task, type, sizeof(int), NOSV_CREATE_NONE));
 	int *metadata = nosv_get_task_metadata(task);
