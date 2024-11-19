@@ -16,6 +16,7 @@
 
 #include <nosv.h>
 #include <nosv/affinity.h>
+#include <nosv/hwinfo.h>
 
 #include "test.h"
 #include "common/utils.h"
@@ -146,9 +147,9 @@ int main()
 	CHECK(nosv_type_init(&type, &run, NULL /* end */, &completed, NULL, NULL, NULL, NOSV_TYPE_INIT_NONE));
 
 	// Number of available CPUs
-	int cpus = get_cpus();
+	int cpus = nosv_get_num_cpus();
 	// Array containing all the system CPU ids
-	int *cpu_indexes = get_cpu_array();
+	int *cpu_indexes = nosv_get_available_cpus();
 
 	for (int i = 0; i < 100; ++i) {
 		CHECK(nosv_create(&task, type, sizeof(int), NOSV_CREATE_NONE));
@@ -163,8 +164,7 @@ int main()
 
 		CHECK(nosv_submit(task, NOSV_SUBMIT_NONE));
 	}
-
-	free(cpu_indexes);
+        free(cpu_indexes);
 
 	CHECK(nosv_create(&task, type, sizeof(int), NOSV_CREATE_NONE));
 	int *metadata = nosv_get_task_metadata(task);

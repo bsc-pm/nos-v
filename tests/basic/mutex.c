@@ -72,9 +72,9 @@ void mutex_test(const char *msg, char trylock, char affinity)
 		CHECK(nosv_mutex_trylock(mutex));
 
 	// Number of available CPUs
-	int cpus = get_cpus();
+	int cpus = nosv_get_num_cpus();
 	// Array containing all the system CPU ids
-	int *cpu_indexes = get_cpu_array();
+	int *cpu_indexes = nosv_get_available_cpus();
 
 	// Submit all tasks. Each task will block until the main thread unblocks
 	// them one by one
@@ -89,8 +89,7 @@ void mutex_test(const char *msg, char trylock, char affinity)
 
 		CHECK(nosv_submit(tasks[i], NOSV_SUBMIT_NONE));
 	}
-
-	free(cpu_indexes);
+        free(cpu_indexes);
 
 	// Wait for all tasks to have a chance to run
 	while (atomic_load_explicit(&track_init, memory_order_relaxed) != NTASKS)

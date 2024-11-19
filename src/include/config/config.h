@@ -75,6 +75,7 @@ typedef struct rt_config {
 
 	// Debug
 	int debug_dump_config;
+	int debug_print_binding;
 
 	// Hardware Counters
 	int hwcounters_verbose;

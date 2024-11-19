@@ -4,12 +4,9 @@
 	Copyright (C) 2024 Barcelona Supercomputing Center (BSC)
 */
 
-#include <assert.h>
 #include <linux/limits.h>
 #include <numa.h>
 #include <stdbool.h>
-#include <stdint.h>
-#include <string.h>
 
 #include "common.h"
 #include "compiler.h"
@@ -148,16 +145,6 @@ static inline void topology_update_cpu_and_parents(int cpu_system, nosv_topo_lev
 	}
 }
 
-static inline bool bitset_has_valid_cpus(const cpu_bitset_t *bitset, const cpu_bitset_t *valid_cpus)
-{
-	int cpu_system;
-	CPU_BITSET_FOREACH (bitset, cpu_system) {
-		if (cpu_bitset_isset(valid_cpus, cpu_system))
-			return true;
-	}
-	return false;
-}
-
 static inline topo_domain_t *topology_init_level(nosv_topo_level_t level, int max, int cnt)
 {
 	topology_init_domain_s_to_l(level, max);
@@ -251,7 +238,7 @@ static inline void topology_init_from_config(nosv_topo_level_t level, cpu_bitset
 // Returns core system id, and populates core_cpus bitset.
 // We infer real system core id, which we define as the first cpu sibling of the core.
 // Cannot use core_id sysfs value as it is not unique in a system
-static inline int topology_get_core_valid_cpus(const int cpu_system, const cpu_bitset_t *const valid_cpus, cpu_bitset_t *core_cpus)
+static inline int topology_get_core_valid_cpus(const int cpu_system, const cpu_bitset_t *const valid_cpus, cpu_bitset_t *core_cpus /*out*/)
 {
 	// First, open thread_siblings file and read content
 	char siblings_filename[PATH_MAX];
@@ -459,8 +446,7 @@ static inline void topology_init_numa(cpu_bitset_t *valid_cpus)
 	}
 }
 
-// Get a valid binding mask which includes all online CPUs in the system
-void cpu_get_all_mask(const char **mask)
+static void cpu_filter_usable(cpu_set_t *set)
 {
 	// One would reasonably think that we can discover all runnable CPUs by
 	// parsing /sys/devices/system/cpu/online, but the A64FX reports as online
@@ -469,7 +455,18 @@ void cpu_get_all_mask(const char **mask)
 	// for sched_setaffinity and then get the "corrected" affinity back with
 	// sched_setaffinity.
 
-	cpu_set_t set, bkp;
+	cpu_set_t bkp;
+
+	// A64FX dance
+	bypass_sched_getaffinity(0, sizeof(cpu_set_t), &bkp);
+	bypass_sched_setaffinity(0, sizeof(cpu_set_t), set);
+	bypass_sched_getaffinity(0, sizeof(cpu_set_t), set);
+	bypass_sched_setaffinity(0, sizeof(cpu_set_t), &bkp);
+}
+
+// Get a valid cpu set which includes all online CPUs in the system
+static void cpu_get_all(cpu_set_t *set)
+{
 	char online_mask[400];
 
 	FILE *fp = fopen(SYS_CPU_PATH "/online", "r");
@@ -479,100 +476,73 @@ void cpu_get_all_mask(const char **mask)
 	fgets(online_mask, sizeof(online_mask), fp);
 	fclose(fp);
 
-	// Parse the online mask and copy it to a cpu_set_t (needed for sched_setaffinity API)
-	cpu_bitset_t parsed;
-	cpu_bitset_init(&parsed, CPU_SETSIZE);
-	cpu_bitset_parse_str(&parsed, online_mask);
-	cpu_bitset_to_cpuset(&set, &parsed);
+	// Parse set
+	cpu_bitset_t bitset;
+	cpu_bitset_init(&bitset, NR_CPUS);
+	int ret = cpu_bitset_parse_str(&bitset, online_mask);
+	if (ret)
+		nosv_abort("Could not parse %s", SYS_CPU_PATH "/online");
 
-	// Now the A64FX dance
-	bypass_sched_getaffinity(0, sizeof(cpu_set_t), &bkp);
-	bypass_sched_setaffinity(0, sizeof(cpu_set_t), &set);
-	bypass_sched_getaffinity(0, sizeof(cpu_set_t), &set);
-	bypass_sched_setaffinity(0, sizeof(cpu_set_t), &bkp);
+	CPU_ZERO(set);
+	cpu_bitset_to_cpuset(set, &bitset);
 
-	// At this point, "set" should contain all *really* online CPUs
-	// Now we have to translate it to an actual mask
-	assert(CPU_COUNT(&set) > 0);
-	int maxcpu = CPU_SETSIZE - 1;
-	while (!CPU_ISSET(maxcpu, &set))
-		--maxcpu;
-
-	assert(maxcpu >= 0);
-	int num_digits = round_up_div(maxcpu, 4);
-	int str_size = num_digits + 2 /* 0x */ + 1 /* \0 */;
-
-	char *res = malloc(str_size);
-	res[str_size - 1] = '\0';
-	res[0] = '0';
-	res[1] = 'x';
-	char *curr_digit = &res[str_size - 2];
-
-	for (int i = 0; i < num_digits; ++i) {
-		int tmp = 0;
-		for (int cpu = i * 4; cpu < (i + 1) * 4 && cpu <= maxcpu; ++cpu)
-			tmp |= ((!!CPU_ISSET(cpu, &set)) << (cpu % 4));
-
-		if (tmp < 10)
-			*curr_digit = '0' + tmp;
-		else
-			*curr_digit = 'a' - 10 + tmp;
-
-		curr_digit--;
-	}
-
-	*mask = res;
+	// Filter usable cpus
+	cpu_filter_usable(set);
 }
 
-static inline void cpus_get_binding_mask(const char *binding, cpu_bitset_t *cpuset)
+// Leave only one hardware thread per core in a given cpuset
+static inline void cpu_remove_smt(cpu_bitset_t *cpuset)
+{
+	// The main idea is to go from start to finish, and once we find a set bit,
+	// we open the sibling list and remove them from the set. This should leave us
+	// with only one hw thread per physical cpu.
+	cpu_bitset_t siblings;
+
+	for (int i = 0; i < cpuset->size; ++i) {
+		if (cpu_bitset_isset(cpuset, i)) {
+			topology_get_core_valid_cpus(i, cpuset, &siblings);
+
+			// Remove current cpu from set
+			cpu_bitset_clear(&siblings, i);
+			// Leave only the siblings that are present on cpuset
+			cpu_bitset_and(&siblings, cpuset);
+			// Now complement those bits
+			cpu_bitset_xor(cpuset, &siblings);
+		}
+	}
+}
+
+static inline void cpus_get_binding_mask(const char *binding, cpu_bitset_t *cpu_bitset)
 {
 	assert(binding);
-	assert(cpuset);
+	assert(cpu_bitset);
 
+	cpu_bitset_init(cpu_bitset, NR_CPUS);
+
+	// We have to interact with glibc functions, which expect a cpu_set_t
 	cpu_set_t glibc_cpuset;
 	CPU_ZERO(&glibc_cpuset);
 
 	if (strcmp(binding, "inherit") == 0) {
 		bypass_sched_getaffinity(0, sizeof(cpu_set_t), &glibc_cpuset);
 		assert(CPU_COUNT(&glibc_cpuset) > 0);
+		cpu_bitset_from_cpuset(cpu_bitset, &glibc_cpuset);
+	} else if (strcmp(binding, "all") == 0 || strcmp(binding, "cores") == 0) {
+		cpu_get_all(&glibc_cpuset);
+		cpu_bitset_from_cpuset(cpu_bitset, &glibc_cpuset);
+		if (strcmp(binding, "cores") == 0)
+			cpu_remove_smt(cpu_bitset);
 	} else {
-		if (binding[0] != '0' || (binding[1] != 'x' && binding[1] != 'X'))
-			nosv_abort("invalid binding mask");
+		char *tmp_binding = strdup(binding);
+		int ret = cpu_bitset_parse_str(cpu_bitset, tmp_binding);
+		if (ret)
+			nosv_abort("Could not parse CPU list in config option topology.binding");
 
-		const int len = strlen(binding);
-		for (int c = len - 1, b = 0; c >= 2; --c, b += 4) {
-			int number = 0;
-			if (binding[c] >= '0' && binding[c] <= '9') {
-				number = binding[c] - '0';
-			} else if (binding[c] >= 'a' && binding[c] <= 'f') {
-				number = (binding[c] - 'a') + 10;
-			} else if (binding[c] >= 'A' && binding[c] <= 'F') {
-				number = (binding[c] - 'A') + 10;
-			} else {
-				nosv_abort("Invalid binding mask");
-			}
-			assert(number >= 0 && number < 16);
-
-			if (number & 0x1)
-				CPU_SET(b + 0, &glibc_cpuset);
-			if (number & 0x2)
-				CPU_SET(b + 1, &glibc_cpuset);
-			if (number & 0x4)
-				CPU_SET(b + 2, &glibc_cpuset);
-			if (number & 0x8)
-				CPU_SET(b + 3, &glibc_cpuset);
-		}
+		free(tmp_binding);
 	}
 
-	assert(CPU_COUNT(&glibc_cpuset) <= NR_CPUS);
-
-	cpu_bitset_init(cpuset, NR_CPUS);
-	for (int i = 0; i < NR_CPUS; i++) {
-		if (CPU_ISSET(i, &glibc_cpuset)) {
-			cpu_bitset_set(cpuset, i);
-		}
-	}
-	assert(CPU_COUNT(&glibc_cpuset) == cpu_bitset_count(cpuset));
+	if (nosv_config.debug_print_binding)
+		cpu_bitset_print_mask(cpu_bitset);
 }
 
 // Inits topo_domain_t structures without the numa, core and complex set info

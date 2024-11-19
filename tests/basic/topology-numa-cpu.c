@@ -23,21 +23,6 @@
 #include "test.h"
 #include "common/utils.h"
 
-// getcpu is only included in GLIBC since 2.29
-#if !__GLIBC_PREREQ(2, 29)
-
-// Fix for very old Linux versions
-#ifndef SYS_getcpu
-#define SYS_getcpu 0
-#define SKIP_CPU_TEST 1
-#endif
-
-static inline int getcpu(unsigned int *cpu, unsigned int *node)
-{
-	return syscall(SYS_getcpu, cpu, node);
-}
-#endif
-
 test_t t;
 
 volatile unsigned int test = 0;
@@ -62,7 +47,7 @@ int main(void)
 	int ntests = 0;
 	#ifndef SKIP_CPU_TEST
 		num_cpus = get_cpus();
-		cpu_sys_ids = get_cpu_array();;
+		cpu_sys_ids = get_cpu_array();
 		ntests += 1 + num_cpus;
 	if (numa_available() != -1) {
 		num_numas = libnuma_get_numa_nodes_array(cpu_sys_ids, num_cpus, &numa_sys_ids);

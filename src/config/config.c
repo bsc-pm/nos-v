@@ -72,6 +72,7 @@ static inline void config_init(rt_config_t *config)
 	config->topology_print = 0;
 
 	config->debug_dump_config = 0;
+	config->debug_print_binding = 0;
 
 	config->hwcounters_verbose = HWCOUNTERS_VERBOSE;
 	config->hwcounters_backend = strdup(HWCOUNTERS_BACKEND);
@@ -817,7 +818,7 @@ static inline void config_preset_shared_mpi(void)
 
 	assert(nosv_config.topology_binding);
 	free((void *)nosv_config.topology_binding);
-	cpu_get_all_mask(&nosv_config.topology_binding);
+	nosv_config.topology_binding = strdup("all");
 
 	assert(nosv_config.task_affinity_default_policy);
 	free((void *)nosv_config.task_affinity_default_policy);
@@ -886,12 +887,12 @@ void config_parse(void)
 	if (err)
 		nosv_abort("Could not parse config file correctly");
 
+	// Now, if a "preset" has been activated, override the specific options
+	config_parse_preset();
+
 	// Now parse the configuration overrides
 	if (config_parse_override(&nosv_config))
 		nosv_abort("Could not parse configuration override");
-
-	// Now, if a "preset" has been activated, override the specific options
-	config_parse_preset();
 
 	if (nosv_config.debug_dump_config)
 		config_dump(&nosv_config);
