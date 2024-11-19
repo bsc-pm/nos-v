@@ -4,13 +4,9 @@
 	Copyright (C) 2024 Barcelona Supercomputing Center (BSC)
 */
 
-#include <assert.h>
 #include <linux/limits.h>
 #include <numa.h>
-#include <sched.h>
 #include <stdbool.h>
-#include <stdint.h>
-#include <string.h>
 
 #include "common.h"
 #include "compiler.h"
