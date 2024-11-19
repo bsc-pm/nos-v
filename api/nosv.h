@@ -302,6 +302,17 @@ int nosv_cond_timedwait(
     nosv_mutex_t mutex,
     const struct timespec *abstime);
 
+/* Same as the above nosv_cond_wait but using a pthread mutex internally */
+int nosv_cond_wait_pthread(
+    nosv_cond_t cond,
+    pthread_mutex_t *mutex);
+
+/* Same as the above nosv_cond_timedwait but using a pthread mutex internally */
+int nosv_cond_timedwait_pthread(
+    nosv_cond_t cond,
+    pthread_mutex_t *mutex,
+    const struct timespec *abstime);
+
 /* Batch Submit API */
 /* Set the maximum size of the submit window */
 /* submit_batch_size > 0 */

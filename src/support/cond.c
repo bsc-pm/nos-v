@@ -125,10 +125,12 @@ int nosv_cond_broadcast(nosv_cond_t cond)
 	return NOSV_SUCCESS;
 }
 
-int nosv_cond_timedwait(
+static inline int nosv_cond_timedwait_internal(
 	nosv_cond_t cond,
-	nosv_mutex_t mutex,
-	const struct timespec *abstime)
+	nosv_mutex_t nosv_mutex,
+	pthread_mutex_t *pthread_mutex,
+	const struct timespec *abstime
+)
 {
 	nosv_err_t err = NOSV_SUCCESS;
 	nosv_task_t current_task = worker_current_task();
@@ -162,7 +164,11 @@ int nosv_cond_timedwait(
 	}
 	nosv_spin_unlock(&cond->lock);
 
-	err = nosv_mutex_unlock_internal(mutex, false);
+	if (nosv_mutex) {
+		err = nosv_mutex_unlock_internal(nosv_mutex, false);
+	} else {
+		err = pthread_mutex_unlock(pthread_mutex);
+	}
 	if (unlikely(err != NOSV_SUCCESS)) {
 		nosv_abort("Failed to unlock nosv mutex");
 	}
@@ -188,10 +194,30 @@ int nosv_cond_timedwait(
 		nosv_spin_unlock(&cond->lock);
 	}
 
-	err = nosv_mutex_lock(mutex);
+	if (nosv_mutex) {
+		err = nosv_mutex_lock(nosv_mutex);
+	} else {
+		err = pthread_mutex_lock(pthread_mutex);
+	}
 
 	instr_cond_wait_exit();
 	return err;
+}
+
+int nosv_cond_timedwait(
+	nosv_cond_t cond,
+	nosv_mutex_t mutex,
+	const struct timespec *abstime)
+{
+	return nosv_cond_timedwait_internal(cond, mutex, NULL, abstime);
+}
+
+int nosv_cond_timedwait_pthread(
+	nosv_cond_t cond,
+	pthread_mutex_t *mutex,
+	const struct timespec *abstime)
+{
+	return nosv_cond_timedwait_internal(cond, NULL, mutex, abstime);
 }
 
 inline int nosv_cond_wait(
@@ -199,4 +225,11 @@ inline int nosv_cond_wait(
 	nosv_mutex_t mutex)
 {
 	return nosv_cond_timedwait(cond, mutex, NULL);
+}
+
+inline int nosv_cond_wait_pthread(
+	nosv_cond_t cond,
+	pthread_mutex_t *mutex)
+{
+	return nosv_cond_timedwait_pthread(cond, mutex, NULL);
 }
