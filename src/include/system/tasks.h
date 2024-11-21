@@ -53,5 +53,6 @@ __internal void task_type_manager_init(void);
 __internal void task_type_manager_shutdown(void);
 __internal void task_affinity_init(void);
 __internal list_head_t *task_type_manager_get_list(void);
+__internal void task_attach_refcount_init(void);
 
 #endif // TASKS_H

@@ -138,6 +138,7 @@ static void child_fork_hook(void)
 		rt_initialized = false;
 		rt_refcount = 0;
 		th_refcount = 0;
+		task_attach_refcount_init();
 
 		munmap(nosv_config.shm_start, nosv_config.shm_size);
 	}
