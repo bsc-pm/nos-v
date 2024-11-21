@@ -102,6 +102,11 @@ list_head_t *task_type_manager_get_list(void)
 	return &(task_type_manager->types);
 }
 
+void task_attach_refcount_init(void)
+{
+	rt_attach_refcount = 0;
+}
+
 //! \brief Shutdown the manager of task types
 void task_type_manager_shutdown(void)
 {
