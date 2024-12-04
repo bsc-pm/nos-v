@@ -56,17 +56,17 @@ static nosv_spinlock_t lock = NOSV_SPINLOCK_INITIALIZER;
 
 static int cmp_lib_ver(const char *version1, const char *version2)
 {
-    unsigned major1 = 0, minor1 = 0, bugfix1 = 0;
-    unsigned major2 = 0, minor2 = 0, bugfix2 = 0;
-    sscanf(version1, "%u.%u.%u", &major1, &minor1, &bugfix1);
-    sscanf(version2, "%u.%u.%u", &major2, &minor2, &bugfix2);
-    if (major1 < major2) return -1;
-    if (major1 > major2) return 1;
-    if (minor1 < minor2) return -1;
-    if (minor1 > minor2) return 1;
-    if (bugfix1 < bugfix2) return -1;
-    if (bugfix1 > bugfix2) return 1;
-    return 0;
+	unsigned major1 = 0, minor1 = 0, bugfix1 = 0;
+	unsigned major2 = 0, minor2 = 0, bugfix2 = 0;
+	sscanf(version1, "%u.%u.%u", &major1, &minor1, &bugfix1);
+	sscanf(version2, "%u.%u.%u", &major2, &minor2, &bugfix2);
+	if (major1 < major2) return -1;
+	if (major1 > major2) return 1;
+	if (minor1 < minor2) return -1;
+	if (minor1 > minor2) return 1;
+	if (bugfix1 < bugfix2) return -1;
+	if (bugfix1 > bugfix2) return 1;
+	return 0;
 }
 
 struct lockup_scope_data {
