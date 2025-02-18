@@ -1,16 +1,18 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2023 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2023-2025 Barcelona Supercomputing Center (BSC)
 */
 
 #include <nosv.h>
 #include <nosv/alpi.h>
+#include <nosv/alpi-defs.h>
 
 #include <assert.h>
 #include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "test.h"
@@ -33,13 +35,14 @@ struct alpi_task *get_current_task(void)
 	return task;
 }
 
-// Perform several checks regarding the versions
+// Perform several checks regarding the versions and features of ALPI
 void perform_version_checks(void)
 {
 	int required[2];
 	int provided[2];
 	int err;
 
+	// Version checks
 	CHECK(alpi_version_get(&provided[0], &provided[1]));
 	test_check(&test, provided[0] == ALPI_VERSION_MAJOR, "Same provided and requested major versions");
 	test_check(&test, provided[1] == ALPI_VERSION_MINOR, "Same provided and requested minor versions");
@@ -63,6 +66,63 @@ void perform_version_checks(void)
 	required[1] = 0;
 	err = alpi_version_check(required[0], required[1]);
 	test_check(&test, err == ALPI_ERR_VERSION, "Requesting higher major version is invalid");
+
+
+	// Runtime info checks
+	int length, test_pass;
+	char buffer[64];
+	err = alpi_info_get(ALPI_INFO_RUNTIME_NAME, buffer, sizeof(buffer), &(length));
+	test_pass = (err == ALPI_SUCCESS) && (strcmp(buffer, "nOS-V") == 0) && (length > 0);
+	test_check(&test, test_pass, "Requesting the runtime name provides valid information");
+
+	err = alpi_info_get(ALPI_INFO_RUNTIME_VENDOR, buffer, sizeof(buffer), &(length));
+	test_pass = (err == ALPI_SUCCESS) && (strcmp(buffer, "STAR Team (BSC)") == 0) && (length > 0);
+	test_check(&test, test_pass, "Requesting the runtime vendor provides valid information");
+
+	char tmp_buffer[64];
+	snprintf(tmp_buffer, sizeof(tmp_buffer), "ALPI %d.%d (nOS-V)",  ALPI_VERSION_MAJOR, ALPI_VERSION_MINOR);
+	err = alpi_info_get(ALPI_INFO_VERSION, buffer, sizeof(buffer), &(length));
+	test_pass = (err == ALPI_SUCCESS) && (strcmp(buffer, tmp_buffer) == 0);
+	test_check(&test, test_pass, "Requesting the full version of ALPI and the underlying runtime provides valid information");
+
+	err = alpi_info_get(ALPI_INFO_VERSION, buffer, sizeof(buffer), NULL);
+	test_check(&test, err == ALPI_SUCCESS, "Passing a null pointer as the length parameter is valid");
+
+	err = alpi_info_get(-1, buffer, sizeof(buffer), &(length));
+	test_check(&test, err == ALPI_ERR_PARAMETER, "Passing an unknown query identifier is invalid");
+
+	err = alpi_info_get(ALPI_INFO_RUNTIME_NAME, NULL, sizeof(buffer), &(length));
+	test_check(&test, err == ALPI_ERR_PARAMETER, "Passing a null pointer as the buffer is invalid");
+
+	err = alpi_info_get(ALPI_INFO_RUNTIME_NAME, buffer, 0, &(length));
+	test_check(&test, err == ALPI_ERR_PARAMETER, "Passing a non-positive size for the buffer is invalid");
+
+
+	// Feature checks
+	err = alpi_feature_check((1 << 0) /* ALPI_FEATURE_BLOCKING */);
+	test_check(&test, err == ALPI_SUCCESS, "ALPI feature 'Blocking' is supported");
+
+	err = alpi_feature_check((1 << 1) /* ALPI_FEATURE_EVENTS */);
+	test_check(&test, err == ALPI_SUCCESS, "ALPI feature 'Events' is supported");
+
+	err = alpi_feature_check((1 << 2) /* ALPI_FEATURE_RESOURCES */);
+	test_check(&test, err == ALPI_SUCCESS, "ALPI feature 'Resources' is supported");
+
+	err = alpi_feature_check((1 << 3) /* ALPI_FEATURE_SUSPEND */);
+	test_check(&test, err == ALPI_SUCCESS, "ALPI feature 'Suspend' is supported");
+
+	err = alpi_feature_check((1 << 0) | (1 << 3));
+	test_check(&test, err == ALPI_SUCCESS, "ALPI features 'Blocking' and 'Suspend' are supported");
+
+	int unknown_feature = (1 << 15);
+	err = alpi_feature_check(unknown_feature);
+	test_check(&test, err == ALPI_ERR_FEATURE_UNKNOWN, "ALPI feature with unknown identifier is not supported");
+
+	err = alpi_feature_check((1 << 0) | (1 << 1) | (1 << 2) | (1 << 3));
+	test_check(&test, err == ALPI_SUCCESS, "ALPI features 'Blocking', 'Events', 'Resources' and 'Suspend' are supported");
+
+	err = alpi_feature_check((1 << 0) | (1 << 1) | unknown_feature);
+	test_check(&test, err == ALPI_ERR_FEATURE_UNKNOWN, "ALPI features 'Blocking' and 'Events' are supported but unknown identifier is not");
 }
 
 // Perform several checks regarding the available cpus
@@ -144,7 +204,7 @@ void task_events_body(void *args)
 
 int main()
 {
-	test_init(&test, 31);
+	test_init(&test, 46);
 
 	CHECK(nosv_init());
 
