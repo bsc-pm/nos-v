@@ -607,7 +607,7 @@ void worker_yield_to(task_execution_handle_t handle)
 	instr_task_resume((uint32_t)current_task->taskid, bodyid);
 }
 
-int worker_yield_if_needed(nosv_task_t current_task)
+int worker_yield_yielding_task(nosv_task_t current_task)
 {
 	assert(current_worker);
 	assert(current_worker->handle.task == current_task);
@@ -631,6 +631,43 @@ int worker_yield_if_needed(nosv_task_t current_task)
 	}
 
 	worker_yield_to(handle);
+
+	return 1;
+}
+
+int worker_yield_pausing_task(nosv_task_t current_task)
+{
+	assert(current_worker);
+	assert(current_worker->handle.task == current_task);
+	assert(current_task->worker == current_worker);
+
+	cpu_t *cpu = current_worker->cpu;
+	assert(cpu);
+
+	task_execution_handle_t handle = EMPTY_TASK_EXECUTION_HANDLE;
+
+	if (current_worker->immediate_successor) {
+		handle.task = current_worker->immediate_successor;
+		handle.execution_id = ++(current_worker->immediate_successor->scheduled_count);
+		current_worker->immediate_successor = NULL;
+	} else {
+		// Try to get a ready task without blocking
+		handle = scheduler_get(cpu_lid(cpu), SCHED_GET_NONBLOCKING);
+
+		if (!handle.task) {
+			// We can't swap to anything, but we still need to block
+			worker_yield();
+			return 0;
+		}
+	}
+
+	assert(handle.task);
+	assert(!task_is_parallel(current_task));
+
+	// The current task might have been submitted prior to blocking, and we
+	// could receive it at this point.
+	if (handle.task != current_task)
+		worker_yield_to_internal(handle);
 
 	return 1;
 }

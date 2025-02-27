@@ -500,7 +500,7 @@ void task_pause(
 
 	// If r < 1, we have already been unblocked
 	if (count > 0)
-		worker_yield();
+		worker_yield_pausing_task(task);
 
 	assert(atomic_load_explicit(&task->blocking_count, memory_order_relaxed) <= 0);
 
@@ -661,7 +661,7 @@ int nosv_yield(
 	task->yield = -1;
 
 	// Yield the CPU if there is available work in the scheduler
-	worker_yield_if_needed(task);
+	worker_yield_yielding_task(task);
 
 	// Unmark the task as yield
 	task->yield = 0;
@@ -710,7 +710,7 @@ int nosv_schedpoint(
 
 	if (yield) {
 		// Yield the CPU if there is available work in the scheduler
-		worker_yield_if_needed(task);
+		worker_yield_yielding_task(task);
 
 		cpuid = cpu_get_current();
 
