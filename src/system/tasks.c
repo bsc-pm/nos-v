@@ -761,8 +761,11 @@ static inline void task_complete(nosv_task_t task)
 	atomic_store_explicit(&task->event_count, 1, memory_order_relaxed);
 	task->scheduled_count = 0;
 
-	if (task->type->completed_callback)
+	if (task->type->completed_callback) {
+		atomic_thread_fence(memory_order_acquire);
 		task->type->completed_callback(task);
+		atomic_thread_fence(memory_order_release);
+	}
 	// From here, task may be freed!
 
 	if (wakeup)
