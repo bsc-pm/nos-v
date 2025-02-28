@@ -135,7 +135,7 @@ static inline int nosv_cond_timedwait_internal(
 	nosv_err_t err = NOSV_SUCCESS;
 	nosv_task_t current_task = worker_current_task();
 
-	if (!cond)
+	if (!cond || (nosv_mutex == NULL && pthread_mutex == NULL))
 		return NOSV_ERR_INVALID_PARAMETER;
 
 	if (!current_task)
@@ -164,10 +164,10 @@ static inline int nosv_cond_timedwait_internal(
 	}
 	nosv_spin_unlock(&cond->lock);
 
-	if (nosv_mutex) {
-		err = nosv_mutex_unlock_internal(nosv_mutex, false);
-	} else {
+	if (pthread_mutex) {
 		err = pthread_mutex_unlock(pthread_mutex);
+	} else {
+		err = nosv_mutex_unlock_internal(nosv_mutex, false);
 	}
 	if (unlikely(err != NOSV_SUCCESS)) {
 		nosv_abort("Failed to unlock nosv mutex");
@@ -194,10 +194,10 @@ static inline int nosv_cond_timedwait_internal(
 		nosv_spin_unlock(&cond->lock);
 	}
 
-	if (nosv_mutex) {
-		err = nosv_mutex_lock(nosv_mutex);
-	} else {
+	if (pthread_mutex) {
 		err = pthread_mutex_lock(pthread_mutex);
+	} else {
+		err = nosv_mutex_lock(nosv_mutex);
 	}
 
 	instr_cond_wait_exit();
