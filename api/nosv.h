@@ -274,8 +274,8 @@ int nosv_barrier_wait(
 #define NOSV_COND_NONE __ZEROBITS
 
 int nosv_cond_init(
-    nosv_cond_t *cond,
-    nosv_flags_t flags);
+	nosv_cond_t *cond,
+	nosv_flags_t flags);
 
 int nosv_cond_destroy(
 	nosv_cond_t cond);
@@ -291,27 +291,27 @@ int nosv_cond_broadcast(nosv_cond_t cond);
 /* Similar to pthread_cond_wait, block until signaled */
 /* Restriction: Can only be called with mutex locked */
 int nosv_cond_wait(
-    nosv_cond_t cond,
-    nosv_mutex_t mutex);
+	nosv_cond_t cond,
+	nosv_mutex_t mutex);
 
 /* Similar to pthread_cond_timedwait, block until signaled or the deadline
  * expires */
 /* Restriction: Can only be called with mutex locked */
 int nosv_cond_timedwait(
-    nosv_cond_t cond,
-    nosv_mutex_t mutex,
-    const struct timespec *abstime);
+	nosv_cond_t cond,
+	nosv_mutex_t mutex,
+	const struct timespec *abstime);
 
 /* Same as the above nosv_cond_wait but using a pthread mutex internally */
 int nosv_cond_wait_pthread(
-    nosv_cond_t cond,
-    pthread_mutex_t *mutex);
+	nosv_cond_t cond,
+	pthread_mutex_t *mutex);
 
 /* Same as the above nosv_cond_timedwait but using a pthread mutex internally */
 int nosv_cond_timedwait_pthread(
-    nosv_cond_t cond,
-    pthread_mutex_t *mutex,
-    const struct timespec *abstime);
+	nosv_cond_t cond,
+	pthread_mutex_t *mutex,
+	const struct timespec *abstime);
 
 /* Batch Submit API */
 /* Set the maximum size of the submit window */

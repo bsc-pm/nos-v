@@ -41,5 +41,12 @@ SortIncludes: false
 MaxEmptyLinesToKeep: 2
 AlwaysBreakTemplateDeclarations: true
 SpaceAfterCStyleCast: true
-ForEachMacros: [CPU_BITSET_FOREACH]
+ForEachMacros: [
+  CPU_BITSET_FOREACH,
+  RB_FOREACH_SAFE,
+  clist_for_each,
+  clist_for_each_pop,
+  list_for_each,
+  list_for_each_pop,
+]
 ...
