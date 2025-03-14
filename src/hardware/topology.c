@@ -765,7 +765,7 @@ void topo_free(void)
 {
 	// Free cpumanager
 	int cpu_cnt = topo_lvl_cnt(TOPO_CPU);
-	sfree(cpumanager->pids_cpus, cpu_cnt, 0);
+	sfree(cpumanager->pids_cpus, sizeof(int) * cpu_cnt, 0);
 	sfree(cpumanager, sizeof(cpumanager_t) + cpu_cnt * sizeof(cpu_t), 0);
 	cpumanager = NULL;
 
