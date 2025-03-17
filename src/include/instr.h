@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2025 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef INSTR_H
@@ -112,7 +112,6 @@ _Static_assert (INSTR_BIT_MAX <= sizeof(instr_ovni_control) * 8,
 		| INSTR_FLAG_API_PAUSE \
 		| INSTR_FLAG_API_YIELD \
 		| INSTR_FLAG_API_WAITFOR \
-		| INSTR_FLAG_API_SCHEDPOINT \
 		| INSTR_FLAG_API_MUTEX_LOCK \
 		| INSTR_FLAG_API_MUTEX_TRYLOCK \
 		| INSTR_FLAG_API_MUTEX_UNLOCK \
@@ -124,6 +123,7 @@ _Static_assert (INSTR_BIT_MAX <= sizeof(instr_ovni_control) * 8,
 		| INSTR_FLAG_BREAKDOWN)
 
 #define INSTR_LEVEL_4 (INSTR_LEVEL_3 \
+		| INSTR_FLAG_API_SCHEDPOINT \
 		| INSTR_FLAG_MEMORY)
 
 #define CHECK_INSTR_ENABLED(name) 						 \
@@ -462,7 +462,7 @@ static inline void instr_thread_require(void)
 
 	/* This nosv model version has no relation to libnosv.so version, it
 	 * just covers the events and the metadata in the trace. */
-	ovni_thread_require("nosv", "2.4.0");
+	ovni_thread_require("nosv", "2.4.1");
 
 	if (instr_ovni_control & INSTR_FLAG_KERNEL)
 		ovni_thread_require("kernel", "1.0.0");
