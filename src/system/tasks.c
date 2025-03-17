@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2025 Barcelona Supercomputing Center (BSC)
 */
 
 #include "generic/clock.h"
@@ -638,14 +638,12 @@ int nosv_yield(
 	if (kinstr)
 		instr_kernel_flush(kinstr);
 
-	if (!worker_is_in_task())
+	nosv_task_t task = worker_current_task();
+	if (!task)
 		return NOSV_ERR_OUTSIDE_TASK;
 
 	if (!(flags & NOSV_YIELD_NOFLUSH))
 		nosv_flush_submit_window();
-
-	nosv_task_t task = worker_current_task();
-	assert(task);
 
 	// Parallel tasks cannot be blocked
 	if (task_is_parallel(task))
