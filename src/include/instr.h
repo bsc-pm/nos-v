@@ -110,7 +110,6 @@ _Static_assert (INSTR_BIT_MAX <= sizeof(instr_ovni_control) * 8,
 		| INSTR_FLAG_API_DESTROY \
 		| INSTR_FLAG_API_SUBMIT \
 		| INSTR_FLAG_API_PAUSE \
-		| INSTR_FLAG_API_YIELD \
 		| INSTR_FLAG_API_WAITFOR \
 		| INSTR_FLAG_API_MUTEX_LOCK \
 		| INSTR_FLAG_API_MUTEX_TRYLOCK \
@@ -124,6 +123,7 @@ _Static_assert (INSTR_BIT_MAX <= sizeof(instr_ovni_control) * 8,
 
 #define INSTR_LEVEL_4 (INSTR_LEVEL_3 \
 		| INSTR_FLAG_API_SCHEDPOINT \
+		| INSTR_FLAG_API_YIELD \
 		| INSTR_FLAG_MEMORY)
 
 #define CHECK_INSTR_ENABLED(name) 						 \

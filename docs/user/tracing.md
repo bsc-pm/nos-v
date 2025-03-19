@@ -37,7 +37,6 @@ table contains a full list of event categories and which level are they included
 | api_destroy      |     3 | Calls to `nosv_destroy` |
 | api_submit       |     3 | Calls to `nosv_submit` |
 | api_pause        |     3 | Calls to `nosv_pause` |
-| api_yield        |     3 | Calls to `nosv_yield` |
 | api_waitfor      |     3 | Calls to `nosv_waitfor` |
 | api_mutex_lock   |     3 | Calls to `nosv_mutex_lock` |
 | api_mutex_trylock|     3 | Calls to `nosv_mutex_trylock` |
@@ -49,4 +48,5 @@ table contains a full list of event categories and which level are they included
 | kernel           |     3 | Linux thread preemption events |
 | breakdown        |     3 | Breakdown events |
 | api_schedpoint   |     4 | Calls to `nosv_schedpoint` |
+| api_yield        |     4 | Calls to `nosv_yield` |
 | memory           |     4 | Calls to the internal memory allocator |
