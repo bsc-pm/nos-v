@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2025 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
@@ -581,12 +581,8 @@ int worker_yield_if_needed(nosv_task_t current_task)
 		handle.execution_id = ++(current_worker->immediate_successor->scheduled_count);
 		current_worker->immediate_successor = NULL;
 	} else {
-		instr_sched_hungry();
-
 		// Try to get a ready task without blocking
 		handle = scheduler_get(cpu_lid(cpu), SCHED_GET_NONBLOCKING);
-
-		instr_sched_fill();
 
 		if (!handle.task)
 			return 0;
