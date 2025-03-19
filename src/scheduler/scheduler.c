@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2025 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
@@ -946,9 +946,6 @@ task_execution_handle_t scheduler_get(int cpu, nosv_flags_t flags)
 		if (handle.task) {
 			instr_worker_progressing();
 			instr_sched_recv();
-		} else if (!blocking) {
-			// Otherwise we would mark non-blocking gets as idle all the time, which is not correct
-			instr_worker_progressing();
 		}
 
 		assert(handle.task == NULL || handle.execution_id != 0);
@@ -993,7 +990,7 @@ task_execution_handle_t scheduler_get(int cpu, nosv_flags_t flags)
 
 			if (served_current)
 				instr_worker_progressing();
-			else
+			else if (blocking)
 				instr_worker_resting();
 
 			served += served_current;

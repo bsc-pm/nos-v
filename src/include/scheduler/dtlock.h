@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2025 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef DTLOCK_H
@@ -76,7 +76,7 @@ typedef struct delegation_lock {
 
 } delegation_lock_t;
 
-#define DTLOCK_SPIN(a, b, cmp)                                              \
+#define DTLOCK_SPIN(a, b, cmp, emit_resting)                                \
 	{                                                                       \
 		int __spins = 0;                                                    \
 		typeof((a)) __a = atomic_load_explicit(&(a), memory_order_relaxed); \
@@ -87,7 +87,8 @@ typedef struct delegation_lock {
 		}                                                                   \
 		spin_wait_release();                                                \
 		if (__a cmp(b)) {                                                   \
-			instr_worker_resting();                                         \
+			if (emit_resting)                                               \
+				instr_worker_resting();                                     \
 			__a = atomic_load_explicit(&(a), memory_order_relaxed);         \
 			while (__a cmp(b)) {                                            \
 				spin_wait();                                                \
@@ -97,8 +98,8 @@ typedef struct delegation_lock {
 		}                                                                   \
 	}
 
-#define DTLOCK_SPIN_EQ(a, b) DTLOCK_SPIN((a), (b), !=)
-#define DTLOCK_SPIN_LT(a, b) DTLOCK_SPIN((a), (b), <)
+#define DTLOCK_SPIN_EQ(a, b, r) DTLOCK_SPIN((a), (b), !=, (r))
+#define DTLOCK_SPIN_LT(a, b, r) DTLOCK_SPIN((a), (b), <, (r))
 
 static inline void dtlock_init(delegation_lock_t *dtlock, int size)
 {
@@ -156,7 +157,7 @@ static inline void dtlock_lock(delegation_lock_t *dtlock)
 	const uint64_t id = head % dtlock->size;
 
 	// Wait until its our turn
-	DTLOCK_SPIN_EQ(dtlock->waitqueue[id].ticket, head);
+	DTLOCK_SPIN_EQ(dtlock->waitqueue[id].ticket, head, 1);
 
 	atomic_thread_fence(memory_order_acquire);
 }
@@ -191,7 +192,7 @@ static inline int dtlock_lock_or_delegate(
 		wait_cpu.flags |= external ? DTLOCK_FLAGS_NONE : DTLOCK_FLAGS_EXTERNAL;
 		atomic_store_explicit(&dtlock->waitqueue[id].cpu, wait_cpu.raw_val, memory_order_relaxed);
 
-		DTLOCK_SPIN_LT(dtlock->waitqueue[id].ticket, head);
+		DTLOCK_SPIN_LT(dtlock->waitqueue[id].ticket, head, blocking);
 
 		atomic_thread_fence(memory_order_acquire);
 
@@ -210,7 +211,8 @@ static inline int dtlock_lock_or_delegate(
 		signal.raw_val = atomic_load_explicit(&dtlock->items[cpu_index].signal, memory_order_relaxed);
 
 		if (signal.signal_cnt == prev_signal.signal_cnt) {
-			instr_worker_resting();
+			if (blocking)
+				instr_worker_resting();
 			while (signal.signal_cnt == prev_signal.signal_cnt) {
 				spin_wait();
 				signal.raw_val = atomic_load_explicit(&dtlock->items[cpu_index].signal, memory_order_relaxed);
@@ -220,6 +222,7 @@ static inline int dtlock_lock_or_delegate(
 
 		// Check if we have been asked to sleep or not
 		if (unlikely(signal.signal_flags & DTLOCK_SIGNAL_SLEEP)) {
+			// Must be blocking, so emit resting unconditionally
 			instr_worker_resting();
 			assert(blocking);
 			nosv_futex_wait(&dtlock->cpu_sleep_vars[cpu_index]);
