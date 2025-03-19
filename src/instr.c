@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2023-2024 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2023-2025 Barcelona Supercomputing Center (BSC)
 */
 
 #include "config.h"
@@ -27,6 +27,7 @@ static const uint64_t control_flags_mask[] = {
 	[INSTR_BIT_SCHEDULER]           = INSTR_FLAG_SCHEDULER,
 	[INSTR_BIT_SCHEDULER_HUNGRY]    = INSTR_FLAG_SCHEDULER_HUNGRY,
 	[INSTR_BIT_SCHEDULER_SUBMIT]    = INSTR_FLAG_SCHEDULER_SUBMIT,
+	[INSTR_BIT_SCHEDULER_NONBLOCK]  = INSTR_FLAG_SCHEDULER_NONBLOCK,
 	[INSTR_BIT_MEMORY]              = INSTR_FLAG_MEMORY,
 	[INSTR_BIT_API_BARRIER_WAIT]    = INSTR_FLAG_API_BARRIER_WAIT,
 	[INSTR_BIT_API_CREATE]          = INSTR_FLAG_API_CREATE,
@@ -54,6 +55,7 @@ static const char *control_flags[] = {
 	[INSTR_BIT_SCHEDULER]           = "scheduler",
 	[INSTR_BIT_SCHEDULER_HUNGRY]    = "scheduler_hungry",
 	[INSTR_BIT_SCHEDULER_SUBMIT]    = "scheduler_submit",
+	[INSTR_BIT_SCHEDULER_NONBLOCK]  = "scheduler_nonblock",
 	[INSTR_BIT_MEMORY]              = "memory",
 	[INSTR_BIT_API_BARRIER_WAIT]    = "api_barrier_wait",
 	[INSTR_BIT_API_CREATE]          = "api_create",

@@ -954,7 +954,7 @@ task_execution_handle_t scheduler_get(int cpu, nosv_flags_t flags)
 
 	// Lock acquired
 	instr_worker_progressing();
-	instr_sched_server_enter();
+	instr_sched_server_enter(blocking);
 
 	cpu_bitset_t *waiters = governor_get_waiters(&scheduler->governor);
 	cpu_bitset_t *sleepers = governor_get_sleepers(&scheduler->governor);
@@ -1017,7 +1017,7 @@ task_execution_handle_t scheduler_get(int cpu, nosv_flags_t flags)
 
 	assert(handle.task == NULL || handle.execution_id != 0);
 
-	instr_sched_server_exit();
+	instr_sched_server_exit(blocking);
 
 	return handle;
 }

@@ -29,7 +29,7 @@ table contains a full list of event categories and which level are they included
 | basic            |     0 | Thread and process creation / destruction and blocking, needed for other instrumentation levels |
 | worker           |     1 | Worker thread start and stop |
 | task             |     1 | Task creation/destruction, start and end |
-| scheduler        |     2 | Scheduler task obtention and serving |
+| scheduler        |     2 | Blocking scheduler task obtention and serving |
 | scheduler_hungry |     2 | Signals when threads enter the scheduler and are looking for work (hungry) or cease to be looking for work |
 | scheduler_submit |     2 | Scheduler task submission |
 | api_attach       |     2 | Calls to `nosv_attach` and `nosv_detach` |
@@ -49,4 +49,5 @@ table contains a full list of event categories and which level are they included
 | breakdown        |     3 | Breakdown events |
 | api_schedpoint   |     4 | Calls to `nosv_schedpoint` |
 | api_yield        |     4 | Calls to `nosv_yield` |
+| scheduler_nonblock |     4 | Non-blocking scheduler task obtention and serving |
 | memory           |     4 | Calls to the internal memory allocator |
