@@ -18,7 +18,8 @@ static const uint64_t control_levels[] = {
 	INSTR_LEVEL_1,
 	INSTR_LEVEL_2,
 	INSTR_LEVEL_3,
-	INSTR_LEVEL_4
+	INSTR_LEVEL_4,
+	INSTR_LEVEL_5
 };
 
 static const uint64_t control_flags_mask[] = {
@@ -117,7 +118,7 @@ void instr_parse_config(void)
 	} else {
 		uint64_t level = nosv_config.ovni_level;
 		if (level >= sizeof(control_levels) / sizeof(*control_levels)) {
-			nosv_warn("ovni instrumentation level must be between 0 and 4. Defaulting to level 2");
+			nosv_warn("ovni instrumentation level must be between 0 and 5. Defaulting to level 2");
 			level = 2;
 		}
 

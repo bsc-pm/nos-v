@@ -151,7 +151,7 @@
 
 # Configuration specific to the ovni instrumentation
 [ovni]
-	# Instrumentation levels [0-4] regulate the amount of events that are emitted into an ovni trace.
+	# Instrumentation levels [0-5] regulate the amount of events that are emitted into an ovni trace.
 	# Higher levels emit more events, giving more information but incurring larger runtime overheads
 	# and occupying more space in the final trace.
 	level = 2

@@ -16,7 +16,7 @@ trace using the `ovniemu` utility. The Paraver configuration files (views) can b
 
 See the [ovni documentation](https://ovni.readthedocs.io) for more details.
 
-The level of detail can be controlled with the `ovni.level` configuration option, which can be a number between 0 and 4
+The level of detail can be controlled with the `ovni.level` configuration option, which can be a number between 0 and 5
 (both included). Higher levels will emit more events, thus containing more detail but increasing significantly the size
 of the traces (and the overhead incurred).
 
@@ -50,4 +50,4 @@ table contains a full list of event categories and which level are they included
 | api_schedpoint        |     4 | Calls to `nosv_schedpoint` |
 | api_yield             |     4 | Calls to `nosv_yield` |
 | scheduler_nonblock    |     4 | Non-blocking scheduler task obtention and serving |
-| memory                |     4 | Calls to the internal memory allocator |
+| memory                |     5 | Calls to the internal memory allocator |

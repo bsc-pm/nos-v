@@ -126,8 +126,11 @@ _Static_assert (INSTR_BIT_MAX <= sizeof(instr_ovni_control) * 8,
 #define INSTR_LEVEL_4 (INSTR_LEVEL_3 \
 		| INSTR_FLAG_API_SCHEDPOINT \
 		| INSTR_FLAG_API_YIELD \
-		| INSTR_FLAG_SCHEDULER_NONBLOCK \
+		| INSTR_FLAG_SCHEDULER_NONBLOCK)
+
+#define INSTR_LEVEL_5 (INSTR_LEVEL_4 \
 		| INSTR_FLAG_MEMORY)
+
 
 #define CHECK_INSTR_ENABLED(name) 						 \
 	if (!(instr_ovni_control & INSTR_FLAG_##name))     \
