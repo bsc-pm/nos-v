@@ -1,10 +1,11 @@
 /*
-	This file is part of Nanos6 and is licensed under the terms contained in the COPYING file.
+	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2023-2024 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2023-2025 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
+#include <stdio.h>
 
 #include "common.h"
 #include "error.h"
@@ -23,6 +24,7 @@ static const char *errors[ALPI_ERR_MAX] = {
 	[ALPI_ERR_OUT_OF_MEMORY] =   "Failed to allocate memory",
 	[ALPI_ERR_OUTSIDE_TASK] =    "Must run within a task",
 	[ALPI_ERR_UNKNOWN] =         "Unknown error",
+	[ALPI_ERR_FEATURE_UNKNOWN] = "API feature unavailable or unknown",
 };
 
 static int errors_mapping[-NOSV_ERR_MAX] = {
@@ -45,13 +47,55 @@ static inline int translate_error(int error_code)
 	return errors_mapping[-error_code];
 }
 
-const char *alpi_error_string(int err)
+const char *alpi_error_string(alpi_error_t err)
 {
 	if (err < 0 || err >= ALPI_ERR_MAX)
 		return "Error code not recognized";
 
 	assert(errors[err]);
 	return errors[err];
+}
+
+int alpi_info_get(alpi_info_t query, char *buffer, size_t max_length, int *length)
+{
+	if (!buffer || max_length <= 0)
+		return ALPI_ERR_PARAMETER;
+
+	int len = 0;
+	switch (query) {
+		case ALPI_INFO_RUNTIME_NAME:
+			len = snprintf(buffer, max_length, "%s", "nOS-V");
+			break;
+
+		case ALPI_INFO_RUNTIME_VENDOR:
+			len = snprintf(buffer, max_length, "%s", "STAR Team (BSC)");
+			break;
+
+		case ALPI_INFO_VERSION:
+			len = snprintf(buffer, max_length, "ALPI %d.%d (nOS-V)",
+				ALPI_VERSION_MAJOR, ALPI_VERSION_MINOR);
+			break;
+
+		default:
+			return ALPI_ERR_PARAMETER;
+	}
+
+	if (len < 0)
+		return ALPI_ERR_UNKNOWN;
+
+	if (length)
+		*length = len;
+
+	return ALPI_SUCCESS;
+}
+
+int alpi_feature_check(int feature_bitmask)
+{
+	if ((feature_bitmask & ALPI_SUPPORTED_FEATURES) == feature_bitmask) {
+		return ALPI_SUCCESS;
+	} else {
+		return ALPI_ERR_FEATURE_UNKNOWN;
+	}
 }
 
 int alpi_version_check(int major, int minor)
