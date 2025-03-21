@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2025 Barcelona Supercomputing Center (BSC)
 */
 
 #include "generic/clock.h"
@@ -635,27 +635,26 @@ int nosv_waitfor(
 int nosv_yield(
 	nosv_flags_t flags)
 {
-	if (kinstr)
-		instr_kernel_flush(kinstr);
-
-	if (!worker_is_in_task())
-		return NOSV_ERR_OUTSIDE_TASK;
-
-	if (!(flags & NOSV_YIELD_NOFLUSH))
-		nosv_flush_submit_window();
-
 	nosv_task_t task = worker_current_task();
-	assert(task);
+	if (!task)
+		return NOSV_ERR_OUTSIDE_TASK;
 
 	// Parallel tasks cannot be blocked
 	if (task_is_parallel(task))
 		return NOSV_ERR_INVALID_OPERATION;
 
+	// Only constant time checks before emitting the instrumentation event
+	instr_yield_enter();
+
+	if (kinstr)
+		instr_kernel_flush(kinstr);
+
+	if (!(flags & NOSV_YIELD_NOFLUSH))
+		nosv_flush_submit_window();
+
 	// Thread is gonna yield, read and accumulate hardware counters for the task
 	hwcounters_update_task_counters(task);
 	monitoring_task_changed_status(task, ready_status);
-
-	instr_yield_enter();
 
 	// Mark the task as yield
 	task->yield = -1;
