@@ -40,6 +40,7 @@ enum instr_bit {
 	INSTR_BIT_SCHEDULER,
 	INSTR_BIT_SCHEDULER_HUNGRY,
 	INSTR_BIT_SCHEDULER_SUBMIT,
+	INSTR_BIT_SCHEDULER_NONBLOCK,
 	INSTR_BIT_MEMORY,
 	INSTR_BIT_API_BARRIER_WAIT,
 	INSTR_BIT_API_CREATE,
@@ -72,6 +73,7 @@ _Static_assert (INSTR_BIT_MAX <= sizeof(instr_ovni_control) * 8,
 #define INSTR_FLAG_SCHEDULER			BIT(INSTR_BIT_SCHEDULER)
 #define INSTR_FLAG_SCHEDULER_HUNGRY		BIT(INSTR_BIT_SCHEDULER_HUNGRY)
 #define INSTR_FLAG_SCHEDULER_SUBMIT		BIT(INSTR_BIT_SCHEDULER_SUBMIT)
+#define INSTR_FLAG_SCHEDULER_NONBLOCK	BIT(INSTR_BIT_SCHEDULER_NONBLOCK)
 #define INSTR_FLAG_MEMORY				BIT(INSTR_BIT_MEMORY)
 #define INSTR_FLAG_API_BARRIER_WAIT		BIT(INSTR_BIT_API_BARRIER_WAIT)
 #define INSTR_FLAG_API_CREATE			BIT(INSTR_BIT_API_CREATE)
@@ -110,7 +112,6 @@ _Static_assert (INSTR_BIT_MAX <= sizeof(instr_ovni_control) * 8,
 		| INSTR_FLAG_API_DESTROY \
 		| INSTR_FLAG_API_SUBMIT \
 		| INSTR_FLAG_API_PAUSE \
-		| INSTR_FLAG_API_YIELD \
 		| INSTR_FLAG_API_WAITFOR \
 		| INSTR_FLAG_API_MUTEX_LOCK \
 		| INSTR_FLAG_API_MUTEX_TRYLOCK \
@@ -124,7 +125,12 @@ _Static_assert (INSTR_BIT_MAX <= sizeof(instr_ovni_control) * 8,
 
 #define INSTR_LEVEL_4 (INSTR_LEVEL_3 \
 		| INSTR_FLAG_API_SCHEDPOINT \
+		| INSTR_FLAG_API_YIELD \
+		| INSTR_FLAG_SCHEDULER_NONBLOCK)
+
+#define INSTR_LEVEL_5 (INSTR_LEVEL_4 \
 		| INSTR_FLAG_MEMORY)
+
 
 #define CHECK_INSTR_ENABLED(name) 						 \
 	if (!(instr_ovni_control & INSTR_FLAG_##name))     \
@@ -209,8 +215,6 @@ INSTR_0ARG(WORKER, instr_delegate_exit, "VHD")
 INSTR_0ARG(SCHEDULER, instr_sched_recv, "VSr")
 INSTR_0ARG(SCHEDULER, instr_sched_send, "VSs")
 INSTR_0ARG(SCHEDULER, instr_sched_self_assign, "VS@")
-INSTR_0ARG(SCHEDULER, instr_sched_server_enter, "VS[")
-INSTR_0ARG(SCHEDULER, instr_sched_server_exit, "VS]")
 
 INSTR_0ARG(SCHEDULER_HUNGRY, instr_sched_hungry, "VSh")
 INSTR_0ARG(SCHEDULER_HUNGRY, instr_sched_fill, "VSf")
@@ -294,6 +298,42 @@ static inline void instr_worker_resting(void)
 	ovni_ev_emit(&ev);
 }
 
+static inline void instr_sched_server_enter(int blocking)
+{
+	char *mcv;
+
+	if (blocking) {
+		CHECK_INSTR_ENABLED(SCHEDULER)
+		mcv = "VS[";
+	} else {
+		CHECK_INSTR_ENABLED(SCHEDULER_NONBLOCK)
+		mcv = "VSN";
+	}
+
+	struct ovni_ev ev = {0};
+	ovni_ev_set_clock(&ev, ovni_clock_now());
+	ovni_ev_set_mcv(&ev, mcv);
+	ovni_ev_emit(&ev);
+}
+
+static inline void instr_sched_server_exit(int blocking)
+{
+	char *mcv;
+
+	if (blocking) {
+		CHECK_INSTR_ENABLED(SCHEDULER)
+		mcv = "VS]";
+	} else {
+		CHECK_INSTR_ENABLED(SCHEDULER_NONBLOCK)
+		mcv = "VSn";
+	}
+
+	struct ovni_ev ev = {0};
+	ovni_ev_set_clock(&ev, ovni_clock_now());
+	ovni_ev_set_mcv(&ev, mcv);
+	ovni_ev_emit(&ev);
+}
+
 // A jumbo event is needed to encode a large label
 static inline void instr_type_create(uint32_t typeid, const char *label)
 {
@@ -365,6 +405,14 @@ static inline void instr_worker_progressing(void)
 }
 
 static inline void instr_worker_resting(void)
+{
+}
+
+static inline void instr_sched_server_enter(int blocking)
+{
+}
+
+static inline void instr_sched_server_exit(int blocking)
 {
 }
 
@@ -462,7 +510,7 @@ static inline void instr_thread_require(void)
 
 	/* This nosv model version has no relation to libnosv.so version, it
 	 * just covers the events and the metadata in the trace. */
-	ovni_thread_require("nosv", "2.4.1");
+	ovni_thread_require("nosv", "2.5.0");
 
 	if (instr_ovni_control & INSTR_FLAG_KERNEL)
 		ovni_thread_require("kernel", "1.0.0");

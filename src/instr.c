@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2023-2024 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2023-2025 Barcelona Supercomputing Center (BSC)
 */
 
 #include "config.h"
@@ -18,7 +18,8 @@ static const uint64_t control_levels[] = {
 	INSTR_LEVEL_1,
 	INSTR_LEVEL_2,
 	INSTR_LEVEL_3,
-	INSTR_LEVEL_4
+	INSTR_LEVEL_4,
+	INSTR_LEVEL_5
 };
 
 static const uint64_t control_flags_mask[] = {
@@ -27,6 +28,7 @@ static const uint64_t control_flags_mask[] = {
 	[INSTR_BIT_SCHEDULER]           = INSTR_FLAG_SCHEDULER,
 	[INSTR_BIT_SCHEDULER_HUNGRY]    = INSTR_FLAG_SCHEDULER_HUNGRY,
 	[INSTR_BIT_SCHEDULER_SUBMIT]    = INSTR_FLAG_SCHEDULER_SUBMIT,
+	[INSTR_BIT_SCHEDULER_NONBLOCK]  = INSTR_FLAG_SCHEDULER_NONBLOCK,
 	[INSTR_BIT_MEMORY]              = INSTR_FLAG_MEMORY,
 	[INSTR_BIT_API_BARRIER_WAIT]    = INSTR_FLAG_API_BARRIER_WAIT,
 	[INSTR_BIT_API_CREATE]          = INSTR_FLAG_API_CREATE,
@@ -54,6 +56,7 @@ static const char *control_flags[] = {
 	[INSTR_BIT_SCHEDULER]           = "scheduler",
 	[INSTR_BIT_SCHEDULER_HUNGRY]    = "scheduler_hungry",
 	[INSTR_BIT_SCHEDULER_SUBMIT]    = "scheduler_submit",
+	[INSTR_BIT_SCHEDULER_NONBLOCK]  = "scheduler_nonblock",
 	[INSTR_BIT_MEMORY]              = "memory",
 	[INSTR_BIT_API_BARRIER_WAIT]    = "api_barrier_wait",
 	[INSTR_BIT_API_CREATE]          = "api_create",
@@ -115,7 +118,7 @@ void instr_parse_config(void)
 	} else {
 		uint64_t level = nosv_config.ovni_level;
 		if (level >= sizeof(control_levels) / sizeof(*control_levels)) {
-			nosv_warn("ovni instrumentation level must be between 0 and 4. Defaulting to level 2");
+			nosv_warn("ovni instrumentation level must be between 0 and 5. Defaulting to level 2");
 			level = 2;
 		}
 

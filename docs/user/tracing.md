@@ -16,7 +16,7 @@ trace using the `ovniemu` utility. The Paraver configuration files (views) can b
 
 See the [ovni documentation](https://ovni.readthedocs.io) for more details.
 
-The level of detail can be controlled with the `ovni.level` configuration option, which can be a number between 0 and 4
+The level of detail can be controlled with the `ovni.level` configuration option, which can be a number between 0 and 5
 (both included). Higher levels will emit more events, thus containing more detail but increasing significantly the size
 of the traces (and the overhead incurred).
 
@@ -24,29 +24,30 @@ If more fine-grained control is needed, the `ovni.events` configuration option c
 emitted. Moreover, prefixing the category with a `!` symbol will disable that specific event category. The following
 table contains a full list of event categories and which level are they included on, as well as which events will be emitted when active.
 
-| Category         | Level | Description |
-| ---------------- | ----- | ----------- |
-| basic            |     0 | Thread and process creation / destruction and blocking, needed for other instrumentation levels |
-| worker           |     1 | Worker thread start and stop |
-| task             |     1 | Task creation/destruction, start and end |
-| scheduler        |     2 | Scheduler task obtention and serving |
-| scheduler_hungry |     2 | Signals when threads enter the scheduler and are looking for work (hungry) or cease to be looking for work |
-| scheduler_submit |     2 | Scheduler task submission |
-| api_attach       |     2 | Calls to `nosv_attach` and `nosv_detach` |
-| api_create       |     3 | Calls to `nosv_create` |
-| api_destroy      |     3 | Calls to `nosv_destroy` |
-| api_submit       |     3 | Calls to `nosv_submit` |
-| api_pause        |     3 | Calls to `nosv_pause` |
-| api_yield        |     3 | Calls to `nosv_yield` |
-| api_waitfor      |     3 | Calls to `nosv_waitfor` |
-| api_mutex_lock   |     3 | Calls to `nosv_mutex_lock` |
-| api_mutex_trylock|     3 | Calls to `nosv_mutex_trylock` |
-| api_mutex_unlock |     3 | Calls to `nosv_mutex_unlock` |
-| api_barrier_wait |     3 | Calls to `nosv_barrier_wait` |
-| api_cond_wait    |     3 | Calls to `nosv_cond_wait` |
-| api_cond_signal  |     3 | Calls to `nosv_cond_signal` |
-| api_cond_broadcast   |     3 | Calls to `nosv_cond_broadcast` |
-| kernel           |     3 | Linux thread preemption events |
-| breakdown        |     3 | Breakdown events |
-| api_schedpoint   |     4 | Calls to `nosv_schedpoint` |
-| memory           |     4 | Calls to the internal memory allocator |
+| Category              | Level | Description |
+| --------------------- | ----- | ----------- |
+| basic                 |     0 | Thread and process creation / destruction and blocking, needed for other instrumentation levels |
+| worker                |     1 | Worker thread start and stop |
+| task                  |     1 | Task creation/destruction, start and end |
+| scheduler             |     2 | Blocking scheduler task obtention and serving |
+| scheduler_hungry      |     2 | Signals when threads enter the scheduler and are looking for work (hungry) or cease to be looking for work |
+| scheduler_submit      |     2 | Scheduler task submission |
+| api_attach            |     2 | Calls to `nosv_attach` and `nosv_detach` |
+| api_create            |     3 | Calls to `nosv_create` |
+| api_destroy           |     3 | Calls to `nosv_destroy` |
+| api_submit            |     3 | Calls to `nosv_submit` |
+| api_pause             |     3 | Calls to `nosv_pause` |
+| api_waitfor           |     3 | Calls to `nosv_waitfor` |
+| api_mutex_lock        |     3 | Calls to `nosv_mutex_lock` |
+| api_mutex_trylock     |     3 | Calls to `nosv_mutex_trylock` |
+| api_mutex_unlock      |     3 | Calls to `nosv_mutex_unlock` |
+| api_barrier_wait      |     3 | Calls to `nosv_barrier_wait` |
+| api_cond_wait         |     3 | Calls to `nosv_cond_wait` |
+| api_cond_signal       |     3 | Calls to `nosv_cond_signal` |
+| api_cond_broadcast    |     3 | Calls to `nosv_cond_broadcast` |
+| kernel                |     3 | Linux thread preemption events |
+| breakdown             |     3 | Breakdown events |
+| api_schedpoint        |     4 | Calls to `nosv_schedpoint` |
+| api_yield             |     4 | Calls to `nosv_yield` |
+| scheduler_nonblock    |     4 | Non-blocking scheduler task obtention and serving |
+| memory                |     5 | Calls to the internal memory allocator |
