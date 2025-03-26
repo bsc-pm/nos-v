@@ -104,30 +104,72 @@ static inline void delegate_thread_create(thread_manager_t *threadmanager)
 	common_pthread_create(&threadmanager->delegate_thread, delegate_routine, threadmanager, NULL);
 }
 
-static inline void worker_wake_internal(nosv_worker_t *worker, cpu_t *cpu)
-{
-	assert(worker);
-	assert(worker->tid != 0);
-	assert(worker != current_worker);
-	assert(cpu);
-
-	worker->new_cpu = cpu;
-
-	// if we are waking up a thread of a different process, keep
-	// track of the new running process in the cpumanager
-	if (worker->logic_pid != logic_pid)
-		cpu_set_pid(cpu, worker->logic_pid);
-
-	// if the worker was not previously bound to the core where it
-	// is going to wake up now, bind it remotely now
-	if (worker->cpu != cpu) {
-		instr_affinity_remote(cpu_lid(cpu), worker->tid);
-		if (unlikely(bypass_sched_setaffinity(worker->tid, sizeof(cpu->cpuset), &cpu->cpuset)))
+static inline void pthread_swap(
+	nosv_worker_t *target,
+	size_t cpusetsize,
+	cpu_set_t *cpuset,
+	long flags
+) {
+	if (cpuset) {
+		assert(target);
+		if (unlikely(bypass_sched_setaffinity(target->tid, cpusetsize, cpuset)))
 			nosv_abort("Cannot change thread affinity");
 	}
+	if (target)
+		nosv_condvar_signal(&target->condvar);
+	if (!(flags & WS_NOBLOCK))
+		nosv_condvar_wait(&current_worker->condvar);
+}
 
-	// Now wake up the thread
-	nosv_condvar_signal(&worker->condvar);
+// worker_swap context-switches the current worker (waker) for "worker"
+// (wakee).  It sets the wakee affinity to the waker's cpu and blocks the
+// waker. If worker is NULL, no worker is woken up and the cpu parameter is
+// ignored. If flags contains WS_NOBLOCK, the waker returns
+// immediately.
+void worker_swap(nosv_worker_t *worker, cpu_t *cpu, long flags)
+{
+	cpu_set_t *cpuset = NULL;
+	size_t cpusetsize = 0;
+
+	if (worker) {
+		// prepare a worker before waking it up
+		assert(worker->tid != 0);
+		assert(worker != current_worker);
+		assert(cpu);
+
+		worker->new_cpu = cpu;
+
+		// if we are waking up a thread of a different process, keep
+		// track of the new running process in the cpumanager
+		if (worker->logic_pid != logic_pid)
+			cpu_set_pid(cpu, worker->logic_pid);
+
+		// if the worker was not previously bound to the core where it
+		// is going to wake up now, pin it.
+		if (worker->cpu != cpu) {
+			instr_affinity_remote(cpu_lid(cpu), worker->tid);
+			cpuset = &cpu->cpuset;
+			cpusetsize = sizeof(cpu->cpuset);
+		}
+	}
+
+	if (!(flags & WS_NOBLOCK)) {
+		// Before blocking the thread's execution, update runtime counters
+		hwcounters_update_runtime_counters();
+		instr_thread_pause();
+	}
+
+	// Migrate, wake and block operation
+	pthread_swap(worker, cpusetsize, cpuset, flags);
+
+	if (!(flags & WS_NOBLOCK)) {
+		current_worker->cpu = current_worker->new_cpu;
+		cpu_t *newcpu = current_worker->cpu;
+		assert(newcpu);
+
+		cpu_set_current(cpu_lid(newcpu));
+		instr_thread_resume();
+	}
 }
 
 void threadmanager_init(thread_manager_t *threadmanager)
@@ -291,7 +333,7 @@ retry:
 	idle_worker = get_idle_worker(current_process_manager);
 	if (idle_worker) {
 		instr_affinity_set(-1);
-		worker_wake_internal(idle_worker, current_worker->cpu);
+		worker_swap(idle_worker, current_worker->cpu, WS_NOBLOCK);
 	} else {
 		if (leader_shutdown_cpu) {
 			// The leader shutdown core remains active until all
@@ -349,8 +391,7 @@ static inline void worker_execute_or_delegate(task_execution_handle_t handle, cp
 		if (!is_busy_worker)
 			worker_add_to_idle_list();
 
-		worker_wake_internal(task->worker, cpu);
-		worker_block();
+		worker_swap(task->worker, cpu, 0);
 	} else if (task->type->pid != logic_pid) {
 		// The task has not started yet but it is from a PID other than the
 		// current one. Then, wake up an idle thread from the task's PID
@@ -358,16 +399,14 @@ static inline void worker_execute_or_delegate(task_execution_handle_t handle, cp
 		if (!is_busy_worker)
 			worker_add_to_idle_list();
 
-		cpu_transfer(task->type->pid, cpu, handle);
-		worker_block();
+		worker_swap_idle(task->type->pid, cpu, handle, 0);
 	} else if (is_busy_worker) {
 		// The task has not started and it is from the current PID, but the
 		// current worker is busy and cannot execute directly the task. Then
 		// delegate the work and wake up an idle thread from this PID to
 		// execute the task
 		instr_thread_cool();
-		worker_wake_idle(logic_pid, cpu, handle);
-		worker_block();
+		worker_swap_idle(logic_pid, cpu, handle, 0);
 	} else {
 		// Otherwise, start running the task because the current thread is
 		// valid to run the task and it is idle
@@ -522,10 +561,7 @@ static inline void worker_yield_to_internal(task_execution_handle_t handle)
 		// state, to prevent two threads in the running state in the same CPU.
 		instr_thread_cool();
 
-		worker_wake_idle(logic_pid, current_worker->cpu, handle);
-
-		// Then, sleep and return once we have been woken up
-		worker_block();
+		worker_swap_idle(logic_pid, current_worker->cpu, handle, 0);
 	}
 }
 
@@ -593,33 +629,6 @@ int worker_yield_if_needed(nosv_task_t current_task)
 	return 1;
 }
 
-// Returns new CPU
-void worker_block(void)
-{
-	assert(current_worker);
-
-	// Before blocking the thread's execution, update runtime counters
-	hwcounters_update_runtime_counters();
-
-	instr_thread_pause();
-
-	// Blocking operation
-	nosv_condvar_wait(&current_worker->condvar);
-
-	// We are back. At this point we have already been migrated to the right
-	// core by the worker that has woken us up.
-
-	// Update CPU in case of migration
-	// We use a different variable to detect cpu changes and prevent races
-	current_worker->cpu = current_worker->new_cpu;
-	cpu_t *cpu = current_worker->cpu;
-
-	assert(cpu);
-	cpu_set_current(cpu_lid(cpu));
-
-	instr_thread_resume();
-}
-
 static inline void worker_create_remote(thread_manager_t *threadmanager, cpu_t *cpu, task_execution_handle_t handle)
 {
 	creation_event_t event;
@@ -630,8 +639,13 @@ static inline void worker_create_remote(thread_manager_t *threadmanager, cpu_t *
 	event_queue_put(&threadmanager->thread_creation_queue, &event);
 }
 
-void worker_wake_idle(int pid, cpu_t *cpu, task_execution_handle_t handle)
+void worker_swap_idle(int pid, cpu_t *cpu, task_execution_handle_t handle, long flags)
 {
+	assert(cpu);
+
+	if (pid != logic_pid)
+		cpu_set_pid(cpu, pid);
+
 	// Find the remote thread manager
 	thread_manager_t *threadmanager = pidmanager_get_threadmanager(pid);
 	assert(threadmanager);
@@ -645,7 +659,7 @@ void worker_wake_idle(int pid, cpu_t *cpu, task_execution_handle_t handle)
 		nosv_worker_t *worker = list_elem(head, nosv_worker_t, list_hook);
 		assert(!worker->handle.task);
 		worker->handle = handle;
-		worker_wake_internal(worker, cpu);
+		worker_swap(worker, cpu, flags);
 		return;
 	}
 
@@ -655,6 +669,8 @@ void worker_wake_idle(int pid, cpu_t *cpu, task_execution_handle_t handle)
 	} else {
 		worker_create_remote(threadmanager, cpu, handle);
 	}
+
+	worker_swap(NULL, NULL, flags);
 }
 
 nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, task_execution_handle_t handle)
