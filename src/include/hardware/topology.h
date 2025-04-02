@@ -90,7 +90,7 @@ __internal void topo_free(void);
 __internal int topo_get_default_aff(char **out);
 
 static inline int topo_dom_parent_lid(nosv_topo_level_t son_level, int son_logical_id, nosv_topo_level_t parent);
-static inline int topo_dom_parend_sid(nosv_topo_level_t son_level, int son_logical_id, nosv_topo_level_t parent);
+static inline int topo_dom_parent_sid(nosv_topo_level_t son_level, int son_logical_id, nosv_topo_level_t parent);
 static inline int topo_dom_lid(nosv_topo_level_t level, int system_id);
 static inline int topo_dom_sid(nosv_topo_level_t level, int logical_id);
 static inline topo_domain_t *topo_dom_ptr(nosv_topo_level_t level, int logical_id);
@@ -201,7 +201,7 @@ static inline int topo_dom_parent_lid(nosv_topo_level_t child_level, int child_l
 }
 
 // Returns the system id of the parent
-static inline int topo_dom_parend_sid(nosv_topo_level_t child_level, int child_logical_id, nosv_topo_level_t parent)
+static inline int topo_dom_parent_sid(nosv_topo_level_t child_level, int child_logical_id, nosv_topo_level_t parent)
 {
 	// Node does not have parents
 	assert(child_level >= TOPO_NUMA && child_level <= TOPO_CPU);
@@ -236,6 +236,14 @@ static inline cpu_bitset_t *topo_lvl_sid_bitset(nosv_topo_level_t level)
 	assert(level >= TOPO_NODE && level <= TOPO_CPU);
 
 	return &(topology->per_level_valid_domains[level]);
+}
+
+static inline void topo_lvl_sid_bitset_init(nosv_topo_level_t level)
+{
+	assert(level >= TOPO_NODE && level <= TOPO_CPU);
+
+	cpu_bitset_t *bs = topo_lvl_sid_bitset(level);
+	cpu_bitset_init(bs, NR_CPUS);
 }
 
 // Allocates an array of size topology_get_level_count(lvl) and returns it filled with the available system ids of said level
