@@ -572,7 +572,7 @@ static inline void instr_attach_enter(void)
 	CHECK_INSTR_ENABLED(BASIC)
 
 	if (!ovni_thread_isready())
-		nosv_abort("The current thread is not instrumented in nosv_attach()");
+		nosv_abort("The current thread is not instrumented in nosv_attach(). HINT: You may need to add NOSV_ATTACH_INSTRUMENT to nosv_attach flags");
 
 	// Set require here, even if API_ATTACH is not enabled
 	instr_thread_require();
@@ -603,6 +603,11 @@ static inline void instr_detach_exit(void)
 	// ovni_thread_free().
 }
 
+static inline int instr_thread_isready(void)
+{
+	return ovni_thread_isready();
+}
+
 #else // ENABLE_INSTRUMENTATION
 
 static inline void instr_cpu_id(int index, int phyid)
@@ -631,6 +636,11 @@ static inline void instr_attach_enter(void)
 }
 static inline void instr_detach_exit(void)
 {
+}
+
+static inline int instr_thread_isready(void)
+{
+	return 0;
 }
 
 #endif // ENABLE_INSTRUMENTATION

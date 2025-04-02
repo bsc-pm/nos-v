@@ -120,4 +120,6 @@ static inline nosv_flags_t task_should_suspend(struct nosv_task *task)
 
 __internal int nosv_mutex_unlock_internal(nosv_mutex_t *mutex, char yield_allowed);
 
+__internal int is_init_thread(void);
+
 #endif // NOSV_INTERNAL_H

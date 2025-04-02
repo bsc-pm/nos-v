@@ -198,6 +198,8 @@ int nosv_task_had_events(nosv_task_t task);
 
 /* Flags */
 #define NOSV_ATTACH_NONE			__ZEROBITS
+/* Instrument the thread initialization on attach */
+#define NOSV_ATTACH_INSTRUMENT		__BIT(0)
 
 /* Thread Attaching API */
 int nosv_attach(
@@ -210,6 +212,8 @@ int nosv_attach(
 #define NOSV_DETACH_NONE				__ZEROBITS
 /* Do not restore the original affinity of the attached thread */
 #define NOSV_DETACH_NO_RESTORE_AFFINITY	__BIT(0)
+/* End thread instrumentation after detach */
+#define NOSV_DETACH_INSTRUMENT	__BIT(1)
 
 /* Called from attached thread */
 int nosv_detach(
