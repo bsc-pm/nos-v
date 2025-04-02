@@ -34,7 +34,7 @@
 			_errstr("NOS-V ERROR in %s(): " fmt ": %s", __func__, ##__VA_ARGS__, strerror(errno)); \
 		else                                                                                       \
 			_errstr("NOS-V ERROR in %s(): " fmt, __func__, ##__VA_ARGS__);                         \
-		exit(1);                                                                                   \
+		abort();                                                                                   \
 	}                                                                                              \
 	while (0)
 
