@@ -68,6 +68,7 @@ libnosv_la_SOURCES = \
 	src/support/mutex.c \
 	src/support/cond.c \
 	src/support/rwlock.c \
+	src/support/pthread_create.c \
 	src/system/tasks.c
 
 if USE_ASAN
