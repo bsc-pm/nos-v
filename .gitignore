@@ -19,6 +19,7 @@ INSTALL
 Makefile
 Makefile.in
 aclocal.m4
+aminclude_static.am
 autom4te.cache
 config-aux
 /config.h
@@ -33,3 +34,6 @@ stamp-h1
 .vscode/*
 nos-v.pc
 tests/driver
+*-coverage/
+*-coverage.info
+coverage-report

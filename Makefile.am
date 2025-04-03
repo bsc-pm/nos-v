@@ -17,9 +17,19 @@ lib_age = 0
 lib_major = $(shell expr $(lib_current) - $(lib_age))
 lib_suffix = $(lib_major).$(lib_age).$(lib_revision)
 
-libnosv_la_CPPFLAGS=$(AM_CPPFLAGS) $(nosv_CPPFLAGS) $(libnuma_CPPFLAGS) $(pthreadnp_CPPFLAGS)  $(ovni_CPPFLAGS) -DINSTALLED_CONFIG_DIR=\"$(datadir)\" $(asan_CPPFLAGS)
-libnosv_la_CFLAGS=$(PTHREAD_CFLAGS) $(nosv_CFLAGS) $(asan_CFLAGS)
-libnosv_la_LDFLAGS=$(PTHREAD_CFLAGS) $(PTHREAD_LIBS) $(libnuma_LIBS) $(ovni_LIBS) $(shm_LIBS) $(asan_LDFLAGS) -lm -ldl
+libnosv_la_CPPFLAGS=$(AM_CPPFLAGS) $(nosv_CPPFLAGS) $(libnuma_CPPFLAGS) $(pthreadnp_CPPFLAGS)  $(ovni_CPPFLAGS) -DINSTALLED_CONFIG_DIR=\"$(datadir)\" $(asan_CPPFLAGS) $(CODE_COVERAGE_CPPFLAGS)
+libnosv_la_CFLAGS=$(PTHREAD_CFLAGS) $(nosv_CFLAGS) $(asan_CFLAGS) $(CODE_COVERAGE_CFLAGS)
+libnosv_la_LDFLAGS=$(PTHREAD_CFLAGS) $(PTHREAD_LIBS) $(libnuma_LIBS) $(ovni_LIBS) $(shm_LIBS) $(asan_LDFLAGS) $(CODE_COVERAGE_LIBS) -lm -ldl
+
+include $(top_srcdir)/aminclude_static.am
+
+# TOML and INSTR macros do not play well with lcov
+CODE_COVERAGE_LCOV_OPTIONS = --exclude */config.c --exclude */instr.h --exclude */xmmintrin.h
+CODE_COVERAGE_DIRECTORY = $(abs_top_builddir)
+CODE_COVERAGE_OUTPUT_DIRECTORY = coverage-report
+
+clean-local: code-coverage-clean
+distclean-local: code-coverage-dist-clean
 
 # Hardware counters
 if HAVE_PAPI
