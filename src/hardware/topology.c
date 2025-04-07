@@ -427,8 +427,8 @@ static inline void topology_init_numa_from_none(cpu_bitset_t *valid_cpus)
 
 	// Create numa config with all cpus in one numa
 	generic_array_t numa_nodes;
-	numa_nodes.n = i;
-	numa_nodes.items = cpulist;
+	numa_nodes.n = 1;
+	numa_nodes.items = &cpulist;
 
 	// Lastly, init numa using generic array
 	topology_init_from_config(TOPO_NUMA, valid_cpus, &numa_nodes, 0);
