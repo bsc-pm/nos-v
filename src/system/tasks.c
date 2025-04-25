@@ -850,6 +850,8 @@ void task_execute(task_execution_handle_t handle)
 		atomic_thread_fence(memory_order_release);
 	}
 
+	instr_task_end(taskid, bodyid);
+
 	nosv_flush_submit_window();
 
 	// Task just completed, read and accumulate hardware counters for the task
@@ -875,7 +877,6 @@ void task_execute(task_execution_handle_t handle)
 		}
 		// Warning: from this point forward, "task" may have been freed, and thus it is not safe to access
 	}
-	instr_task_end(taskid, bodyid);
 }
 
 /* Events API */
