@@ -824,8 +824,10 @@ void task_execute(task_execution_handle_t handle)
 	nosv_worker_t *worker = worker_current();
 	assert(worker);
 
-	if (!task_is_parallel(task))
+	if (!task_is_parallel(task)) {
+		assert(!task->worker);
 		task->worker = worker;
+	}
 	worker->handle = handle;
 
 	// Task is about to execute, update runtime counters
