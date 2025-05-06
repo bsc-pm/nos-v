@@ -128,7 +128,7 @@ void pidmanager_transfer_to_idle(cpu_t *cpu)
 	if (pid >= 0) {
 		// Wake remote CPU
 		task_execution_handle_t handle = EMPTY_TASK_EXECUTION_HANDLE;
-		cpu_transfer(pid, cpu, handle);
+		worker_swap_idle(pid, cpu, handle, WS_NOBLOCK);
 	} else {
 		cpu_mark_free(cpu);
 	}

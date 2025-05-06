@@ -23,6 +23,9 @@
 #include "hwcounters/threadhwcounters.h"
 #include "system/tasks.h"
 
+/* worker_swap and worker_swap_idle flags */
+#define WS_NOBLOCK (1UL<<1)
+
 extern atomic_int threads_shutdown_signal;
 
 typedef struct thread_manager {
@@ -82,12 +85,12 @@ __internal void threadmanager_shutdown(thread_manager_t *threadmanager);
 __internal void worker_yield(void);
 __internal void worker_yield_to(task_execution_handle_t handle);
 __internal int worker_yield_if_needed(nosv_task_t current_task);
-__internal void worker_block(void);
+__internal void worker_swap(nosv_worker_t *worker, cpu_t *cpu, long flags);
+__internal void worker_swap_idle(int pid, cpu_t *cpu, task_execution_handle_t handle, long flags);
 __internal void worker_add_to_idle_list(void);
 __internal nosv_worker_t *worker_create_local(thread_manager_t *threadmanager, cpu_t *cpu, task_execution_handle_t handle);
 __internal nosv_worker_t *worker_create_external(void);
 __internal void worker_free_external(nosv_worker_t *worker);
-__internal void worker_wake_idle(int pid, cpu_t *cpu, task_execution_handle_t handle);
 __internal void worker_join(nosv_worker_t *worker);
 __internal int worker_is_in_task(void);
 __internal nosv_worker_t *worker_current(void);

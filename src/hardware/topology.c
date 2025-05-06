@@ -851,15 +851,6 @@ void cpu_mark_free(cpu_t *cpu)
 	monitoring_cpu_idle(cpu_lid(cpu));
 }
 
-void cpu_transfer(int destination_pid, cpu_t *cpu, task_execution_handle_t handle)
-{
-	assert(cpu);
-	cpumanager->pids_cpus[cpu_lid(cpu)] = destination_pid;
-
-	// Wake up a worker from another PID to take over
-	worker_wake_idle(destination_pid, cpu, handle);
-}
-
 void cpu_affinity_reset(void)
 {
 	instr_affinity_set(-1);

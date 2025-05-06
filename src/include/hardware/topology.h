@@ -106,7 +106,6 @@ static inline const char *topo_lvl_name(nosv_topo_level_t level);
 
 // Internal CPU API
 __internal void cpu_affinity_reset(void);
-__internal void cpu_transfer(int destination_pid, cpu_t *cpu, task_execution_handle_t handle);
 __internal void cpu_mark_free(cpu_t *cpu);
 __internal void cpu_get_all_mask(const char **mask);
 __internal cpu_t *cpu_pop_free(int pid);

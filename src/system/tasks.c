@@ -1038,7 +1038,7 @@ int nosv_attach(
 	scheduler_submit_single(t);
 
 	// Block the worker
-	worker_block();
+	worker_swap(NULL, NULL, 0);
 	// Now we have been scheduled, return
 
 	// Task is about to execute, update runtime counters
@@ -1120,7 +1120,7 @@ int nosv_detach(
 
 	// Then resume a thread on the current cpu
 	task_execution_handle_t handle = EMPTY_TASK_EXECUTION_HANDLE;
-	worker_wake_idle(logic_pid, cpu, handle);
+	worker_swap_idle(logic_pid, cpu, handle, WS_NOBLOCK);
 
 	instr_detach_exit();
 	return NOSV_SUCCESS;
