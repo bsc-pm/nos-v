@@ -98,7 +98,7 @@ int main() {
 		exec_child_crash();
 
 	waitpid(pid, &wstatus, 0);
-	test_check(&test, WIFEXITED(wstatus) && WEXITSTATUS(wstatus) == 1, "Got an turbo change between nosv_attach and nosv_detach");
+	test_check(&test, WIFSIGNALED(wstatus) && WTERMSIG(wstatus) == SIGABRT, "Got an turbo change between nosv_attach and nosv_detach");
 
 	fflush(stdout);
 	pid = fork();
@@ -106,7 +106,7 @@ int main() {
 		exec_child_crash1();
 
 	waitpid(pid, &wstatus, 0);
-	test_check(&test, WIFEXITED(wstatus) && WEXITSTATUS(wstatus) == 1, "Got an turbo change between nosv_attach and nosv_attach");
+	test_check(&test, WIFSIGNALED(wstatus) && WTERMSIG(wstatus) == SIGABRT, "Got an turbo change between nosv_attach and nosv_attach");
 
 	fflush(stdout);
 	pid = fork();
@@ -114,7 +114,7 @@ int main() {
 		exec_child_crash2();
 
 	waitpid(pid, &wstatus, 0);
-	test_check(&test, WIFEXITED(wstatus) && WEXITSTATUS(wstatus) == 1, "Got an turbo change between nosv_detach and nosv_detach");
+	test_check(&test, WIFSIGNALED(wstatus) && WTERMSIG(wstatus) == SIGABRT, "Got an turbo change between nosv_detach and nosv_detach");
 
 	fflush(stdout);
 	pid = fork();
