@@ -824,8 +824,10 @@ void task_execute(task_execution_handle_t handle)
 	nosv_worker_t *worker = worker_current();
 	assert(worker);
 
-	if (!task_is_parallel(task))
+	if (!task_is_parallel(task)) {
+		assert(!task->worker);
 		task->worker = worker;
+	}
 	worker->handle = handle;
 
 	// Task is about to execute, update runtime counters
@@ -849,6 +851,8 @@ void task_execute(task_execution_handle_t handle)
 		task->type->end_callback(task);
 		atomic_thread_fence(memory_order_release);
 	}
+
+	instr_task_end(taskid, bodyid);
 
 	nosv_flush_submit_window();
 
@@ -875,7 +879,6 @@ void task_execute(task_execution_handle_t handle)
 		}
 		// Warning: from this point forward, "task" may have been freed, and thus it is not safe to access
 	}
-	instr_task_end(taskid, bodyid);
 }
 
 /* Events API */
