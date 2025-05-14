@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2024 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2024-2025 Barcelona Supercomputing Center (BSC)
 */
 
 #include <stdbool.h>
@@ -10,6 +10,7 @@
 #include "common.h"
 #include "instr.h"
 #include "nosv.h"
+#include "nosv/compat.h"
 #include "nosv-internal.h"
 #include "generic/list.h"
 #include "generic/spinlock.h"
@@ -24,45 +25,53 @@ struct nosv_barrier {
 	unsigned towait;
 };
 
+static_assert(sizeof(struct nosv_barrier) <= SIZEOF_NOSV_BARRIER,
+	"Exposed barrier struct sould be at least the size of internal type. Increase exposed struct size accordingly.");
+
+int nosv_barrierattr_init(__maybe_unused nosv_barrierattr_t *attr)
+{
+	return NOSV_SUCCESS;
+}
+
+int nosv_barrierattr_destroy(__maybe_unused nosv_barrierattr_t *attr)
+{
+	return NOSV_SUCCESS;
+}
 
 int nosv_barrier_init(
 	nosv_barrier_t *barrier,
-	nosv_flags_t flags,
+	__maybe_unused const nosv_barrierattr_t *attr,
 	unsigned count)
 {
-	nosv_barrier_t bptr;
-
-	if (flags & ~NOSV_BARRIER_NONE)
-		return NOSV_ERR_INVALID_PARAMETER;
+	struct nosv_barrier *b = (struct nosv_barrier *) barrier;
 
 	if (!count)
 		return NOSV_ERR_INVALID_PARAMETER;
 
 	// Initialize barrier object
-	bptr = malloc(sizeof(*bptr));
-	if (!bptr)
-		return NOSV_ERR_OUT_OF_MEMORY;
-	task_group_init(&bptr->waiting_tasks);
-	nosv_spin_init(&bptr->lock);
-	bptr->count = count;
-	bptr->towait = count;
-	*barrier = bptr;
+	task_group_init(&b->waiting_tasks);
+	nosv_spin_init(&b->lock);
+	b->count = count;
+	b->towait = count;
 	return NOSV_SUCCESS;
 }
 
-int nosv_barrier_destroy(nosv_barrier_t barrier)
+int nosv_barrier_destroy(nosv_barrier_t *barrier)
 {
-	if (!barrier)
+	struct nosv_barrier *b = (struct nosv_barrier *) barrier;
+
+	if (!b)
 		return NOSV_ERR_INVALID_PARAMETER;
-	free(barrier);
+
 	return NOSV_SUCCESS;
 }
 
-int nosv_barrier_wait(nosv_barrier_t barrier)
+int nosv_barrier_wait(nosv_barrier_t *barrier)
 {
+	struct nosv_barrier *b = (struct nosv_barrier *) barrier;
 	nosv_task_t current_task = worker_current_task();
 
-	if (!barrier)
+	if (!b)
 		return NOSV_ERR_INVALID_PARAMETER;
 
 	if (!current_task)
@@ -70,22 +79,22 @@ int nosv_barrier_wait(nosv_barrier_t barrier)
 
 	instr_barrier_wait_enter();
 
-	nosv_spin_lock(&barrier->lock);
-	barrier->towait--;
-	if (barrier->towait) {
+	nosv_spin_lock(&b->lock);
+	b->towait--;
+	if (b->towait) {
 		// We are not the last one
 		// Wait for the other tasks
-		task_group_add(&barrier->waiting_tasks, current_task);
-		nosv_spin_unlock(&barrier->lock);
+		task_group_add(&b->waiting_tasks, current_task);
+		nosv_spin_unlock(&b->lock);
 		task_pause(current_task, /* use_blocking_count */ 0);
 		// We have been unblocked, we can return immediately
 	} else {
 		// We are the last task
 		// First, restore the internal barrier state
-		task_group_t waiting_tasks = barrier->waiting_tasks;
-		task_group_init(&barrier->waiting_tasks);
-		barrier->towait = barrier->count;
-		nosv_spin_unlock(&barrier->lock);
+		task_group_t waiting_tasks = b->waiting_tasks;
+		task_group_init(&b->waiting_tasks);
+		b->towait = b->count;
+		nosv_spin_unlock(&b->lock);
 		// After this point, the barrier is safe to be reused
 
 		// Second, wake up all waiting tasks.

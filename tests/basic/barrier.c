@@ -5,6 +5,7 @@
 */
 
 #include <nosv.h>
+#include <nosv/compat.h>
 #include <sched.h>
 #include <stdatomic.h>
 #include <stdlib.h>
@@ -28,7 +29,7 @@ nosv_barrier_t barrier;
 void task_run(nosv_task_t task)
 {
 	atomic_fetch_add_explicit(&track_init, 1, memory_order_relaxed);
-	CHECK(nosv_barrier_wait(barrier));
+	CHECK(nosv_barrier_wait(&barrier));
 
 	atomic_fetch_add_explicit(&track_mid, 1, memory_order_relaxed);
 	CHECK(nosv_pause(NOSV_PAUSE_NONE));
@@ -64,7 +65,7 @@ void test_barrier(const char *msg)
 	}
 
 	// Block until all task reach the barrier
-	CHECK(nosv_barrier_wait(barrier));
+	CHECK(nosv_barrier_wait(&barrier));
 
 	// Wait until all tasks finish first barrier
 	test_check_waitfor(&test, atomic_load_explicit(&track_mid, memory_order_relaxed) == NTASKS, 10000,
@@ -100,7 +101,7 @@ int main()
 	CHECK(nosv_type_init(&task_type, task_run, NULL, task_comp, "task", NULL, NULL, NOSV_TYPE_INIT_NONE));
 
 	// Prepare the global barrier
-	CHECK(nosv_barrier_init(&barrier, NOSV_BARRIER_NONE, NTASKS + 1));
+	CHECK(nosv_barrier_init(&barrier, NULL, NTASKS + 1));
 
 	// Run the first test
 	test_barrier("new");
@@ -109,7 +110,7 @@ int main()
 	test_barrier("reuse");
 
 	// Free the barrier object
-	CHECK(nosv_barrier_destroy(barrier));
+	CHECK(nosv_barrier_destroy(&barrier));
 
 	// Shutdown nosv
 	CHECK(nosv_detach(NOSV_DETACH_NONE));

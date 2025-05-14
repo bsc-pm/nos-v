@@ -5,6 +5,7 @@
 */
 
 #include <nosv.h>
+#include <nosv/compat.h>
 #include <sched.h>
 #include <stdatomic.h>
 #include <stdlib.h>
@@ -49,12 +50,12 @@ struct metadata {
 
 static inline void lock(const cond_test_flag_t flags) {
 	if (flags & PTHREAD) CHECK(pthread_mutex_lock(&pthread_mutex));
-	else CHECK(nosv_mutex_lock(mutex));
+	else CHECK(nosv_mutex_lock(&mutex));
 }
 
 static inline void unlock(const cond_test_flag_t flags) {
 	if (flags & PTHREAD) CHECK(pthread_mutex_unlock(&pthread_mutex));
-	else CHECK(nosv_mutex_unlock(mutex));
+	else CHECK(nosv_mutex_unlock(&mutex));
 }
 
 void task_run(nosv_task_t task)
@@ -67,17 +68,17 @@ void task_run(nosv_task_t task)
 		// If timedwait, we don't want to check for ready value, otherwise
 		// we cannot wait for the tasks to wake up on their own in the test.
 		if (meta->flags & PTHREAD)
-			CHECK(nosv_cond_timedwait_pthread(cond, &pthread_mutex, deadline));
+			CHECK(nosv_cond_timedwait_pthread(&cond, &pthread_mutex, deadline));
 		else
-			CHECK(nosv_cond_timedwait(cond, mutex, deadline));
+			CHECK(nosv_cond_timedwait(&cond, &mutex, deadline));
 
 		ready--;
 	} else {
 		while (!ready) {
 			if (meta->flags & PTHREAD)
-				CHECK(nosv_cond_wait_pthread(cond, &pthread_mutex));
+				CHECK(nosv_cond_wait_pthread(&cond, &pthread_mutex));
 			else
-				CHECK(nosv_cond_wait(cond, mutex));
+				CHECK(nosv_cond_wait(&cond, &mutex));
 		}
 		ready--;
 	}
@@ -120,7 +121,7 @@ void test_cond(const char *pref, const char *label, const cond_test_flag_t flags
 
 	// broadcast into empty queue, should do nothing
 	lock(flags);
-	CHECK(nosv_cond_broadcast(cond));
+	CHECK(nosv_cond_broadcast(&cond));
 	unlock(flags);
 
 	// Submit all tasks. Each task will call nosv_cond_wait
@@ -150,7 +151,7 @@ void test_cond(const char *pref, const char *label, const cond_test_flag_t flags
 			// Unblock one task
 			lock(flags);
 			ready++;
-			CHECK(nosv_cond_signal(cond));
+			CHECK(nosv_cond_signal(&cond));
 			unlock(flags);
 
 			// Wait for that task to finish
@@ -167,7 +168,7 @@ void test_cond(const char *pref, const char *label, const cond_test_flag_t flags
 	} else { // broadcast
 		lock(flags);
 		ready += NTASKS;
-		CHECK(nosv_cond_broadcast(cond));
+		CHECK(nosv_cond_broadcast(&cond));
 		unlock(flags);
 	}
 
@@ -195,8 +196,8 @@ void init_objs() {
 
 void free_objs() {
 	// Free the cond object and mutex
-	CHECK(nosv_cond_destroy(cond));
-	CHECK(nosv_mutex_destroy(mutex));
+	CHECK(nosv_cond_destroy(&cond));
+	CHECK(nosv_mutex_destroy(&mutex));
 	CHECK(pthread_mutex_destroy(&pthread_mutex));
 }
 

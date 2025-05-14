@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2024 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2024-2025 Barcelona Supercomputing Center (BSC)
 */
 
 #include <stdbool.h>
@@ -11,6 +11,7 @@
 #include "hardware/topology.h"
 #include "instr.h"
 #include "nosv.h"
+#include "nosv/compat.h"
 #include "nosv-internal.h"
 #include "generic/list.h"
 #include "generic/spinlock.h"
@@ -24,39 +25,49 @@ struct nosv_mutex {
 	bool taken;
 };
 
-int nosv_mutex_init(nosv_mutex_t *mutex, nosv_flags_t flags)
-{
-	nosv_mutex_t mptr;
+static_assert(sizeof(struct nosv_mutex) <= SIZEOF_NOSV_MUTEX,
+	"Exposed barrier struct sould be at least the size of internal type. Increase exposed struct size accordingly.");
 
-	if (flags & ~NOSV_MUTEX_NONE)
+int nosv_mutexattr_init(__maybe_unused nosv_mutexattr_t *attr)
+{
+	return NOSV_SUCCESS;
+}
+
+int nosv_mutexattr_destroy(__maybe_unused nosv_mutexattr_t *attr)
+{
+	return NOSV_SUCCESS;
+}
+
+int nosv_mutex_init(nosv_mutex_t *mutex, __maybe_unused const nosv_mutexattr_t *mutexattr)
+{
+	struct nosv_mutex *m = (struct nosv_mutex *) mutex;
+
+	if (!m)
 		return NOSV_ERR_INVALID_PARAMETER;
 
 	// Initialize mutex object
-	mptr = malloc(sizeof(*mptr));
-	if (!mptr)
-		return NOSV_ERR_OUT_OF_MEMORY;
-	list_init(&mptr->list);
-	nosv_spin_init(&mptr->lock);
-	mptr->taken = false;
-	*mutex = mptr;
+	// m->list is NOT initialized with the static initializer, which means it will have to be initialized at a later point again
+	// to make sure
+	list_init(&m->list);
+	nosv_spin_init(&m->lock);
+	m->taken = false;
 	return NOSV_SUCCESS;
 }
 
-int nosv_mutex_destroy(nosv_mutex_t mutex)
+int nosv_mutex_destroy(nosv_mutex_t *mutex)
 {
-	if (!mutex)
+	struct nosv_mutex *m = (struct nosv_mutex *) mutex;
+	if (!m)
 		return NOSV_ERR_INVALID_PARAMETER;
-	// Free the mutex without checking its state. If it is taken, the
-	// result is undefined
-	free(mutex);
 	return NOSV_SUCCESS;
 }
 
-int nosv_mutex_lock(nosv_mutex_t mutex)
+int nosv_mutex_lock(nosv_mutex_t *mutex)
 {
+	struct nosv_mutex *m = (struct nosv_mutex *) mutex;
 	nosv_task_t current_task = worker_current_task();
 
-	if (!mutex)
+	if (!m)
 		return NOSV_ERR_INVALID_PARAMETER;
 
 	if (!current_task)
@@ -68,19 +79,20 @@ int nosv_mutex_lock(nosv_mutex_t mutex)
 	instr_mutex_lock_enter();
 
 	// Try to take the mutex
-	nosv_spin_lock(&mutex->lock);
-	if (mutex->taken) {
+	nosv_spin_lock(&m->lock);
+	if (m->taken) {
 		// The mutex is contended. Add the current task to the list of
 		// waiting tasks and block.
-		list_add_tail(&mutex->list, &current_task->list_hook);
-		nosv_spin_unlock(&mutex->lock);
+		list_add_tail(&m->list, &current_task->list_hook);
+		nosv_spin_unlock(&m->lock);
 		task_pause(current_task, /* use_blocking_count */ 0);
 		// A nosv_mutex_unlock woke up the current task, the lock is
 		// still marked as taken and we can return right now.
 	} else {
 		// The lock is not taken. Mark the mutex as taken and return.
-		mutex->taken = true;
-		nosv_spin_unlock(&mutex->lock);
+		m->taken = true;
+		list_init(&m->list);
+		nosv_spin_unlock(&m->lock);
 	}
 
 	instr_mutex_lock_exit();
@@ -88,12 +100,13 @@ int nosv_mutex_lock(nosv_mutex_t mutex)
 	return NOSV_SUCCESS;
 }
 
-int nosv_mutex_trylock(nosv_mutex_t mutex)
+int nosv_mutex_trylock(nosv_mutex_t *mutex)
 {
+	struct nosv_mutex *m = (struct nosv_mutex *) mutex;
 	int rc;
 	nosv_task_t current_task = worker_current_task();
 
-	if (!mutex)
+	if (!m)
 		return NOSV_ERR_INVALID_PARAMETER;
 
 	if (!current_task)
@@ -102,15 +115,16 @@ int nosv_mutex_trylock(nosv_mutex_t mutex)
 	instr_mutex_trylock_enter();
 
 	// Try to take the mutex
-	nosv_spin_lock(&mutex->lock);
-	if (mutex->taken) {
+	nosv_spin_lock(&m->lock);
+	if (m->taken) {
 		// The mutex is contended.
-		nosv_spin_unlock(&mutex->lock);
-		rc = NOSV_ERR_BUSY;
+		nosv_spin_unlock(&m->lock);
+		rc = EBUSY;
 	} else {
 		// The lock is not taken. Mark the mutex as taken and return.
-		mutex->taken = true;
-		nosv_spin_unlock(&mutex->lock);
+		m->taken = true;
+		list_init(&m->list);
+		nosv_spin_unlock(&m->lock);
 		rc = NOSV_SUCCESS;
 	}
 
@@ -119,13 +133,14 @@ int nosv_mutex_trylock(nosv_mutex_t mutex)
 	return rc;
 }
 
-__internal int nosv_mutex_unlock_internal(nosv_mutex_t mutex, char yield_allowed)
+__internal int nosv_mutex_unlock_internal(nosv_mutex_t *mutex, char yield_allowed)
 {
 	nosv_task_t task;
 	list_head_t *elem;
+	struct nosv_mutex *m = (struct nosv_mutex *) mutex;
 	nosv_task_t current_task = worker_current_task();
 
-	if (!mutex)
+	if (!m)
 		return NOSV_ERR_INVALID_PARAMETER;
 
 	if (!current_task)
@@ -134,18 +149,18 @@ __internal int nosv_mutex_unlock_internal(nosv_mutex_t mutex, char yield_allowed
 	instr_mutex_unlock_enter();
 
 	// Unlock the mutex
-	nosv_spin_lock(&mutex->lock);
-	elem = list_pop_front(&mutex->list);
+	nosv_spin_lock(&m->lock);
+	elem = list_pop_front(&m->list);
 	if (!elem) {
 		// There are no waiting tasks for this mutex, mark the mutex as
 		// not taken and return.
-		mutex->taken = false;
-		nosv_spin_unlock(&mutex->lock);
+		m->taken = false;
+		nosv_spin_unlock(&m->lock);
 	} else {
 		// There is at least one waiting tasks to get the mutex. Unblock
 		// the task and transfer the mutex ownership to it (we keep the
 		// mutex flagged as "taken").
-		nosv_spin_unlock(&mutex->lock);
+		nosv_spin_unlock(&m->lock);
 
 		// If the next task to run can run in the current core, switch
 		// the current task for the next task in order to speed up
@@ -175,6 +190,6 @@ __internal int nosv_mutex_unlock_internal(nosv_mutex_t mutex, char yield_allowed
 	return NOSV_SUCCESS;
 }
 
-int nosv_mutex_unlock(nosv_mutex_t mutex) {
+int nosv_mutex_unlock(nosv_mutex_t *mutex) {
 	return nosv_mutex_unlock_internal(mutex, 1);
 }
