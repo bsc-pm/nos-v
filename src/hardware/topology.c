@@ -7,7 +7,6 @@
 #include <linux/limits.h>
 #include <numa.h>
 #include <stdbool.h>
-#include <stdio.h>
 
 #include "common.h"
 #include "compiler.h"
@@ -271,8 +270,7 @@ static inline int topology_get_core_valid_cpus(const int cpu_system, const cpu_b
 
 static inline void topology_init_cores_cpus(cpu_bitset_t const *const valid_cpus)
 {
-	// Init both levels together to make sure cpu logic ids are contiguous for cpus
-	// in the same core.
+	// Init both levels together to make sure cpu logic ids are interleaved
 	topo_lvl_sid_bitset_init(TOPO_CORE);
 	*topo_lvl_sid_bitset(TOPO_CPU) = *valid_cpus;
 
@@ -291,6 +289,7 @@ static inline void topology_init_cores_cpus(cpu_bitset_t const *const valid_cpus
 
 	int ncores = 0;
 	int ncpus = 0;
+	int max_cpus_per_core = 1;
 
 	// Parse the cpu topology and populate thread siblings
 	int cpu_sys;
@@ -307,6 +306,10 @@ static inline void topology_init_cores_cpus(cpu_bitset_t const *const valid_cpus
 				thread_siblings[core_system][sib_id++] = core_cpu_sys;
 				cpu_bitset_set(&visited_cpus, core_cpu_sys);
 			}
+
+			if (sib_id > max_cpus_per_core)
+				max_cpus_per_core = sib_id;
+
 			ncpus += sib_id;
 			ncores++;
 		}
@@ -318,26 +321,23 @@ static inline void topology_init_cores_cpus(cpu_bitset_t const *const valid_cpus
 	// to set the cpu logical ids interleaved with the core logical ids.
 	int core_lid = 0;
 	int cpu_lid = 0;
-	for (int i = 0; i < NR_CPUS; ++i) {
+	for (int i = 0; i < max_cpus_per_core; ++i) {
 		for (int j = 0; j < NR_CPUS; ++j) {
-			int sid = thread_siblings[j][i];
-			if (sid != -1) {
+			int cpu_sid = thread_siblings[j][i];
+			if (cpu_sid != -1) {
 				if (i == 0) {
 					// Init core topology domain
-					int core_system_id = sid;
-					//fprintf(stderr, "\tNEW core: system_id=%d, logical_id=%d\n", core_system_id, core_lid);
+					int core_system_id = cpu_sid;
 					topology_init_domain(TOPO_CORE, core_system_id, core_lid++);
 				}
 
 				// Init cpu
-				//fprintf(stderr, "NEW CPU: system_id=%d, logical_id=%d\n", sid, cpu_lid);
-				topology_init_domain(TOPO_CPU, sid, cpu_lid++);
+				topology_init_domain(TOPO_CPU, cpu_sid, cpu_lid++);
 
 				// Set cpu parent to core
 				int cpu_corelid = topo_dom_lid(TOPO_CORE, thread_siblings[j][0]);
 				assert(cpu_corelid != -1);
-				//fprintf(stderr, "SETTING CPU sid %d lid %d parent to core with sid %d lid %d\n", sid, cpu_lid-1, topo_dom_sid(TOPO_CORE, cpu_corelid), cpu_corelid);
-				topology_update_cpu_and_parents(sid, TOPO_CORE, cpu_corelid);
+				topology_update_cpu_and_parents(cpu_sid, TOPO_CORE, cpu_corelid);
 			}
 		}
 	}
@@ -586,7 +586,6 @@ static inline void cpus_get_binding_mask(const char *binding, cpu_bitset_t *cpu_
 		cpu_bitset_print_mask(cpu_bitset);
 }
 
-// TODO: init after topology read all tree
 static inline void cpumanager_init(void)
 {
 	int cnt = topo_lvl_cnt(TOPO_CPU);
