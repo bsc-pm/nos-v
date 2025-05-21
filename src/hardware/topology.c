@@ -577,7 +577,7 @@ static inline void cpus_get_binding_mask(const char *binding, cpu_bitset_t *cpu_
 	} else if (strcmp(binding, "all") == 0) {
 		cpu_get_all(&glibc_cpuset);
 		cpu_bitset_from_cpuset(cpu_bitset, &glibc_cpuset);
-	} else if (strcmp(binding, "all-cores") == 0) {
+	} else if (strcmp(binding, "all-cores") == 0 || strcmp(binding, "cores") == 0) {
 		cpu_get_all(&glibc_cpuset);
 		cpu_bitset_from_cpuset(cpu_bitset, &glibc_cpuset);
 		cpu_remove_smt(cpu_bitset);
