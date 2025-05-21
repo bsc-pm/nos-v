@@ -76,9 +76,13 @@
 
 # Topology config
 [topology]
-	# CPU binding for the execution. The valid values are "inherit" which inherits the cpu mask of the
-	# first process that initializes the runtime, "all" for every cpu in the system, "cores" for every physical
-	# core, but preventing the use of SMT, and then any taskset-like list expression (for example, "0-7,10-11,15-23:2")
+	# CPU binding for the execution. The valid values are:
+	#   - "inherit": which inherits the cpu mask of the first process that initializes the runtime.
+	#   - "all" for every cpu in the system.
+	#   - "inherit-cores" which inherits the cpu mask of the first process that initializes the runtime, but only
+	#     enables the physical cores.
+	#   - "all-cores" for enabling every physical core in the system (ignoring SMT).
+	#   - taskset-like list expression (for example, "0-7,10-11,15-23:2")
 	binding = "inherit"
 	# It is also possible to define the composition of the NUMA Nodes, which will override the autodiscovered
 	# composition that nOS-V can do through libnuma.
