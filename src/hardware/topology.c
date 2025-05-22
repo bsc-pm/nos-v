@@ -7,6 +7,7 @@
 #include <linux/limits.h>
 #include <numa.h>
 #include <stdbool.h>
+#include <string.h>
 
 #include "common.h"
 #include "compiler.h"
@@ -568,11 +569,18 @@ static inline void cpus_get_binding_mask(const char *binding, cpu_bitset_t *cpu_
 		bypass_sched_getaffinity(0, sizeof(cpu_set_t), &glibc_cpuset);
 		assert(CPU_COUNT(&glibc_cpuset) > 0);
 		cpu_bitset_from_cpuset(cpu_bitset, &glibc_cpuset);
-	} else if (strcmp(binding, "all") == 0 || strcmp(binding, "cores") == 0) {
+	} else if (strcmp(binding, "inherit-cores") == 0) {
+		bypass_sched_getaffinity(0, sizeof(cpu_set_t), &glibc_cpuset);
+		assert(CPU_COUNT(&glibc_cpuset) > 0);
+		cpu_bitset_from_cpuset(cpu_bitset, &glibc_cpuset);
+		cpu_remove_smt(cpu_bitset);
+	} else if (strcmp(binding, "all") == 0) {
 		cpu_get_all(&glibc_cpuset);
 		cpu_bitset_from_cpuset(cpu_bitset, &glibc_cpuset);
-		if (strcmp(binding, "cores") == 0)
-			cpu_remove_smt(cpu_bitset);
+	} else if (strcmp(binding, "all-cores") == 0 || strcmp(binding, "cores") == 0) {
+		cpu_get_all(&glibc_cpuset);
+		cpu_bitset_from_cpuset(cpu_bitset, &glibc_cpuset);
+		cpu_remove_smt(cpu_bitset);
 	} else {
 		char *tmp_binding = strdup(binding);
 		int ret = cpu_bitset_parse_str(cpu_bitset, tmp_binding);
