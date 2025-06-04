@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2023-2024 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2023-2025 Barcelona Supercomputing Center (BSC)
 */
 
 #include <dlfcn.h>
@@ -19,6 +19,7 @@
 #include "generic/hashtable.h"
 #include "generic/spinlock.h"
 #include "hardware/threads.h"
+#include "hardware/topology.h"
 #include "support/affinity.h"
 
 
@@ -235,7 +236,7 @@ static void restore_affinity(nosv_worker_t *worker)
 	if (CPU_COUNT_S(worker->original_affinity_size, worker->original_affinity) == 1) {
 		int cpu = CPU_FIRST_S(worker->original_affinity_size, worker->original_affinity);
 		assert(cpu != -1);
-		instr_affinity_set(cpu);
+		instr_affinity_set(topo_dom_lid(NOSV_TOPO_LEVEL_CPU, cpu));
 	} else {
 		instr_affinity_set(-1);
 	}
