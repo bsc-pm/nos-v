@@ -32,6 +32,7 @@ The following software is required to enable optional features:
 
 1. [ovni](https://github.com/bsc-pm/ovni) to generate execution traces for performance analysis with [Paraver](https://tools.bsc.es/paraver)
 1. [PAPI](http://icl.utk.edu/papi/software/) for gathering performance counters (version >= 5.6.0)
+1. [lcov](https://github.com/linux-test-project/lcov) to generate a coverage report of the test suite
 
 ### Build procedure
 
@@ -58,6 +59,7 @@ The configure script accepts several options:
 1. `--enable-debug`: Add compiler debug flags and enable additional internal debugging mechanisms
 1. `--enable-asan`: Build and link with [AddressSanitizer](https://github.com/google/sanitizers/wiki/AddressSanitizer) to detect memory bugs and leaks
 1. `--enable-ubsan`: Build and link with [UndefinedBehaviourSanitizer](https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html) to detect undefined behaviour
+1. `--enable-code-coverage`: Build and link with instrumentation for coverage analysis. Use `make check-code-coverage` to generate an html report
 1. `--with-ovni`: Enable ovni instrumentation and specify the ovni library installation prefix
 1. `--with-papi`: Enable PAPI counters and specify the PAPI library installation prefix
 1. `--with-libnuma`: Specify the numactl library installation prefix
