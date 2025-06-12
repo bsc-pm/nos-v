@@ -428,6 +428,12 @@ static inline void *worker_start_routine(void *arg)
 	pid = current_worker->logic_pid;
 	assert(current_process_manager);
 
+#ifndef NDEBUG
+	char thread_name[256];
+	sprintf(thread_name, "W [%d]", current_worker->tid);
+	pthread_setname_np(pthread_self(), thread_name);
+#endif
+
 	// Initialize hardware counters for the thread
 	hwcounters_thread_initialize(current_worker);
 

@@ -13,7 +13,7 @@ extern "C" {
 
 #include "nosv.h"
 
-#define SIZEOF_NOSV_MUTEX 32
+#define SIZEOF_NOSV_MUTEX 64
 
 /* Opaque types */
 typedef union nosv_mutex_ext {

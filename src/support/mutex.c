@@ -23,6 +23,9 @@ struct nosv_mutex {
 	list_head_t list;
 	nosv_spinlock_t lock;
 	bool taken;
+#ifndef NDEBUG
+	pid_t owner;
+#endif
 };
 
 static_assert(sizeof(struct nosv_mutex) <= SIZEOF_NOSV_MUTEX,
@@ -51,6 +54,9 @@ int nosv_mutex_init(nosv_mutex_t *mutex, __maybe_unused const nosv_mutexattr_t *
 	list_init(&m->list);
 	nosv_spin_init(&m->lock);
 	m->taken = false;
+#ifndef NDEBUG
+		m->owner = 0;
+#endif
 	return NOSV_SUCCESS;
 }
 
@@ -84,6 +90,9 @@ int nosv_mutex_lock(nosv_mutex_t *mutex)
 		// The mutex is contended. Add the current task to the list of
 		// waiting tasks and block.
 		list_add_tail(&m->list, &current_task->list_hook);
+#ifndef NDEBUG
+		assert(m->owner != 0 && m->owner != worker_current()->tid);
+#endif
 		nosv_spin_unlock(&m->lock);
 		task_pause(current_task, /* use_blocking_count */ 0);
 		// A nosv_mutex_unlock woke up the current task, the lock is
@@ -92,6 +101,9 @@ int nosv_mutex_lock(nosv_mutex_t *mutex)
 		// The lock is not taken. Mark the mutex as taken and return.
 		m->taken = true;
 		list_init(&m->list);
+#ifndef NDEBUG
+		m->owner = worker_current()->tid;
+#endif
 		nosv_spin_unlock(&m->lock);
 	}
 
@@ -124,6 +136,9 @@ int nosv_mutex_trylock(nosv_mutex_t *mutex)
 		// The lock is not taken. Mark the mutex as taken and return.
 		m->taken = true;
 		list_init(&m->list);
+#ifndef NDEBUG
+		m->owner = worker_current()->tid;
+#endif
 		nosv_spin_unlock(&m->lock);
 		rc = NOSV_SUCCESS;
 	}
@@ -155,8 +170,14 @@ __internal int nosv_mutex_unlock_internal(nosv_mutex_t *mutex, char yield_allowe
 		// There are no waiting tasks for this mutex, mark the mutex as
 		// not taken and return.
 		m->taken = false;
+#ifndef NDEBUG
+		m->owner = 0;
+#endif
 		nosv_spin_unlock(&m->lock);
 	} else {
+#ifndef NDEBUG
+		m->owner = list_elem(elem, struct nosv_task, list_hook)->worker->tid;
+#endif
 		// There is at least one waiting tasks to get the mutex. Unblock
 		// the task and transfer the mutex ownership to it (we keep the
 		// mutex flagged as "taken").
