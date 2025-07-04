@@ -79,7 +79,7 @@ typedef struct delegation_lock {
 #define DTLOCK_SPIN(a, b, cmp, emit_resting)                                \
 	{                                                                       \
 		int __spins = 0;                                                    \
-		typeof((a)) __a = atomic_load_explicit(&(a), memory_order_relaxed); \
+		typeof((atomic_load_explicit(&(a), memory_order_relaxed))) __a = atomic_load_explicit(&(a), memory_order_relaxed); \
 		while (__a cmp(b)                                                   \
 			   && __spins++ < IDLE_SPINS_THRESHOLD) {                       \
 			spin_wait();                                                    \
