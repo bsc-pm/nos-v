@@ -47,6 +47,7 @@ static const uint64_t control_flags_mask[] = {
 	[INSTR_BIT_API_ATTACH]          = INSTR_FLAG_API_ATTACH,
 	[INSTR_BIT_TASK]                = INSTR_FLAG_TASK,
 	[INSTR_BIT_KERNEL]              = INSTR_FLAG_KERNEL,
+	[INSTR_BIT_BREAKDOWN]           = INSTR_FLAG_BREAKDOWN,
 	[INSTR_BIT_MAX]                 = ~(0ULL)
 };
 
