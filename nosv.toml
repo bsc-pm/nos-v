@@ -168,7 +168,7 @@
 	## events = ["basic", "worker", "scheduler", "scheduler_submit", "scheduler_hungry", "scheduler_nonblock", "memory", "api_attach",
 	##           "api_create", "api_destroy", "api_submit", "api_pause", "api_yield", "api_waitfor", "api_schedpoint",
 	##           "api_mutex_lock", "api_mutex_trylock", "api_mutex_unlock", "api_barrier_wait", "api_cond_wait",
-	##           "api_cond_signal", "api_cond_broadcast", "task", "kernel", "breakdown" ]
+	##           "api_cond_signal", "api_cond_broadcast", "task", "kernel", "breakdown", "hwc" ]
 	#
 	# Size in bytes of the ring buffer for kernel events (per thread)
 	kernel_ringsize = "4M"

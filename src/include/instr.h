@@ -60,6 +60,7 @@ enum instr_bit {
 	INSTR_BIT_TASK,
 	INSTR_BIT_KERNEL,
 	INSTR_BIT_BREAKDOWN,
+	INSTR_BIT_HWC,
 	INSTR_BIT_MAX,
 };
 
@@ -93,6 +94,7 @@ _Static_assert (INSTR_BIT_MAX <= sizeof(instr_ovni_control) * 8,
 #define INSTR_FLAG_TASK					BIT(INSTR_BIT_TASK)
 #define INSTR_FLAG_KERNEL				BIT(INSTR_BIT_KERNEL)
 #define INSTR_FLAG_BREAKDOWN			BIT(INSTR_BIT_BREAKDOWN)
+#define INSTR_FLAG_HWC					BIT(INSTR_BIT_HWC)
 
 #define INSTR_LEVEL_0 (0ULL \
 		| INSTR_FLAG_BASIC)
@@ -105,7 +107,8 @@ _Static_assert (INSTR_BIT_MAX <= sizeof(instr_ovni_control) * 8,
 		| INSTR_FLAG_SCHEDULER \
 		| INSTR_FLAG_SCHEDULER_HUNGRY \
 		| INSTR_FLAG_SCHEDULER_SUBMIT \
-		| INSTR_FLAG_API_ATTACH)
+		| INSTR_FLAG_API_ATTACH \
+		| INSTR_FLAG_HWC)
 
 #define INSTR_LEVEL_3 (INSTR_LEVEL_2 \
 		| INSTR_FLAG_API_CREATE \
@@ -389,6 +392,31 @@ static inline uint32_t instr_get_bodyid(task_execution_handle_t handle)
 	return handle.execution_id;
 }
 
+static inline void instr_hwc_register(size_t index, const char *name)
+{
+	CHECK_INSTR_ENABLED(HWC)
+
+	// There are only 100 reserved PRV types for HWC in ovni
+	if (index >= 100)
+		nosv_abort("only up to 100 HWC can be instrumented");
+
+	char key[256];
+	sprintf(key, "nosv.hwc.%zd.name", index); /* safe */
+	ovni_attr_set_str(key, name);
+}
+
+static inline void instr_hwc_emit(size_t n, int64_t *values)
+{
+	CHECK_INSTR_ENABLED(HWC)
+
+	struct ovni_ev ev = {0};
+	ovni_ev_set_mcv(&ev, "VWC");
+	ovni_ev_set_clock(&ev, ovni_clock_now());
+	uint32_t nbytes = (uint32_t) n * sizeof(int64_t);
+	ovni_ev_jumbo_emit(&ev, (uint8_t *) values, (uint32_t) nbytes);
+}
+
+
 #else // ENABLE_INSTRUMENTATION
 
 static inline void instr_type_create(uint32_t typeid, const char *label)
@@ -413,6 +441,14 @@ static inline void instr_sched_server_enter(int blocking)
 }
 
 static inline void instr_sched_server_exit(int blocking)
+{
+}
+
+static inline void instr_hwc_add(size_t index, const char *name)
+{
+}
+
+static inline void instr_hwc_emit(size_t n, int64_t *values)
 {
 }
 
@@ -510,7 +546,7 @@ static inline void instr_thread_require(void)
 
 	/* This nosv model version has no relation to libnosv.so version, it
 	 * just covers the events and the metadata in the trace. */
-	ovni_thread_require("nosv", "2.5.1");
+	ovni_thread_require("nosv", "2.6.0");
 
 	if (instr_ovni_control & INSTR_FLAG_KERNEL)
 		ovni_thread_require("kernel", "1.0.0");

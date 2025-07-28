@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2025 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
@@ -10,6 +10,7 @@
 
 #include "common.h"
 #include "hwcounters/papi/papicpuhwcounters.h"
+#include "instr.h"
 
 
 void papi_cpuhwcounters_initialize(papi_cpuhwcounters_t *counters)
@@ -33,6 +34,11 @@ void papi_cpuhwcounters_read_counters(papi_cpuhwcounters_t *counters, int event_
 	if (ret != PAPI_OK) {
 		nosv_abort("Code %d - Failed resetting a PAPI event set - %s", ret, PAPI_strerror(ret));
 	}
+
+	/* Make sure the cast is legal */
+	static_assert(sizeof(int64_t) == sizeof(long long));
+	const size_t num_counters = papi_hwcounters_get_num_enabled_counters();
+	instr_hwc_emit(num_counters, (int64_t *) counters->delta);
 }
 
 uint64_t papi_cpuhwcounters_get_delta(papi_cpuhwcounters_t *counters, enum counters_t type)

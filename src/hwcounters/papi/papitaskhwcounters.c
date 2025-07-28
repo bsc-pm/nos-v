@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2025 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
@@ -9,6 +9,7 @@
 
 #include "common.h"
 #include "hwcounters/papi/papitaskhwcounters.h"
+#include "instr.h"
 
 
 void papi_taskhwcounters_initialize(papi_taskhwcounters_t *counters)
@@ -38,6 +39,10 @@ void papi_taskhwcounters_read_counters(papi_taskhwcounters_t *counters, int even
 	for (size_t i = 0; i < num_counters; ++i) {
 		counters->accumulated[i] += counters->delta[i];
 	}
+
+	/* Make sure the cast is legal */
+	static_assert(sizeof(int64_t) == sizeof(long long));
+	instr_hwc_emit(num_counters, (int64_t *) counters->delta);
 }
 
 uint64_t papi_taskhwcounters_get_delta(papi_taskhwcounters_t *counters, enum counters_t type)

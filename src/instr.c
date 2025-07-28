@@ -48,6 +48,7 @@ static const uint64_t control_flags_mask[] = {
 	[INSTR_BIT_TASK]                = INSTR_FLAG_TASK,
 	[INSTR_BIT_KERNEL]              = INSTR_FLAG_KERNEL,
 	[INSTR_BIT_BREAKDOWN]           = INSTR_FLAG_BREAKDOWN,
+	[INSTR_BIT_HWC]                 = INSTR_FLAG_HWC,
 	[INSTR_BIT_MAX]                 = ~(0ULL)
 };
 
@@ -77,6 +78,7 @@ static const char *control_flags[] = {
 	[INSTR_BIT_TASK]                = "task",
 	[INSTR_BIT_KERNEL]              = "kernel",
 	[INSTR_BIT_BREAKDOWN]           = "breakdown",
+	[INSTR_BIT_HWC]                 = "hwc",
 	[INSTR_BIT_MAX]                 = "all"
 };
 
