@@ -632,10 +632,12 @@ static inline void cpumanager_init(void)
 
 static inline void topology_print(void)
 {
-	int maxsize = 100 * topo_lvl_cnt(TOPO_CORE)															   // core lines
-				  + 35 * topo_lvl_cnt(TOPO_CPU)															   // HT lines
-				  + 40 * topo_lvl_cnt(TOPO_COMPLEX_SET) + topo_lvl_cnt(TOPO_CPU) * 4 // complex set lines
-				  + topo_lvl_cnt(TOPO_NUMA) * 40 + topo_lvl_cnt(TOPO_CPU) * 4 + 200; // NUMA lines
+	int maxsize = 31 + 14 // Title
+		+ 52 + topo_lvl_cnt(TOPO_NUMA)*(8 + 37 + 3*3 + 1) + topo_lvl_cnt(TOPO_CPU)*(1*3 + 1) // NUMA lines
+		+ 63 + topo_lvl_cnt(TOPO_COMPLEX_SET)*(8 + 38 + 2*3 + 1) + topo_lvl_cnt(TOPO_CPU)*(1*3 + 1) // Complex Set lines
+		+ 47 + topo_lvl_cnt(TOPO_CORE)*(8 + 37 + 3*3 + 1) + topo_lvl_cnt(TOPO_CPU)*(1*3 + 1) // Core lines
+		+ 38 + topo_lvl_cnt(TOPO_CPU)*(8 + 20 + 2*3); // CPU lines
+
 	char *msg = malloc(maxsize * sizeof(char));
 
 	int offset = snprintf(msg, maxsize, "NOSV: Printing locality domains");
