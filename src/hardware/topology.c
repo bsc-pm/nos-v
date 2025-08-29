@@ -35,8 +35,13 @@ __internal topology_t *topology;
 #define snprintf_check(str, offset, maxsize, ...)                              \
 	do {                                                                       \
 		int ret = snprintf(str + offset, maxsize - offset, __VA_ARGS__);       \
-		if (ret >= maxsize - offset) {                                         \
-			nosv_abort("Failed to format locality domains. Buffer too small"); \
+		while (ret >= maxsize - offset) {                                      \
+			maxsize *= 2;                                                      \
+			char* str_new = malloc(maxsize*sizeof(char));                      \
+			memcpy(str_new, str, offset);                                      \
+			free(str);                                                         \
+			str = str_new;                                                     \
+			ret = snprintf(str + offset, maxsize - offset, __VA_ARGS__);       \
 		}                                                                      \
 		offset += ret;                                                         \
 	} while (0)
@@ -632,12 +637,7 @@ static inline void cpumanager_init(void)
 
 static inline void topology_print(void)
 {
-	int maxsize = 31 + 14 // Title
-		+ 52 + topo_lvl_cnt(TOPO_NUMA)*(8 + 37 + 3*3 + 1) + topo_lvl_cnt(TOPO_CPU)*(1*3 + 1) // NUMA lines
-		+ 63 + topo_lvl_cnt(TOPO_COMPLEX_SET)*(8 + 38 + 2*3 + 1) + topo_lvl_cnt(TOPO_CPU)*(1*3 + 1) // Complex Set lines
-		+ 47 + topo_lvl_cnt(TOPO_CORE)*(8 + 37 + 3*3 + 1) + topo_lvl_cnt(TOPO_CPU)*(1*3 + 1) // Core lines
-		+ 38 + topo_lvl_cnt(TOPO_CPU)*(8 + 20 + 2*3); // CPU lines
-
+	int maxsize = 40960;
 	char *msg = malloc(maxsize * sizeof(char));
 
 	int offset = snprintf(msg, maxsize, "NOSV: Printing locality domains");
