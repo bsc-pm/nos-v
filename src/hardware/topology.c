@@ -37,10 +37,7 @@ __internal topology_t *topology;
 		int ret = snprintf(str + offset, maxsize - offset, __VA_ARGS__);       \
 		while (ret >= maxsize - offset) {                                      \
 			maxsize *= 2;                                                      \
-			char* str_new = malloc(maxsize*sizeof(char));                      \
-			memcpy(str_new, str, offset);                                      \
-			free(str);                                                         \
-			str = str_new;                                                     \
+			str = realloc(str, maxsize*sizeof(char));                          \
 			ret = snprintf(str + offset, maxsize - offset, __VA_ARGS__);       \
 		}                                                                      \
 		offset += ret;                                                         \
@@ -640,9 +637,8 @@ static inline void topology_print(void)
 	int maxsize = 40960;
 	char *msg = malloc(maxsize * sizeof(char));
 
-	int offset = snprintf(msg, maxsize, "NOSV: Printing locality domains");
-	if (offset >= maxsize)
-		nosv_abort("Failed to format locality domains");
+	int offset = 0;
+	snprintf_check(msg, offset, maxsize, "NOSV: Printing locality domains");
 
 	snprintf_check(msg, offset, maxsize, "\nNOSV: NODE: 1");
 
