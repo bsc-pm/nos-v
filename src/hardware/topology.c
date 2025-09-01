@@ -35,8 +35,10 @@ __internal topology_t *topology;
 #define snprintf_check(str, offset, maxsize, ...)                              \
 	do {                                                                       \
 		int ret = snprintf(str + offset, maxsize - offset, __VA_ARGS__);       \
-		while (ret >= maxsize - offset) {                                      \
-			maxsize *= 2;                                                      \
+		if (ret >= maxsize - offset) {                                         \
+			do {                                                               \
+				maxsize *= 2;                                                  \
+			} while (ret >= maxsize - offset);                                 \
 			str = realloc(str, maxsize*sizeof(char));                          \
 			ret = snprintf(str + offset, maxsize - offset, __VA_ARGS__);       \
 		}                                                                      \
@@ -651,7 +653,8 @@ static inline void topology_print(void)
 		int count = 0;
 		int cpu;
 		CPU_BITSET_FOREACH (&numa->cpu_sid_mask, cpu) {
-			snprintf_check(msg, offset, maxsize, "%s%d", count++ > 0 ? "," : "", cpu);
+			const char *prefix = count++ > 0 ? "," : "";
+			snprintf_check(msg, offset, maxsize, "%s%d", prefix, cpu);
 		}
 		snprintf_check(msg, offset, maxsize, "] ");
 	}
@@ -665,7 +668,8 @@ static inline void topology_print(void)
 		int count = 0;
 		int cpu;
 		CPU_BITSET_FOREACH (&ccx->cpu_sid_mask, cpu) {
-			snprintf_check(msg, offset, maxsize, "%s%d", count++ > 0 ? "," : "", cpu);
+			const char *prefix = count++ > 0 ? "," : "";
+			snprintf_check(msg, offset, maxsize, "%s%d", prefix, cpu);
 		}
 		snprintf_check(msg, offset, maxsize, "] ");
 	}
@@ -679,7 +683,8 @@ static inline void topology_print(void)
 		int count = 0;
 		int cpu;
 		CPU_BITSET_FOREACH (&core->cpu_sid_mask, cpu) {
-			snprintf_check(msg, offset, maxsize, "%s%d", count++ > 0 ? "," : "", cpu);
+			const char *prefix = count++ > 0 ? "," : "";
+			snprintf_check(msg, offset, maxsize, "%s%d", prefix, cpu);
 		}
 		snprintf_check(msg, offset, maxsize, "] ");
 	}
