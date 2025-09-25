@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2025 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
@@ -17,6 +17,7 @@
 #include "hwcounters/hwcounters.h"
 #include "hwcounters/taskhwcounters.h"
 #include "hwcounters/threadhwcounters.h"
+#include "instr.h"
 
 #if HAVE_PAPI
 #include "hwcounters/papi/papihwcounters.h"
@@ -103,6 +104,8 @@ void hwcounters_initialize(void)
 				assert(id < hwcbackend.num_enabled_counters);
 
 				hwcbackend.enabled_counters[id] = i;
+				instr_hwc_register(id, counter_descriptions[i].descr);
+
 				++id;
 			}
 		}
