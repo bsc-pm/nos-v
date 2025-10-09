@@ -444,7 +444,7 @@ static inline void instr_sched_server_exit(int blocking)
 {
 }
 
-static inline void instr_hwc_add(size_t index, const char *name)
+static inline void instr_hwc_register(size_t index, const char *name)
 {
 }
 
