@@ -11,6 +11,7 @@ shift
 
 current_dir=$(dirname "$0")
 export NOSV_CONFIG=${top_srcdir}/nosv.toml
+export NOSV_CONFIG_OVERRIDE="shared_memory.isolation_level=user,$NOSV_CONFIG_OVERRIDE"
 
 args=("$@")
 location=${#args[@]}
