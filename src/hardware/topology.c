@@ -593,9 +593,6 @@ static inline void cpus_get_binding_mask(const char *binding, cpu_bitset_t *cpu_
 
 		free(tmp_binding);
 	}
-
-	if (nosv_config.debug_print_binding)
-		cpu_bitset_print_mask(cpu_bitset);
 }
 
 static inline void cpumanager_init(void)
@@ -758,13 +755,45 @@ static inline void topology_assert_parents_set(void)
 	}
 }
 
+// Check that all CPUs present in the given mask are actually bindable by the process
+static inline void sanity_check_valid_cpus(cpu_bitset_t *cpus)
+{
+	cpu_set_t cpuset, cpuset_cpy;
+	cpu_bitset_to_cpuset(&cpuset, cpus);
+	cpu_bitset_to_cpuset(&cpuset_cpy, cpus);
+	assert(CPU_EQUAL(&cpuset, &cpuset_cpy));
+
+	cpu_filter_usable(&cpuset);
+
+	if (!CPU_EQUAL(&cpuset, &cpuset_cpy))
+		nosv_abort("The configured binding for nOS-V contains CPUs which don't exist or can't be used.");
+}
+
 void topo_init(int initialize)
 {
+	// First of all, get the cpus from the configured binding
+	cpu_bitset_t valid_cpus;
+	cpus_get_binding_mask(nosv_config.topology_binding, &valid_cpus);
+
+	// Here we can print the parsed binding if the user has requested so
+	if (nosv_config.debug_print_binding)
+		cpu_bitset_print_mask(&valid_cpus);
+
+	// Check the CPUs are actually usable by our process
+	sanity_check_valid_cpus(&valid_cpus);
+
 	if (!initialize) {
 		cpumanager = (cpumanager_t *) st_config.config->cpumanager_ptr;
 		assert(cpumanager);
 		topology = (topology_t *) st_config.config->topology_ptr;
 		assert(topology);
+
+		// Sanity check. The topology binding for the node should be equal to our process configured binding.
+		cpu_bitset_t *topo_configured_cpus = topo_dom_cpu_sid_bitset(TOPO_NODE, 0);
+		cpu_bitset_xor(&valid_cpus, topo_configured_cpus);
+		if (cpu_bitset_count(&valid_cpus) != 0)
+			nosv_abort("The configured binding for nOS-V differs from the binding of your nOS-V instance.");
+
 		return;
 	}
 
@@ -778,8 +807,6 @@ void topo_init(int initialize)
 	}
 
 	// Initialize domain levels
-	cpu_bitset_t valid_cpus;
-	cpus_get_binding_mask(nosv_config.topology_binding, &valid_cpus);
 
 	// Inform the instrumentation of all available CPUs valid_cpus
 	instr_cpu_count(cpu_bitset_count(&valid_cpus), cpu_bitset_fls(&valid_cpus));
