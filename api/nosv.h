@@ -37,7 +37,6 @@ typedef struct nosv_task_type *nosv_task_type_t;
 struct nosv_task;
 typedef struct nosv_task *nosv_task_t;
 typedef struct nosv_affinity nosv_affinity_t;
-
 typedef void (*nosv_task_run_callback_t)(nosv_task_t);
 typedef void (*nosv_task_end_callback_t)(nosv_task_t);
 typedef void (*nosv_task_completed_callback_t)(nosv_task_t);

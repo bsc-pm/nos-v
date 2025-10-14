@@ -67,6 +67,7 @@ libnosv_la_SOURCES = \
 	src/support/barrier.c \
 	src/support/mutex.c \
 	src/support/cond.c \
+	src/support/rwlock.c \
 	src/system/tasks.c
 
 if USE_ASAN

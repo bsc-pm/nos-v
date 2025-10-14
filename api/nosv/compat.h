@@ -39,6 +39,15 @@ typedef union nosv_cond_ext {
 
 #define NOSV_COND_INITIALIZER {0}
 
+#define SIZEOF_NOSV_RWLOCK 64
+
+typedef union nosv_rwlock_ext {
+	uint8_t __pad[SIZEOF_NOSV_RWLOCK];
+	uint64_t __align;
+} nosv_rwlock_t;
+
+#define NOSV_RWLOCK_INITIALIZER {0}
+
 #define SIZEOF_NOSV_MUTEXATTR 32
 
 typedef union nosv_mutexattr_ext {
@@ -59,6 +68,13 @@ typedef union nosv_condattr_ext {
 	uint8_t __pad[SIZEOF_NOSV_CONDATTR];
 	uint64_t __align;
 } nosv_condattr_t;
+
+#define SIZEOF_NOSV_RWLOCKATTR 32
+
+typedef union nosv_rwlockattr_ext {
+	uint8_t __pad[SIZEOF_NOSV_RWLOCKATTR];
+	uint64_t __align;
+} nosv_rwlockattr_t;
 
 /* Flags */
 #define NOSV_MUTEX_NONE __ZEROBITS
@@ -153,6 +169,43 @@ int nosv_cond_timedwait_pthread(
 	nosv_cond_t *cond,
 	pthread_mutex_t *mutex,
 	const struct timespec *abstime);
+
+/* Initialize a nosv_rwlock_t object. The attr object is currently not
+ * implemented, use NULL */
+int nosv_rwlock_init(
+	nosv_rwlock_t *rwlock,
+	const nosv_rwlockattr_t *attr);
+
+/* Destroys a nosv_rwlock_t object */
+int nosv_rwlock_destroy(
+	nosv_rwlock_t *rwlock);
+
+/* Similar to pthread_rwlock_wrlock, locks a rwlock but calls nosv_pause if the lock
+ * is contended */
+/* Restriction: Can only be called from a task context */
+int nosv_rwlock_wrlock(
+	nosv_rwlock_t *rwlock);
+
+/* Similar to pthread_rwlock_rdlock, locks a rwlock but calls nosv_pause if the lock
+ * is contended */
+/* Restriction: Can only be called from a task context */
+int nosv_rwlock_rdlock(
+	nosv_rwlock_t *rwlock);
+
+/* Lock the rwlock or return immediately if contended */
+/* Restriction: Can only be called from a task context */
+int nosv_rwlock_trywrlock(
+	nosv_rwlock_t *rwlock);
+
+/* Lock the rwlock or return immediately if contended */
+/* Restriction: Can only be called from a task context */
+int nosv_rwlock_tryrdlock(
+	nosv_rwlock_t *rwlock);
+
+/* Unlock a rwlock object */
+/* Restriction: Can only be called from a task context */
+int nosv_rwlock_unlock(
+	nosv_rwlock_t *rwlock);
 
 #ifdef __cplusplus
 }
