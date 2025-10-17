@@ -23,6 +23,7 @@ basic_tests = basic-error-code.test \
 	basic-affinity-support.test \
 	basic-attach.test \
 	basic-attach-external.test \
+	basic-attach-instr.test \
 	basic-barrier.test \
 	basic-mutex.test \
 	basic-cond.test \
@@ -111,6 +112,10 @@ basic_attach_test_LDFLAGS = $(AM_LDFLAGS)
 basic_attach_external_test_SOURCES = basic/attach-external.c
 basic_attach_external_test_CFLAGS = $(AM_CFLAGS)
 basic_attach_external_test_LDFLAGS = $(AM_LDFLAGS)
+
+basic_attach_instr_test_SOURCES = basic/attach-instr.c
+basic_attach_instr_test_CFLAGS = $(AM_CFLAGS)
+basic_attach_instr_test_LDFLAGS = $(AM_LDFLAGS)
 
 basic_barrier_test_SOURCES = basic/barrier.c
 basic_barrier_test_CFLAGS = $(AM_CFLAGS)
