@@ -189,8 +189,8 @@ void test_cond(const char *pref, const char *label, const cond_test_flag_t flags
 
 void init_objs() {
 	// Prepare the global cond and mutex
-	CHECK(nosv_cond_init(&cond, NOSV_COND_NONE));
-	CHECK(nosv_mutex_init(&mutex, NOSV_MUTEX_NONE));
+	CHECK(nosv_cond_init(&cond, NULL));
+	CHECK(nosv_mutex_init(&mutex, NULL));
 	CHECK(pthread_mutex_init(&pthread_mutex, NULL));
 }
 

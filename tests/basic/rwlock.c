@@ -39,13 +39,13 @@ void task_reader_run(nosv_task_t task)
 	if (rand() % 2) {
 		CHECK(nosv_rwlock_rdlock(&rwlock));
 	} else {
-		int err = NOSV_ERR_BUSY;
+		int err = EBUSY;
 
-		while (err != NOSV_SUCCESS) {
+		while (err != 0) {
 			err = nosv_rwlock_tryrdlock(&rwlock);
-			if (err != NOSV_ERR_BUSY && err != NOSV_SUCCESS)
+			if (err != EBUSY && err != 0)
 				test_fail(&test, "Tryrdlock returned error: %s", nosv_get_error_string(err));
-			if (err != NOSV_SUCCESS)
+			if (err != 0)
 				nosv_yield(NOSV_YIELD_NONE);
 		}
 	}

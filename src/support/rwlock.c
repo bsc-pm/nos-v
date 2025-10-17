@@ -30,8 +30,27 @@ struct nosv_rwlock {
 static_assert(sizeof(struct nosv_rwlock) <= SIZEOF_NOSV_RWLOCK,
 	"Exposed barrier struct sould be at least the size of internal type. Increase exposed struct size accordingly.");
 
+int nosv_rwlockattr_init(nosv_rwlockattr_t *attr)
+{
+	if (!attr)
+		return EINVAL;
+
+	return 0;
+}
+
+int nosv_rwlockattr_destroy(nosv_rwlockattr_t *attr)
+{
+	if (!attr)
+		return EINVAL;
+
+	return 0;
+}
+
 int nosv_rwlock_init(nosv_rwlock_t *rwlock, __maybe_unused const nosv_rwlockattr_t *attr)
 {
+	if (!rwlock)
+		return EINVAL;
+
 	struct nosv_rwlock *rwl = (struct nosv_rwlock *)rwlock;
 
 	// Initialize rwlock object
@@ -40,17 +59,15 @@ int nosv_rwlock_init(nosv_rwlock_t *rwlock, __maybe_unused const nosv_rwlockattr
 	nosv_spin_init(&rwl->lock);
 	rwl->wrtaken = false;
 	rwl->rdtaken_count = 0;
-	return NOSV_SUCCESS;
+	return 0;
 }
 
 int nosv_rwlock_destroy(nosv_rwlock_t *rwlock)
 {
-	struct nosv_rwlock *rwl = (struct nosv_rwlock *)rwlock;
+	if (!rwlock)
+		return EINVAL;
 
-	if (!rwl)
-		return NOSV_ERR_INVALID_PARAMETER;
-
-	return NOSV_SUCCESS;
+	return 0;
 }
 
 int nosv_rwlock_wrlock(nosv_rwlock_t *rwlock)
@@ -59,13 +76,13 @@ int nosv_rwlock_wrlock(nosv_rwlock_t *rwlock)
 	nosv_task_t current_task = worker_current_task();
 
 	if (!rwl)
-		return NOSV_ERR_INVALID_PARAMETER;
+		return EINVAL;
 
 	if (!current_task)
-		return NOSV_ERR_OUTSIDE_TASK;
+		return ESRCH;
 
 	if (task_is_parallel(current_task))
-		return NOSV_ERR_INVALID_OPERATION;
+		return EINVAL;
 
 	// Try to take the rwlock
 	nosv_spin_lock(&rwl->lock);
@@ -86,7 +103,7 @@ int nosv_rwlock_wrlock(nosv_rwlock_t *rwlock)
 		nosv_spin_unlock(&rwl->lock);
 	}
 
-	return NOSV_SUCCESS;
+	return 0;
 }
 
 int nosv_rwlock_rdlock(nosv_rwlock_t *rwlock)
@@ -95,13 +112,13 @@ int nosv_rwlock_rdlock(nosv_rwlock_t *rwlock)
 	nosv_task_t current_task = worker_current_task();
 
 	if (!rwl)
-		return NOSV_ERR_INVALID_PARAMETER;
+		return EINVAL;
 
 	if (!current_task)
-		return NOSV_ERR_OUTSIDE_TASK;
+		return ESRCH;
 
 	if (task_is_parallel(current_task))
-		return NOSV_ERR_INVALID_OPERATION;
+		return EINVAL;
 
 	// Try to take the rwlock
 	nosv_spin_lock(&rwl->lock);
@@ -123,7 +140,7 @@ int nosv_rwlock_rdlock(nosv_rwlock_t *rwlock)
 		nosv_spin_unlock(&rwl->lock);
 	}
 
-	return NOSV_SUCCESS;
+	return 0;
 }
 
 int nosv_rwlock_tryrdlock(nosv_rwlock_t *rwlock)
@@ -133,24 +150,24 @@ int nosv_rwlock_tryrdlock(nosv_rwlock_t *rwlock)
 	nosv_task_t current_task = worker_current_task();
 
 	if (!rwl)
-		return NOSV_ERR_INVALID_PARAMETER;
+		return EINVAL;
 
 	if (!current_task)
-		return NOSV_ERR_OUTSIDE_TASK;
+		return ESRCH;
 
 	// Try to take the rwlock
 	nosv_spin_lock(&rwl->lock);
 	assert(!(rwl->wrtaken && (rwl->rdtaken_count > 0)));
 	if (rwl->wrtaken || (rwl->rdtaken_count > 0 && !list_empty(&rwl->wrlist))) {
 		// The rwlock is contended.
-		rc = NOSV_ERR_BUSY;
+		rc = EBUSY;
 	} else {
 		// The lock is not taken. Mark the rwlock as taken for read and return.
 		if (!rwl->rdtaken_count)
 			list_init(&rwl->wrlist);
 		rwl->rdtaken_count++;
 		list_init(&rwl->rdlist);
-		rc = NOSV_SUCCESS;
+		rc = 0;
 	}
 
 	nosv_spin_unlock(&rwl->lock);
@@ -165,10 +182,10 @@ int nosv_rwlock_trywrlock(nosv_rwlock_t *rwlock)
 	nosv_task_t current_task = worker_current_task();
 
 	if (!rwl)
-		return NOSV_ERR_INVALID_PARAMETER;
+		return EINVAL;
 
 	if (!current_task)
-		return NOSV_ERR_OUTSIDE_TASK;
+		return ESRCH;
 
 	// Try to take the rwlock
 	nosv_spin_lock(&rwl->lock);
@@ -176,31 +193,30 @@ int nosv_rwlock_trywrlock(nosv_rwlock_t *rwlock)
 	if (rwl->wrtaken || rwl->rdtaken_count > 0) {
 		// The rwlock is contended.
 		nosv_spin_unlock(&rwl->lock);
-		rc = NOSV_ERR_BUSY;
+		rc = EBUSY;
 	} else {
 		// The lock is not taken. Mark the rwlock as taken and return.
 		rwl->wrtaken = true;
 		list_init(&rwl->wrlist);
 		list_init(&rwl->rdlist);
 		nosv_spin_unlock(&rwl->lock);
-		rc = NOSV_SUCCESS;
+		rc = 0;
 	}
 
 	return rc;
 }
 
-static inline int nosv_rwlock_unlock_internal(nosv_rwlock_t *rwlock, char yield_allowed)
-{
+int nosv_rwlock_unlock(nosv_rwlock_t *rwlock) {
 	nosv_task_t task;
 	struct nosv_rwlock *rwl = (struct nosv_rwlock *)rwlock;
 	nosv_task_t current_task = worker_current_task();
 	list_head_t *elem = NULL;
 
 	if (!rwl)
-		return NOSV_ERR_INVALID_PARAMETER;
+		return EINVAL;
 
 	if (!current_task)
-		return NOSV_ERR_OUTSIDE_TASK;
+		return ESRCH;
 
 	// Unlock the rwlock
 	nosv_spin_lock(&rwl->lock);
@@ -248,7 +264,7 @@ static inline int nosv_rwlock_unlock_internal(nosv_rwlock_t *rwlock, char yield_
 
 		cpu_t *current_cpu = cpu_ptr(cpu_get_current());
 
-		if (yield_allowed && task_affine(task, current_cpu)) {
+		if (task_affine(task, current_cpu)) {
 			// Since the task is affine, yield the current core to the unblocked task to speed things up
 			// and forego the scheduler
 
@@ -264,9 +280,5 @@ static inline int nosv_rwlock_unlock_internal(nosv_rwlock_t *rwlock, char yield_
 		}
 	}
 
-	return NOSV_SUCCESS;
-}
-
-int nosv_rwlock_unlock(nosv_rwlock_t *rwlock) {
-	return nosv_rwlock_unlock_internal(rwlock, 1);
+	return 0;
 }

@@ -28,14 +28,20 @@ struct nosv_barrier {
 static_assert(sizeof(struct nosv_barrier) <= SIZEOF_NOSV_BARRIER,
 	"Exposed barrier struct sould be at least the size of internal type. Increase exposed struct size accordingly.");
 
-int nosv_barrierattr_init(__maybe_unused nosv_barrierattr_t *attr)
+int nosv_barrierattr_init(nosv_barrierattr_t *attr)
 {
-	return NOSV_SUCCESS;
+	if (!attr)
+		return EINVAL;
+
+	return 0;
 }
 
-int nosv_barrierattr_destroy(__maybe_unused nosv_barrierattr_t *attr)
+int nosv_barrierattr_destroy(nosv_barrierattr_t *attr)
 {
-	return NOSV_SUCCESS;
+	if (!attr)
+		return EINVAL;
+
+	return 0;
 }
 
 int nosv_barrier_init(
@@ -43,17 +49,20 @@ int nosv_barrier_init(
 	__maybe_unused const nosv_barrierattr_t *attr,
 	unsigned count)
 {
+	if (!barrier)
+	return EINVAL;
+
 	struct nosv_barrier *b = (struct nosv_barrier *) barrier;
 
 	if (!count)
-		return NOSV_ERR_INVALID_PARAMETER;
+		return EINVAL;
 
 	// Initialize barrier object
 	task_group_init(&b->waiting_tasks);
 	nosv_spin_init(&b->lock);
 	b->count = count;
 	b->towait = count;
-	return NOSV_SUCCESS;
+	return 0;
 }
 
 int nosv_barrier_destroy(nosv_barrier_t *barrier)
@@ -61,9 +70,9 @@ int nosv_barrier_destroy(nosv_barrier_t *barrier)
 	struct nosv_barrier *b = (struct nosv_barrier *) barrier;
 
 	if (!b)
-		return NOSV_ERR_INVALID_PARAMETER;
+		return EINVAL;
 
-	return NOSV_SUCCESS;
+	return 0;
 }
 
 int nosv_barrier_wait(nosv_barrier_t *barrier)
@@ -72,10 +81,10 @@ int nosv_barrier_wait(nosv_barrier_t *barrier)
 	nosv_task_t current_task = worker_current_task();
 
 	if (!b)
-		return NOSV_ERR_INVALID_PARAMETER;
+		return EINVAL;
 
 	if (!current_task)
-		return NOSV_ERR_OUTSIDE_TASK;
+		return ESRCH;
 
 	instr_barrier_wait_enter();
 
@@ -104,5 +113,5 @@ int nosv_barrier_wait(nosv_barrier_t *barrier)
 
 	instr_barrier_wait_exit();
 
-	return NOSV_SUCCESS;
+	return 0;
 }

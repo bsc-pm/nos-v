@@ -30,14 +30,20 @@ struct nosv_cond {
 static_assert(sizeof(struct nosv_cond) <= SIZEOF_NOSV_COND,
 	"Exposed barrier struct sould be at least the size of internal type. Increase exposed struct size accordingly.");
 
-int nosv_condattr_init(__maybe_unused nosv_condattr_t *attr)
+int nosv_condattr_init(nosv_condattr_t *attr)
 {
-	return NOSV_SUCCESS;
+	if (!attr)
+		return EINVAL;
+
+	return 0;
 }
 
-int nosv_condattr_destroy(__maybe_unused nosv_condattr_t *attr)
+int nosv_condattr_destroy(nosv_condattr_t *attr)
 {
-	return NOSV_SUCCESS;
+	if (!attr)
+		return EINVAL;
+
+	return 0;
 }
 
 static inline void nosv_cond_init_internal(struct nosv_cond *c)
@@ -51,35 +57,38 @@ int nosv_cond_init(
 	nosv_cond_t *cond,
 	__maybe_unused const nosv_condattr_t *condattr)
 {
+	if (!cond)
+		return EINVAL;
+
 	struct nosv_cond *c = (struct nosv_cond *) cond;
 
 	// Initialize cond object
 	nosv_cond_init_internal(c);
 	nosv_spin_init(&c->lock);
 
-	return NOSV_SUCCESS;
+	return 0;
 }
 
 int nosv_cond_destroy(nosv_cond_t *cond) {
 	struct nosv_cond *c = (struct nosv_cond *) cond;
 	if (!c)
-		return NOSV_ERR_INVALID_PARAMETER;
+		return EINVAL;
+
 	nosv_spin_lock(&c->lock);
 	if (c->initialized && (!list_empty(&c->list) || !list_empty(&c->list_timed)))
 		nosv_warn("nosv_cond_destroy called with waiters remaining");
 
 	c->initialized = 0;
 	nosv_spin_destroy(&c->lock);
-	return NOSV_SUCCESS;
+
+	return 0;
 }
 
 int nosv_cond_signal(nosv_cond_t *cond)
 {
 	struct nosv_cond *c = (struct nosv_cond *) cond;
 	if (!c)
-		return NOSV_ERR_INVALID_PARAMETER;
-
-	nosv_err_t err = NOSV_SUCCESS;
+		return EINVAL;
 
 	instr_cond_signal_enter();
 
@@ -95,10 +104,14 @@ int nosv_cond_signal(nosv_cond_t *cond)
 		nosv_spin_unlock(&c->lock);
 
 		task = list_elem(head, struct nosv_task, list_hook_cond);
-		err = nosv_submit(task, NOSV_SUBMIT_UNLOCKED);
+		int ret = nosv_submit(task, NOSV_SUBMIT_UNLOCKED);
+		if (ret)
+			nosv_abort("Internal error when submitting a blocked task");
 	} else if ((head = list_pop_front(&c->list_timed))) { // timed
 		task = list_elem(head, struct nosv_task, list_hook_cond);
-		err = nosv_submit(task, NOSV_SUBMIT_DEADLINE_WAKE);
+		int ret = nosv_submit(task, NOSV_SUBMIT_DEADLINE_WAKE);
+		if (ret)
+			nosv_abort("Internal error when submitting a deadline task");
 
 		nosv_spin_unlock(&c->lock);
 	} else { // no task
@@ -106,7 +119,7 @@ int nosv_cond_signal(nosv_cond_t *cond)
 	}
 
 	instr_cond_signal_exit();
-	return err;
+	return 0;
 }
 
 static inline void list_submit_cond_tasks(list_head_t *list, nosv_flags_t flags) {
@@ -117,7 +130,9 @@ static inline void list_submit_cond_tasks(list_head_t *list, nosv_flags_t flags)
 
 	list_for_each_pop(head, list) {
 		task = list_elem(head, struct nosv_task, list_hook_cond);
-		nosv_submit(task, flags);
+		int ret = nosv_submit(task, flags);
+		if (ret)
+			nosv_abort("Internal error submitting blocked tasks");
 	}
 	assert(list_empty(list));
 }
@@ -126,7 +141,7 @@ int nosv_cond_broadcast(nosv_cond_t *cond)
 {
 	struct nosv_cond *c = (struct nosv_cond *) cond;
 	if (!c)
-		return NOSV_ERR_INVALID_PARAMETER;
+		return EINVAL;
 
 	instr_cond_broadcast_enter();
 
@@ -145,7 +160,7 @@ int nosv_cond_broadcast(nosv_cond_t *cond)
 
 	instr_cond_broadcast_exit();
 
-	return NOSV_SUCCESS;
+	return 0;
 }
 
 static inline int nosv_cond_timedwait_internal(
@@ -155,15 +170,18 @@ static inline int nosv_cond_timedwait_internal(
 	const struct timespec *abstime
 )
 {
-	nosv_err_t err = NOSV_SUCCESS;
+	int err = 0;
 	nosv_task_t current_task = worker_current_task();
 	struct nosv_cond *c = (struct nosv_cond *) cond;
 
 	if (!c || (nosv_mutex == NULL && pthread_mutex == NULL))
-		return NOSV_ERR_INVALID_PARAMETER;
+		return EINVAL;
 
 	if (!current_task)
-		return NOSV_ERR_OUTSIDE_TASK;
+		return ESRCH;
+
+	if (task_is_parallel(current_task))
+		return EINVAL;
 
 	instr_cond_wait_enter();
 
@@ -181,7 +199,7 @@ static inline int nosv_cond_timedwait_internal(
 			nosv_spin_unlock(&c->lock);
 			instr_cond_wait_exit();
 
-			return NOSV_SUCCESS;
+			return 0;
 		} else {
 			list_add_tail(&c->list_timed, &current_task->list_hook_cond);
 			wait_ns = abstime_ns - now_ns;
@@ -196,7 +214,8 @@ static inline int nosv_cond_timedwait_internal(
 	} else {
 		err = nosv_mutex_unlock_internal(nosv_mutex, false);
 	}
-	if (unlikely(err != NOSV_SUCCESS)) {
+
+	if (unlikely(err != 0)) {
 		nosv_abort("Failed to unlock nosv mutex");
 	}
 
@@ -204,7 +223,7 @@ static inline int nosv_cond_timedwait_internal(
 		err = nosv_pause(NOSV_PAUSE_NONE);
 		if (unlikely(err != NOSV_SUCCESS)) {
 			instr_cond_wait_exit();
-			return err;
+			nosv_abort("Unexpected internal error when pausing the task");
 		}
 	} else { // timed wait
 		assert(wait_ns);

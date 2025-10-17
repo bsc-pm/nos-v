@@ -31,14 +31,20 @@ struct nosv_mutex {
 static_assert(sizeof(struct nosv_mutex) <= SIZEOF_NOSV_MUTEX,
 	"Exposed barrier struct sould be at least the size of internal type. Increase exposed struct size accordingly.");
 
-int nosv_mutexattr_init(__maybe_unused nosv_mutexattr_t *attr)
+int nosv_mutexattr_init(nosv_mutexattr_t *attr)
 {
-	return NOSV_SUCCESS;
+	if (!attr)
+		return EINVAL;
+
+	return 0;
 }
 
-int nosv_mutexattr_destroy(__maybe_unused nosv_mutexattr_t *attr)
+int nosv_mutexattr_destroy(nosv_mutexattr_t *attr)
 {
-	return NOSV_SUCCESS;
+	if (!attr)
+		return EINVAL;
+
+	return 0;
 }
 
 int nosv_mutex_init(nosv_mutex_t *mutex, __maybe_unused const nosv_mutexattr_t *mutexattr)
@@ -46,7 +52,7 @@ int nosv_mutex_init(nosv_mutex_t *mutex, __maybe_unused const nosv_mutexattr_t *
 	struct nosv_mutex *m = (struct nosv_mutex *) mutex;
 
 	if (!m)
-		return NOSV_ERR_INVALID_PARAMETER;
+		return EINVAL;
 
 	// Initialize mutex object
 	// m->list is NOT initialized with the static initializer, which means it will have to be initialized at a later point again
@@ -57,15 +63,15 @@ int nosv_mutex_init(nosv_mutex_t *mutex, __maybe_unused const nosv_mutexattr_t *
 #ifndef NDEBUG
 		m->owner = 0;
 #endif
-	return NOSV_SUCCESS;
+	return 0;
 }
 
 int nosv_mutex_destroy(nosv_mutex_t *mutex)
 {
 	struct nosv_mutex *m = (struct nosv_mutex *) mutex;
 	if (!m)
-		return NOSV_ERR_INVALID_PARAMETER;
-	return NOSV_SUCCESS;
+		return EINVAL;
+	return 0;
 }
 
 int nosv_mutex_lock(nosv_mutex_t *mutex)
@@ -74,13 +80,13 @@ int nosv_mutex_lock(nosv_mutex_t *mutex)
 	nosv_task_t current_task = worker_current_task();
 
 	if (!m)
-		return NOSV_ERR_INVALID_PARAMETER;
+		return EINVAL;
 
 	if (!current_task)
-		return NOSV_ERR_OUTSIDE_TASK;
+		return ESRCH;
 
 	if (task_is_parallel(current_task))
-		return NOSV_ERR_INVALID_OPERATION;
+		return EINVAL;
 
 	instr_mutex_lock_enter();
 
@@ -109,7 +115,7 @@ int nosv_mutex_lock(nosv_mutex_t *mutex)
 
 	instr_mutex_lock_exit();
 
-	return NOSV_SUCCESS;
+	return 0;
 }
 
 int nosv_mutex_trylock(nosv_mutex_t *mutex)
@@ -119,10 +125,13 @@ int nosv_mutex_trylock(nosv_mutex_t *mutex)
 	nosv_task_t current_task = worker_current_task();
 
 	if (!m)
-		return NOSV_ERR_INVALID_PARAMETER;
+		return EINVAL;
 
 	if (!current_task)
-		return NOSV_ERR_OUTSIDE_TASK;
+		return ESRCH;
+
+	if (task_is_parallel(current_task))
+		return EINVAL;
 
 	instr_mutex_trylock_enter();
 
@@ -140,7 +149,7 @@ int nosv_mutex_trylock(nosv_mutex_t *mutex)
 		m->owner = worker_current()->tid;
 #endif
 		nosv_spin_unlock(&m->lock);
-		rc = NOSV_SUCCESS;
+		rc = 0;
 	}
 
 	instr_mutex_trylock_exit();

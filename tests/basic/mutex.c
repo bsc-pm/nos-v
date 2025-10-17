@@ -67,7 +67,7 @@ void mutex_test(const char *msg, char trylock, char affinity, char initialize)
 
 	// Prepare the global mutex
 	if (initialize)
-		CHECK(nosv_mutex_init(&mutex, NOSV_MUTEX_NONE));
+		CHECK(nosv_mutex_init(&mutex, NULL));
 
 	if (!trylock)
 		CHECK(nosv_mutex_lock(&mutex));
@@ -146,7 +146,7 @@ void mutex_test(const char *msg, char trylock, char affinity, char initialize)
 void trylock_test(const char *msg)
 {
 	// Prepare the global mutex
-	CHECK(nosv_mutex_init(&mutex, NOSV_MUTEX_NONE));
+	CHECK(nosv_mutex_init(&mutex, NULL));
 
 	// Check trylock when the lock is not taken
 	if (NOSV_SUCCESS != nosv_mutex_trylock(&mutex)) {
