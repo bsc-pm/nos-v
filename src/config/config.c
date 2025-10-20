@@ -1,7 +1,7 @@
 /*
 	This file is part of Nanos6 and nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2020-2024 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2020-2025 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
@@ -647,7 +647,7 @@ static inline void config_print_option(rt_config_t *config, config_spec_t *spec)
 {
 	fprintf(stderr, "%s = ", spec->name);
 
-	switch (spec->type) {
+	switch ((enum config_spec_type)spec->type) {
 		case TYPE_INT64:
 			fprintf(stderr, "%" PRId64, *PTR_TO(int64_t, config, spec->member_offset));
 			break;
@@ -666,6 +666,16 @@ static inline void config_print_option(rt_config_t *config, config_spec_t *spec)
 		case TYPE_BOOL:
 			fprintf(stderr, "%d", *PTR_TO(int, config, spec->member_offset));
 			break;
+		case TYPE_LIST_STR: {
+			string_list_t opt = *PTR_TO(string_list_t, config, spec->member_offset);
+			fputs("[", stderr);
+			if (opt.num_strings) {
+				fprintf(stderr, "\"%s\"", opt.strings[0]);
+				for (uint64_t i = 1; i < opt.num_strings; ++i)
+					fprintf(stderr, ",\"%s\"", opt.strings[i]);
+			}
+			fputs("]", stderr);
+		} break;
 	}
 
 	fputs("\n", stderr);
