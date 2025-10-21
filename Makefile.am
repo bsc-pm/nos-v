@@ -1,6 +1,6 @@
 #	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 #
-#	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
+#	Copyright (C) 2021-2025 Barcelona Supercomputing Center (BSC)
 
 ACLOCAL_AMFLAGS = -I m4
 
@@ -178,4 +178,9 @@ subinclude_HEADERS = \
 # Install config file
 data_DATA = nosv.toml
 
-EXTRA_DIST = nosv.toml
+EXTRA_DIST = nosv.toml utils
+
+# Install the utility scripts
+install-data-local:
+	$(MKDIR_P) $(DESTDIR)$(docdir)
+	cp -r $(srcdir)/utils $(DESTDIR)$(docdir)/

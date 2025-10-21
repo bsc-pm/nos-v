@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2023 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2023-2025 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef UTILS_H
@@ -11,6 +11,7 @@
 #include <sched.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define CHECK(f...)                                                                \
 do {                                                                               \
@@ -62,6 +63,21 @@ static inline int get_first_cpu(void)
 	}
 
 	return -1;
+}
+
+static inline int append_config(const char *option)
+{
+	if (!option) return -1;
+
+	const char *current_config = getenv("NOSV_CONFIG_OVERRIDE");
+	char updated_config[4096];
+	if (!current_config) {
+		snprintf(updated_config, sizeof(updated_config), "%s", option);
+	} else {
+		snprintf(updated_config, sizeof(updated_config), "%s,%s", current_config, option);
+	}
+
+	return setenv("NOSV_CONFIG_OVERRIDE", updated_config, 1);
 }
 
 #endif // UTILS_H

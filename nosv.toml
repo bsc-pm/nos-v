@@ -23,7 +23,7 @@
 	# "user" - nOS-V instances are shared for the same user
 	# "group" - nOS-V instances are shared for the same group
 	# "public" - nOS-V instances are shared for the whole system
-	isolation_level = "user"
+	isolation_level = "process"
 	# Size of the shared memory section. Choose powers of two
 	size = "2G"
 	# Start of the shared memory mapping

@@ -85,7 +85,7 @@ $ LD_PRELOAD=<nosv_install_path>/lib/libnosv.so ./main
 
 ## Usage and documentation
 
-The user documentation for nOS-V can be found [here](docs/index.md)
+The user documentation for nOS-V can be found [here](docs/index.md). To check example scripts demonstrating various configurations for using nOS-V in an HPC environment with SLURM, please refer to the [`utils`](utils/) directory.
 
 ## Contributing
 

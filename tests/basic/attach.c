@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2023 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2025 Barcelona Supercomputing Center (BSC)
 */
 
 #include "test.h"
@@ -9,14 +9,13 @@
 
 #include <nosv.h>
 #include <sched.h>
-#include <stdlib.h>
 
 int main() {
 	test_t test;
 
 	test_init(&test, 5);
 
-	putenv("NOSV_CONFIG_OVERRIDE=thread_affinity.compat_support=false");
+	append_config("thread_affinity.compat_support=false");
 
 	CHECK(nosv_init());
 
