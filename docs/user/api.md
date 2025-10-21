@@ -192,6 +192,7 @@ int nosv_decrease_event_counter(
 The nOS-V synchronization primitives provide pthread-compatible interfaces for mutexes, barriers, condition variables, and read-write locks.
 They behave similarly to their pthread counterparts but with different contention handling: instead of blocking the underlying worker thread, a contended call causes the current task to pause, allowing other tasks to be scheduled on the same core.
 All functions return POSIX error codes on failure.
+To use the pthread-compatible interface users must include the `nosv/compat.h` header.
 
 ---
 

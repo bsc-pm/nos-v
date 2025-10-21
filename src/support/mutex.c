@@ -47,11 +47,14 @@ int nosv_mutexattr_destroy(nosv_mutexattr_t *attr)
 	return 0;
 }
 
-int nosv_mutex_init(nosv_mutex_t *mutex, __maybe_unused const nosv_mutexattr_t *mutexattr)
+int nosv_mutex_init(nosv_mutex_t *mutex, const nosv_mutexattr_t *mutexattr)
 {
 	struct nosv_mutex *m = (struct nosv_mutex *) mutex;
 
 	if (!m)
+		return EINVAL;
+
+	if (mutexattr)
 		return EINVAL;
 
 	// Initialize mutex object
@@ -165,10 +168,10 @@ __internal int nosv_mutex_unlock_internal(nosv_mutex_t *mutex, char yield_allowe
 	nosv_task_t current_task = worker_current_task();
 
 	if (!m)
-		return NOSV_ERR_INVALID_PARAMETER;
+		return EINVAL;
 
 	if (!current_task)
-		return NOSV_ERR_OUTSIDE_TASK;
+		return ESRCH;
 
 	instr_mutex_unlock_enter();
 
@@ -217,7 +220,7 @@ __internal int nosv_mutex_unlock_internal(nosv_mutex_t *mutex, char yield_allowe
 
 	instr_mutex_unlock_exit();
 
-	return NOSV_SUCCESS;
+	return 0;
 }
 
 int nosv_mutex_unlock(nosv_mutex_t *mutex) {

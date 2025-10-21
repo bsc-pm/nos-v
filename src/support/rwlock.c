@@ -46,9 +46,12 @@ int nosv_rwlockattr_destroy(nosv_rwlockattr_t *attr)
 	return 0;
 }
 
-int nosv_rwlock_init(nosv_rwlock_t *rwlock, __maybe_unused const nosv_rwlockattr_t *attr)
+int nosv_rwlock_init(nosv_rwlock_t *rwlock, const nosv_rwlockattr_t *attr)
 {
 	if (!rwlock)
+		return EINVAL;
+
+	if (attr)
 		return EINVAL;
 
 	struct nosv_rwlock *rwl = (struct nosv_rwlock *)rwlock;

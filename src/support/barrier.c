@@ -46,13 +46,16 @@ int nosv_barrierattr_destroy(nosv_barrierattr_t *attr)
 
 int nosv_barrier_init(
 	nosv_barrier_t *barrier,
-	__maybe_unused const nosv_barrierattr_t *attr,
+	const nosv_barrierattr_t *attr,
 	unsigned count)
 {
-	if (!barrier)
-	return EINVAL;
-
 	struct nosv_barrier *b = (struct nosv_barrier *) barrier;
+
+	if (!b)
+		return EINVAL;
+
+	if (attr)
+		return EINVAL;
 
 	if (!count)
 		return EINVAL;
