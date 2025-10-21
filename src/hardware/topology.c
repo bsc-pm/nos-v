@@ -32,19 +32,6 @@ thread_local int __current_cpu = -1;
 __internal cpumanager_t *cpumanager;
 __internal topology_t *topology;
 
-#define snprintf_check(str, offset, maxsize, ...)                              \
-	do {                                                                       \
-		int ret = snprintf(str + offset, maxsize - offset, __VA_ARGS__);       \
-		if (ret >= maxsize - offset) {                                         \
-			do {                                                               \
-				maxsize *= 2;                                                  \
-			} while (ret >= maxsize - offset);                                 \
-			str = realloc(str, maxsize*sizeof(char));                          \
-			ret = snprintf(str + offset, maxsize - offset, __VA_ARGS__);       \
-		}                                                                      \
-		offset += ret;                                                         \
-	} while (0)
-
 static inline int topology_get_logical_id_check(nosv_topo_level_t level, int system_id)
 {
 	int lid = topo_dom_lid(level, system_id);
@@ -756,31 +743,36 @@ static inline void topology_assert_parents_set(void)
 }
 
 // Check that all CPUs present in the given mask are actually bindable by the process
-static inline void sanity_check_valid_cpus(cpu_bitset_t *cpus)
+static inline void cpu_check_bindable(cpu_bitset_t *cpus)
 {
 	cpu_set_t cpuset, cpuset_cpy;
 	cpu_bitset_to_cpuset(&cpuset, cpus);
 	cpu_bitset_to_cpuset(&cpuset_cpy, cpus);
-	assert(CPU_EQUAL(&cpuset, &cpuset_cpy));
 
 	cpu_filter_usable(&cpuset);
 
-	if (!CPU_EQUAL(&cpuset, &cpuset_cpy))
-		nosv_abort("The configured binding for nOS-V contains CPUs which don't exist or can't be used.");
+	if (!CPU_EQUAL(&cpuset, &cpuset_cpy)) {
+		const char *mask_original = cpu_set_to_str(&cpuset_cpy);
+		const char *mask_filtered = cpu_set_to_str(&cpuset);
+		nosv_abort("The configured binding for nOS-V contains CPUs which don't exist or can't be used.\nConfigured binding: %s\nUsable binding: %s",
+			mask_original, mask_filtered);
+		// No need to free, since execution was aborted
+	}
 }
 
 void topo_init(int initialize)
 {
-	// First of all, get the cpus from the configured binding
+	// Check whether the current cpumask is correct
 	cpu_bitset_t valid_cpus;
 	cpus_get_binding_mask(nosv_config.topology_binding, &valid_cpus);
+	cpu_check_bindable(&valid_cpus);
 
 	// Here we can print the parsed binding if the user has requested so
-	if (nosv_config.debug_print_binding)
-		cpu_bitset_print_mask(&valid_cpus);
-
-	// Check the CPUs are actually usable by our process
-	sanity_check_valid_cpus(&valid_cpus);
+	if (nosv_config.debug_print_binding) {
+		char *mask = cpu_bitset_to_str(&valid_cpus);
+		nosv_warn("Binding parsed from config: %s", mask);
+		free(mask);
+	}
 
 	if (!initialize) {
 		cpumanager = (cpumanager_t *) st_config.config->cpumanager_ptr;
@@ -791,8 +783,11 @@ void topo_init(int initialize)
 		// Sanity check. The topology binding for the node should be equal to our process configured binding.
 		cpu_bitset_t *topo_configured_cpus = topo_dom_cpu_sid_bitset(TOPO_NODE, 0);
 		cpu_bitset_xor(&valid_cpus, topo_configured_cpus);
-		if (cpu_bitset_count(&valid_cpus) != 0)
-			nosv_abort("The configured binding for nOS-V differs from the binding of your nOS-V instance.");
+		if (cpu_bitset_count(&valid_cpus) != 0) {
+			const char *configured_cpus = cpu_bitset_to_str(topo_configured_cpus);
+			nosv_abort("The configured binding for nOS-V differs from the binding of your nOS-V instance.\nInstance binding: %s",
+				configured_cpus);
+		}
 
 		return;
 	}
@@ -1093,5 +1088,3 @@ int nosv_get_num_cpus_in_numa(int system_numa_id)
 {
 	return nosv_get_num_cpus_in_domain(TOPO_NUMA, system_numa_id);
 }
-
-#undef snprintf_check
