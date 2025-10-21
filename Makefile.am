@@ -184,6 +184,5 @@ data_DATA = nosv.toml
 EXTRA_DIST = nosv.toml utils
 
 # Install the utility scripts
-install-data-local:
-	$(MKDIR_P) $(DESTDIR)$(docdir)
-	cp -r $(srcdir)/utils $(DESTDIR)$(docdir)/
+dist_doc_DATA = $(wildcard $(srcdir)/utils/*)
+
