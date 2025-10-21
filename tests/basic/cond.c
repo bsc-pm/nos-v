@@ -38,9 +38,9 @@ atomic_uint track_completed;
 
 int ready = 0;
 
-nosv_cond_t cond;
-nosv_mutex_t mutex;
-pthread_mutex_t pthread_mutex;
+nosv_cond_t cond = NOSV_COND_INITIALIZER;
+nosv_mutex_t mutex = NOSV_MUTEX_INITIALIZER;
+pthread_mutex_t pthread_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 struct metadata {
 	int tid;
@@ -220,7 +220,9 @@ int main()
 	const int timeout_ms = 250;
 
 	for (int i = 0; i < NVARIANTS; ++i) {
-		init_objs();
+		// The first iteration will use static initializers
+		if (i)
+			init_objs();
 
 		const cond_test_flag_t flags = variants[i];
 		const char *label = labels[i];

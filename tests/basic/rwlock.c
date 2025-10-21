@@ -33,6 +33,7 @@ atomic_int comp_rd = 0;
 atomic_int comp_wr = 0;
 atomic_int flag_1 = 0;
 atomic_int flag_2 = 0;
+atomic_int can_trywrlock = 0;
 
 void task_reader_run(nosv_task_t task)
 {
@@ -64,8 +65,26 @@ void task_reader_run(nosv_task_t task)
 
 void task_writer_run(nosv_task_t task)
 {
+	// Depending on the test, we can use trywrlock without altering the result
+	const int trywrlock_allowed = atomic_load(&can_trywrlock);
+
 	atomic_fetch_add(&concurrent_waiting_writers, 1);
-	CHECK(nosv_rwlock_wrlock(&rwlock));
+
+	if (!trywrlock_allowed || rand() % 2) {
+		CHECK(nosv_rwlock_wrlock(&rwlock));
+	} else {
+		int err = EBUSY;
+
+		while (err != 0) {
+			err = nosv_rwlock_trywrlock(&rwlock);
+			if (err != EBUSY && err != 0)
+				test_fail(&test, "Trywrlock returned error: %s", nosv_get_error_string(err));
+			if (err != 0)
+				nosv_yield(NOSV_YIELD_NONE);
+		}
+	}
+
+	// Entered critical region
 	atomic_fetch_add(&concurrent_waiting_writers, -1);
 
 	int nwriters = atomic_fetch_add(&concurrent_writers, 1) + 1;
@@ -92,6 +111,8 @@ void task_comp_wr(nosv_task_t task)
 
 void test_1(void)
 {
+	// In this test, trywrlock is allowed
+	atomic_store(&can_trywrlock, 1);
 	atomic_store(&flag_2, 1);
 
 	// First, submit all readers and assert they arrive to the critical region.
@@ -117,6 +138,7 @@ void test_1(void)
 	atomic_store(&flag_2, 0);
 	atomic_store(&comp_rd, 0);
 	atomic_store(&comp_wr, 0);
+	atomic_store(&can_trywrlock, 0);
 }
 
 void test_2(void)
@@ -164,13 +186,21 @@ void test_2(void)
 	atomic_store(&flag_2, 0);
 	atomic_store(&comp_rd, 0);
 	atomic_store(&comp_wr, 0);
+	atomic_store(&can_trywrlock, 0);
+}
+
+static inline void perform_tests(void)
+{
+	test_1();
+
+	test_2();
 }
 
 int main()
 {
 	nosv_task_t task;
 
-	test_init(&test, 2 * NREADERS + 4 * NWRITERS + 4 + 8 + 1);
+	test_init(&test, (2 * NREADERS + 4 * NWRITERS + 4 + 8 + 1) * 2);
 
 	// Init nosv
 	CHECK(nosv_init());
@@ -189,9 +219,15 @@ int main()
 	for (int i = 0; i < NWRITERS; ++i)
 		CHECK(nosv_create(&writers[i], type_writer, 0, NOSV_CREATE_NONE));
 
-	test_1();
+	// Use static initializers
+	perform_tests();
 
-	test_2();
+	// Now destroy and re-create the rwlock using the dynamic initializers
+	CHECK(nosv_rwlock_destroy(&rwlock));
+	CHECK(nosv_rwlock_init(&rwlock, NULL));
+
+	// Perform tests again
+	perform_tests();
 
 	for (int i = 0; i < NREADERS; ++i)
 		CHECK(nosv_destroy(readers[i], NOSV_DESTROY_NONE));
