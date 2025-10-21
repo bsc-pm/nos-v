@@ -36,7 +36,11 @@ __internal topology_t *topology;
 	do {                                                                       \
 		int ret = snprintf(str + offset, maxsize - offset, __VA_ARGS__);       \
 		if (ret >= maxsize - offset) {                                         \
-			nosv_abort("Failed to format locality domains. Buffer too small"); \
+			do {                                                               \
+				maxsize *= 2;                                                  \
+			} while (ret >= maxsize - offset);                                 \
+			str = realloc(str, maxsize*sizeof(char));                          \
+			ret = snprintf(str + offset, maxsize - offset, __VA_ARGS__);       \
 		}                                                                      \
 		offset += ret;                                                         \
 	} while (0)
@@ -632,15 +636,11 @@ static inline void cpumanager_init(void)
 
 static inline void topology_print(void)
 {
-	int maxsize = 100 * topo_lvl_cnt(TOPO_CORE)															   // core lines
-				  + 35 * topo_lvl_cnt(TOPO_CPU)															   // HT lines
-				  + 40 * topo_lvl_cnt(TOPO_COMPLEX_SET) + topo_lvl_cnt(TOPO_CPU) * 4 // complex set lines
-				  + topo_lvl_cnt(TOPO_NUMA) * 40 + topo_lvl_cnt(TOPO_CPU) * 4 + 200; // NUMA lines
+	int maxsize = 40960;
 	char *msg = malloc(maxsize * sizeof(char));
 
-	int offset = snprintf(msg, maxsize, "NOSV: Printing locality domains");
-	if (offset >= maxsize)
-		nosv_abort("Failed to format locality domains");
+	int offset = 0;
+	snprintf_check(msg, offset, maxsize, "NOSV: Printing locality domains");
 
 	snprintf_check(msg, offset, maxsize, "\nNOSV: NODE: 1");
 
@@ -653,7 +653,8 @@ static inline void topology_print(void)
 		int count = 0;
 		int cpu;
 		CPU_BITSET_FOREACH (&numa->cpu_sid_mask, cpu) {
-			snprintf_check(msg, offset, maxsize, "%s%d", count++ > 0 ? "," : "", cpu);
+			const char *prefix = count++ > 0 ? "," : "";
+			snprintf_check(msg, offset, maxsize, "%s%d", prefix, cpu);
 		}
 		snprintf_check(msg, offset, maxsize, "] ");
 	}
@@ -667,7 +668,8 @@ static inline void topology_print(void)
 		int count = 0;
 		int cpu;
 		CPU_BITSET_FOREACH (&ccx->cpu_sid_mask, cpu) {
-			snprintf_check(msg, offset, maxsize, "%s%d", count++ > 0 ? "," : "", cpu);
+			const char *prefix = count++ > 0 ? "," : "";
+			snprintf_check(msg, offset, maxsize, "%s%d", prefix, cpu);
 		}
 		snprintf_check(msg, offset, maxsize, "] ");
 	}
@@ -681,7 +683,8 @@ static inline void topology_print(void)
 		int count = 0;
 		int cpu;
 		CPU_BITSET_FOREACH (&core->cpu_sid_mask, cpu) {
-			snprintf_check(msg, offset, maxsize, "%s%d", count++ > 0 ? "," : "", cpu);
+			const char *prefix = count++ > 0 ? "," : "";
+			snprintf_check(msg, offset, maxsize, "%s%d", prefix, cpu);
 		}
 		snprintf_check(msg, offset, maxsize, "] ");
 	}
