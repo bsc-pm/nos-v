@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2025 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef NOSV_H
@@ -37,13 +37,6 @@ typedef struct nosv_task_type *nosv_task_type_t;
 struct nosv_task;
 typedef struct nosv_task *nosv_task_t;
 typedef struct nosv_affinity nosv_affinity_t;
-struct nosv_mutex;
-typedef struct nosv_mutex *nosv_mutex_t;
-struct nosv_barrier;
-typedef struct nosv_barrier *nosv_barrier_t;
-struct nosv_cond;
-typedef struct nosv_cond *nosv_cond_t;
-
 typedef void (*nosv_task_run_callback_t)(nosv_task_t);
 typedef void (*nosv_task_end_callback_t)(nosv_task_t);
 typedef void (*nosv_task_completed_callback_t)(nosv_task_t);
@@ -221,97 +214,6 @@ int nosv_attach(
 /* Called from attached thread */
 int nosv_detach(
 	nosv_flags_t flags);
-
-/* Flags */
-#define NOSV_MUTEX_NONE __ZEROBITS
-
-/* Initialize a nosv_mutex_t object. The attr object is currently not
- * implemented, use NULL */
-int nosv_mutex_init(
-	nosv_mutex_t *mutex,
-	nosv_flags_t flags);
-
-/* Destroys a nosv_mutex_t object */
-int nosv_mutex_destroy(
-	nosv_mutex_t mutex);
-
-/* Similar to pthread_mutex_lock, locks a mutex but calls nosv_pause if the lock
- * is contended */
-/* Restriction: Can only be called from a task context */
-int nosv_mutex_lock(
-	nosv_mutex_t mutex);
-
-/* Lock the mutex or return immediately if contended */
-/* Restriction: Can only be called from a task context */
-int nosv_mutex_trylock(
-	nosv_mutex_t mutex);
-
-/* Unlock a mutex object */
-/* Restriction: Can only be called from a task context */
-int nosv_mutex_unlock(
-	nosv_mutex_t mutex);
-
-/* Flags */
-#define NOSV_BARRIER_NONE __ZEROBITS
-
-/* Initialize the "barrier" object to wait for "count" threads */
-int nosv_barrier_init(
-	nosv_barrier_t *barrier,
-	nosv_flags_t flags,
-	unsigned count);
-
-/* Destroy the "barrier" object. It can be re-initialized afterwards */
-int nosv_barrier_destroy(
-	nosv_barrier_t barrier);
-
-/* Similar to pthread_barrier_wait, block until "count" threads have reached the
- * barrier */
-/* Restriction: Can only be called from a task context */
-int nosv_barrier_wait(
-	nosv_barrier_t barrier);
-
-/* Flags */
-#define NOSV_COND_NONE __ZEROBITS
-
-int nosv_cond_init(
-	nosv_cond_t *cond,
-	nosv_flags_t flags);
-
-int nosv_cond_destroy(
-	nosv_cond_t cond);
-
-/* Wake ONE tasks waiting (blocked) on variable. Does nothing if there are no
- * waiters */
-int nosv_cond_signal(nosv_cond_t cond);
-
-/* Wake ALL tasks waiting (blocked) on variable. Does nothing if there are no
- * waiters */
-int nosv_cond_broadcast(nosv_cond_t cond);
-
-/* Similar to pthread_cond_wait, block until signaled */
-/* Restriction: Can only be called with mutex locked */
-int nosv_cond_wait(
-	nosv_cond_t cond,
-	nosv_mutex_t mutex);
-
-/* Similar to pthread_cond_timedwait, block until signaled or the deadline
- * expires */
-/* Restriction: Can only be called with mutex locked */
-int nosv_cond_timedwait(
-	nosv_cond_t cond,
-	nosv_mutex_t mutex,
-	const struct timespec *abstime);
-
-/* Same as the above nosv_cond_wait but using a pthread mutex internally */
-int nosv_cond_wait_pthread(
-	nosv_cond_t cond,
-	pthread_mutex_t *mutex);
-
-/* Same as the above nosv_cond_timedwait but using a pthread mutex internally */
-int nosv_cond_timedwait_pthread(
-	nosv_cond_t cond,
-	pthread_mutex_t *mutex,
-	const struct timespec *abstime);
 
 /* Batch Submit API */
 /* Set the maximum size of the submit window */

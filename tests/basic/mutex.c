@@ -1,11 +1,13 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2024 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2024-2025 Barcelona Supercomputing Center (BSC)
 */
 
+#include <errno.h>
 #include <nosv.h>
 #include <nosv/affinity.h>
+#include <nosv/compat.h>
 #include <nosv/hwinfo.h>
 #include <sched.h>
 #include <stdatomic.h>
@@ -24,7 +26,7 @@ nosv_task_t tasks[NTASKS];
 atomic_uint track_init;
 atomic_uint track_mid;
 atomic_uint track_completed;
-nosv_mutex_t mutex;
+nosv_mutex_t mutex = NOSV_MUTEX_INITIALIZER;
 
 atomic_uint affinity_ok = 0;
 
@@ -33,7 +35,7 @@ void task_run(nosv_task_t task)
 	// Mark this task as running
 	atomic_fetch_add_explicit(&track_init, 1, memory_order_relaxed);
 	// Block
-	CHECK(nosv_mutex_lock(mutex));
+	CHECK(nosv_mutex_lock(&mutex));
 
 	nosv_affinity_t aff = nosv_get_task_affinity(nosv_self());
 	if (aff.level == NOSV_AFFINITY_LEVEL_CPU &&
@@ -53,7 +55,7 @@ void task_comp(nosv_task_t task)
 	atomic_fetch_add_explicit(&track_completed, 1, memory_order_relaxed);
 }
 
-void mutex_test(const char *msg, char trylock, char affinity)
+void mutex_test(const char *msg, char trylock, char affinity, char initialize)
 {
 	atomic_store_explicit(&track_init, 0, memory_order_relaxed);
 	atomic_store_explicit(&track_mid, 0, memory_order_relaxed);
@@ -64,12 +66,13 @@ void mutex_test(const char *msg, char trylock, char affinity)
 		CHECK(nosv_create(&tasks[i], task_type, 0, NOSV_CREATE_NONE));
 
 	// Prepare the global mutex
-	CHECK(nosv_mutex_init(&mutex, NOSV_MUTEX_NONE));
+	if (initialize)
+		CHECK(nosv_mutex_init(&mutex, NULL));
 
 	if (!trylock)
-		CHECK(nosv_mutex_lock(mutex));
+		CHECK(nosv_mutex_lock(&mutex));
 	else
-		CHECK(nosv_mutex_trylock(mutex));
+		CHECK(nosv_mutex_trylock(&mutex));
 
 	// Number of available CPUs
 	int cpus = nosv_get_num_cpus();
@@ -98,7 +101,7 @@ void mutex_test(const char *msg, char trylock, char affinity)
 	// At this point, all tasks should have blocked into the scheduler
 	for (int i = 1; i <= NTASKS; i++) {
 		// Unblock one task
-		CHECK(nosv_mutex_unlock(mutex));
+		CHECK(nosv_mutex_unlock(&mutex));
 
 		// Wait for that task to finish
 		while (i > atomic_load_explicit(&track_mid, memory_order_relaxed))
@@ -113,7 +116,7 @@ void mutex_test(const char *msg, char trylock, char affinity)
 	}
 
 	// Final unlock
-	CHECK(nosv_mutex_unlock(mutex));
+	CHECK(nosv_mutex_unlock(&mutex));
 
 	// Ensure that no task has finished yet
 	if (atomic_load_explicit(&track_completed, memory_order_relaxed)) {
@@ -137,31 +140,31 @@ void mutex_test(const char *msg, char trylock, char affinity)
 		CHECK(nosv_destroy(tasks[i], NOSV_DESTROY_NONE));
 
 	// Free mutex object
-	CHECK(nosv_mutex_destroy(mutex));
+	CHECK(nosv_mutex_destroy(&mutex));
 }
 
 void trylock_test(const char *msg)
 {
 	// Prepare the global mutex
-	CHECK(nosv_mutex_init(&mutex, NOSV_MUTEX_NONE));
+	CHECK(nosv_mutex_init(&mutex, NULL));
 
 	// Check trylock when the lock is not taken
-	if (NOSV_SUCCESS != nosv_mutex_trylock(mutex)) {
+	if (NOSV_SUCCESS != nosv_mutex_trylock(&mutex)) {
 		test_fail(&test, "%s: trylock returned \"taken\" when not taken", msg);
 		exit(1);
 	}
 
 	// Check trylock when the lock is taken
-	if (NOSV_ERR_BUSY != nosv_mutex_trylock(mutex)) {
+	if (EBUSY != nosv_mutex_trylock(&mutex)) {
 		test_fail(&test, "%s: trylock returned \"not taken\" when lock was taken", msg);
 		exit(1);
 	}
 
 	// Unlock the trylock-taken mutex
-	CHECK(nosv_mutex_unlock(mutex));
+	CHECK(nosv_mutex_unlock(&mutex));
 
 	// Free the mutex
-	CHECK(nosv_mutex_destroy(mutex));
+	CHECK(nosv_mutex_destroy(&mutex));
 
 	test_ok(&test, "%s: Trylock succeeds", msg);
 }
@@ -177,17 +180,17 @@ int main()
 	CHECK(nosv_attach(&task, NULL, "main", NOSV_ATTACH_NONE));
 	CHECK(nosv_type_init(&task_type, task_run, NULL, task_comp, "task", NULL, NULL, NOSV_TYPE_INIT_NONE));
 
-	// Run mutex tests
-	mutex_test("new", 0, 0);
+	// Run mutex tests, without initializing
+	mutex_test("new", 0, 0, 0);
 	// Repeat (reuse mutex after reinit)
-	mutex_test("reuse", 0, 0);
+	mutex_test("reuse", 0, 0, 1);
 	// Run with affinity
-	mutex_test("affinity", 0, 1);
+	mutex_test("affinity", 0, 1, 1);
 
 	// Basic trylock test
 	trylock_test("trylock");
 	// Repeat, mutex test, but now with initial lock taken with trylock
-	mutex_test("trylock_reuse", 1, 0);
+	mutex_test("trylock_reuse", 1, 0, 1);
 
 	// Shutdown nosv
 	CHECK(nosv_detach(NOSV_DETACH_NONE));

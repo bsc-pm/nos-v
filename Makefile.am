@@ -67,6 +67,7 @@ libnosv_la_SOURCES = \
 	src/support/barrier.c \
 	src/support/mutex.c \
 	src/support/cond.c \
+	src/support/rwlock.c \
 	src/system/tasks.c
 
 if USE_ASAN
@@ -171,6 +172,7 @@ subinclude_HEADERS = \
 	api/nosv/affinity.h \
 	api/nosv/alpi.h \
 	api/nosv/alpi-defs.h \
+	api/nosv/compat.h \
 	api/nosv/error.h \
 	api/nosv/hwinfo.h \
 	api/nosv/memory.h

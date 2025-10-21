@@ -189,80 +189,425 @@ int nosv_decrease_event_counter(
 
 ### Synchronization API
 
-The nosv mutex API is similar to the pthread mutex API; the difference is in
-the contended behaviour. When a `nosv_mutex_lock()` call cannot acquire the
-lock, the current task is paused and another task is scheduled in the current
-core. Instead, a contended `pthread_mutex_lock()` would block the current nosv
-worker thread without nosv noticing, which would lead to an idle core incapable
-of running tasks until the `pthread_mutex_lock()` call returns.
+The nOS-V synchronization primitives provide pthread-compatible interfaces for mutexes, barriers, condition variables, and read-write locks.
+They behave similarly to their pthread counterparts but with different contention handling: instead of blocking the underlying worker thread, a contended call causes the current task to pause, allowing other tasks to be scheduled on the same core.
+All functions return POSIX error codes on failure.
+To use the pthread-compatible interface users must include the `nosv/compat.h` header.
+
+---
+
+#### Mutexes
 
 ```c
 int nosv_mutex_init(
-	nosv_mutex_t *mutex,
-	nosv_flags_t flags);
-
-int nosv_mutex_destroy(
-	nosv_mutex_t mutex);
-
-int nosv_mutex_lock(
-	nosv_mutex_t mutex);
-
-int nosv_mutex_trylock(
-	nosv_mutex_t mutex);
-
-int nosv_mutex_unlock(
-	nosv_mutex_t mutex);
+    nosv_mutex_t *mutex,
+    const nosv_mutexattr_t *attr);
 ```
 
-The nosv barrier API behaves as the pthread barrier, but with the same
-contention mechanics as the nosv mutex.
+Initializes a `nosv_mutex_t` object.
+If `attr` is `NULL`, default attributes are used. Mutexes are lightweight synchronization objects that can be locked and unlocked from task context.
+
+**Parameters**
+
+* `mutex`: pointer to a mutex object to initialize.
+* `attr`: optional mutex attributes (currently unimplemented; must be `NULL`).
+
+**Return values**
+
+* `0`: success.
+* `EINVAL`: `mutex` is `NULL`.
+
+---
+
+```c
+int nosv_mutex_destroy(
+    nosv_mutex_t *mutex);
+```
+
+Destroys a mutex object. The object can be re-initialized afterwards.
+
+**Return values**
+
+* `0`: success.
+* `EINVAL`: `mutex` is `NULL`.
+
+---
+
+```c
+int nosv_mutex_lock(
+    nosv_mutex_t *mutex);
+```
+
+Locks a mutex.
+If the mutex is already locked, the current task is paused and rescheduled when the mutex becomes available.
+Must be called from a task context.
+
+**Return values**
+
+* `0`: success.
+* `EINVAL`: `mutex` is `NULL` or the calling task cannot be blocked.
+* `ESRCH`: called from outside a task context.
+
+---
+
+```c
+int nosv_mutex_trylock(
+    nosv_mutex_t *mutex);
+```
+
+Attempts to lock a mutex without blocking.
+If the mutex is already locked, returns immediately.
+
+**Return values**
+
+* `0`: success.
+* `EINVAL`: `mutex` is `NULL` or the calling task cannot be blocked.
+* `ESRCH`: called from outside a task context.
+* `EBUSY`: the mutex is already locked.
+
+---
+
+```c
+int nosv_mutex_unlock(
+    nosv_mutex_t *mutex);
+```
+
+Unlocks a mutex previously locked by the calling task.
+
+**Return values**
+
+* `0`: success.
+* `EINVAL`: `mutex` is `NULL`.
+* `ESRCH`: called from outside a task context.
+
+---
+
+##### Mutex Attributes (unimplemented)
+
+```c
+int nosv_mutexattr_init(nosv_mutexattr_t *attr);
+int nosv_mutexattr_destroy(nosv_mutexattr_t *attr);
+```
+
+The mutex attribute functions are defined for compatibility but are currently unimplemented.
+They always return `0` when `attr` is not `NULL`.
+
+---
+
+#### Barriers
 
 ```c
 int nosv_barrier_init(
-	nosv_barrier_t *barrier,
-	nosv_flags_t flags,
-	unsigned count);
-
-int nosv_barrier_destroy(
-	nosv_barrier_t barrier);
-
-int nosv_barrier_wait(
-	nosv_barrier_t barrier);
+    nosv_barrier_t *barrier,
+    const nosv_barrierattr_t *attr,
+    unsigned count);
 ```
 
-The nosv condition variable API behaves as the pthread condition variable, but
-with the same contention mechanics as the nosv mutex.
+Initializes a barrier object for synchronization among `count` tasks.
+Tasks calling `nosv_barrier_wait()` will pause until all have reached the barrier.
+
+**Parameters**
+
+* `barrier`: pointer to a barrier object to initialize.
+* `attr`: optional barrier attributes (currently unimplemented; must be `NULL`).
+* `count`: number of tasks required to release the barrier.
+
+**Return values**
+
+* `0`: success.
+* `EINVAL`: `barrier` is `NULL` or `count` is `0`.
+
+---
+
+```c
+int nosv_barrier_destroy(
+    nosv_barrier_t *barrier);
+```
+
+Destroys a barrier object. It can be re-initialized afterwards.
+
+**Return values**
+
+* `0`: success.
+* `EINVAL`: `barrier` is `NULL`.
+
+---
+
+```c
+int nosv_barrier_wait(
+    nosv_barrier_t *barrier);
+```
+
+Blocks the current task until the number of waiting tasks reaches the barrier's count.
+When all tasks have arrived, they are resumed.
+
+**Return values**
+
+* `0`: success.
+* `EINVAL`: `barrier` is `NULL`.
+* `ESRCH`: called from outside a task context.
+
+---
+
+##### Barrier Attributes (unimplemented)
+
+```c
+int nosv_barrierattr_init(nosv_barrierattr_t *attr);
+int nosv_barrierattr_destroy(nosv_barrierattr_t *attr);
+```
+
+Defined for compatibility but currently unimplemented.
+Always return `0` when `attr` is valid.
+
+---
+
+#### Condition Variables
 
 ```c
 int nosv_cond_init(
     nosv_cond_t *cond,
-    nosv_flags_t flags);
+    const nosv_condattr_t *attr);
+```
 
+Initializes a condition variable.
+Condition variables allow tasks to wait for specific conditions to be signaled.
+
+**Parameters**
+
+* `cond`: pointer to a condition variable to initialize.
+* `attr`: optional condition attributes (currently unimplemented; must be `NULL`).
+
+**Return values**
+
+* `0`: success.
+* `EINVAL`: `cond` is `NULL`.
+
+---
+
+```c
 int nosv_cond_destroy(
-	nosv_cond_t cond);
+    nosv_cond_t *cond);
+```
 
-int nosv_cond_signal(nosv_cond_t cond);
+Destroys a condition variable. It can be re-initialized afterwards.
 
-int nosv_cond_broadcast(nosv_cond_t cond);
+**Return values**
 
+* `0`: success.
+* `EINVAL`: `cond` is `NULL`.
+
+---
+
+```c
+int nosv_cond_signal(nosv_cond_t *cond);
+```
+
+Wakes one task waiting on the condition variable, if any.
+
+**Return values**
+
+* `0`: success.
+* `EINVAL`: `cond` is `NULL`.
+
+---
+
+```c
+int nosv_cond_broadcast(nosv_cond_t *cond);
+```
+
+Wakes all tasks waiting on the condition variable, if any.
+
+**Return values**
+
+* `0`: success.
+* `EINVAL`: `cond` is `NULL`.
+
+---
+
+```c
 int nosv_cond_wait(
-    nosv_cond_t cond,
-    nosv_mutex_t mutex);
+    nosv_cond_t *cond,
+    nosv_mutex_t *mutex);
+```
 
+Atomically releases `mutex` and suspends the current task until the condition variable is signaled.
+The mutex is automatically re-acquired when the task resumes.
+Must be called with the mutex locked.
+
+**Return values**
+
+* `0`: success.
+* `EINVAL`: `cond` or `mutex` is `NULL`, or the task cannot be blocked.
+* `ESRCH`: called from outside a task context.
+
+---
+
+```c
 int nosv_cond_timedwait(
-    nosv_cond_t cond,
-    nosv_mutex_t mutex,
+    nosv_cond_t *cond,
+    nosv_mutex_t *mutex,
     const struct timespec *abstime);
+```
 
+Same as `nosv_cond_wait`, but unblocks if the specified absolute timeout expires.
+
+**Return values**
+
+* `0`: success.
+* `EINVAL`: `cond` or `mutex` is `NULL`, or the task cannot be blocked.
+* `ESRCH`: called from outside a task context.
+
+---
+
+```c
 int nosv_cond_wait_pthread(
-    nosv_cond_t cond,
+    nosv_cond_t *cond,
     pthread_mutex_t *mutex);
 
 int nosv_cond_timedwait_pthread(
-    nosv_cond_t cond,
+    nosv_cond_t *cond,
     pthread_mutex_t *mutex,
     const struct timespec *abstime);
 ```
+
+Equivalent to the above functions but using a pthread mutex.
+These are intended for compatibility with existing pthread-based code.
+
+**Return values**
+
+* `0`: success.
+* `EINVAL`: `cond` or `mutex` is `NULL`, or the task cannot be blocked.
+* `ESRCH`: called from outside a task context.
+
+---
+
+##### Condition Attributes (unimplemented)
+
+```c
+int nosv_condattr_init(nosv_condattr_t *attr);
+int nosv_condattr_destroy(nosv_condattr_t *attr);
+```
+
+Defined for compatibility but currently unimplemented.
+Always return `0` when `attr` is valid.
+
+---
+
+#### Read-Write Locks
+
+```c
+int nosv_rwlock_init(
+    nosv_rwlock_t *rwlock,
+    const nosv_rwlockattr_t *attr);
+```
+
+Initializes a read-write lock.
+Read-write locks allow multiple readers or one writer at a time.
+
+**Parameters**
+
+* `rwlock`: pointer to the lock to initialize.
+* `attr`: optional attribute object (currently unimplemented; must be `NULL`).
+
+**Return values**
+
+* `0`: success.
+* `EINVAL`: `rwlock` is `NULL`.
+
+---
+
+```c
+int nosv_rwlock_destroy(
+    nosv_rwlock_t *rwlock);
+```
+
+Destroys a read-write lock. It can be re-initialized afterwards.
+
+**Return values**
+
+* `0`: success.
+* `EINVAL`: `rwlock` is `NULL`.
+
+---
+
+```c
+int nosv_rwlock_wrlock(
+    nosv_rwlock_t *rwlock);
+```
+
+Locks the read-write lock for writing.
+If the lock is contended, the current task is paused.
+Must be called from a task context.
+
+**Return values**
+
+* `0`: success.
+* `EINVAL`: `rwlock` is `NULL` or the task cannot be blocked.
+* `ESRCH`: called from outside a task context.
+
+---
+
+```c
+int nosv_rwlock_rdlock(
+    nosv_rwlock_t *rwlock);
+```
+
+Locks the read-write lock for reading.
+If the lock is contended, the current task is paused.
+Must be called from a task context.
+
+**Return values**
+
+* `0`: success.
+* `EINVAL`: `rwlock` is `NULL` or the task cannot be blocked.
+* `ESRCH`: called from outside a task context.
+
+---
+
+```c
+int nosv_rwlock_trywrlock(
+    nosv_rwlock_t *rwlock);
+
+int nosv_rwlock_tryrdlock(
+    nosv_rwlock_t *rwlock);
+```
+
+Attempts to acquire the read or write lock without blocking.
+If the lock is already taken, returns immediately with `EBUSY`.
+
+**Return values**
+
+* `0`: success.
+* `EINVAL`: `rwlock` is `NULL`.
+* `ESRCH`: called from outside a task context.
+* `EBUSY`: the lock is contended.
+
+---
+
+```c
+int nosv_rwlock_unlock(
+    nosv_rwlock_t *rwlock);
+```
+
+Unlocks a read-write lock previously acquired by the calling task.
+
+**Return values**
+
+* `0`: success.
+* `EINVAL`: `rwlock` is `NULL`.
+* `ESRCH`: called from outside a task context.
+
+---
+
+##### RWLock Attributes (unimplemented)
+
+```c
+int nosv_rwlockattr_init(nosv_rwlockattr_t *attr);
+int nosv_rwlockattr_destroy(nosv_rwlockattr_t *attr);
+```
+
+Defined for compatibility but currently unimplemented.
+Always return `0` when `attr` is valid.
 
 ### Helper functions
 ```c

@@ -1,6 +1,6 @@
 #	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 #
-#	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
+#	Copyright (C) 2021-2025 Barcelona Supercomputing Center (BSC)
 
 .NOTPARALLEL:
 
@@ -26,6 +26,7 @@ basic_tests = basic-error-code.test \
 	basic-barrier.test \
 	basic-mutex.test \
 	basic-cond.test \
+	basic-rwlock.test \
 	basic-schedpoint.test \
 	basic-yield.test \
 	basic-priority.test \
@@ -122,6 +123,10 @@ basic_mutex_test_LDFLAGS = $(AM_LDFLAGS)
 basic_cond_test_SOURCES = basic/cond.c
 basic_cond_test_CFLAGS = $(AM_CFLAGS)
 basic_cond_test_LDFLAGS = $(AM_LDFLAGS)
+
+basic_rwlock_test_SOURCES = basic/rwlock.c
+basic_rwlock_test_CFLAGS = $(AM_CFLAGS)
+basic_rwlock_test_LDFLAGS = $(AM_LDFLAGS)
 
 basic_schedpoint_test_SOURCES = basic/schedpoint.c
 basic_schedpoint_test_CFLAGS = $(AM_CFLAGS)
