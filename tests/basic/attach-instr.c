@@ -97,7 +97,8 @@ void exec_proper_usage_attach(void)
 void exec_proper_usage_nosv_pthread(void)
 {
 	CHECK(nosv_init());
-	nosv_task_t task, task_nested;
+	nosv_task_t main_task;
+	CHECK(nosv_attach(&main_task, NULL, "main", NOSV_ATTACH_NONE));
 
 	atomic_store(&thread_fini, 0);
 	pthread_t pthread_nosv_attach, pthread_nosv_noattach;
@@ -118,6 +119,7 @@ void exec_proper_usage_nosv_pthread(void)
 		nosv_yield(NOSV_YIELD_NONE);
 	CHECK(err);
 
+	CHECK(nosv_detach(NOSV_DETACH_NONE));
 	CHECK(nosv_shutdown());
 	exit(0);
 }
@@ -125,7 +127,8 @@ void exec_proper_usage_nosv_pthread(void)
 void exec_nosv_pthread_attach_instr(void)
 {
 	CHECK(nosv_init());
-	nosv_task_t task, task_nested;
+	nosv_task_t main_task;
+	CHECK(nosv_attach(&main_task, NULL, "main", NOSV_ATTACH_NONE));
 
 	atomic_store(&thread_fini, 0);
 	pthread_t pthread;
@@ -133,6 +136,7 @@ void exec_nosv_pthread_attach_instr(void)
 	while (atomic_load(&thread_fini) != 1)
 		nosv_yield(NOSV_YIELD_NONE);
 
+	CHECK(nosv_detach(NOSV_DETACH_NONE));
 	CHECK(nosv_shutdown());
 	exit(0);
 }
@@ -140,7 +144,8 @@ void exec_nosv_pthread_attach_instr(void)
 void exec_nosv_pthread_detach_instr(void)
 {
 	CHECK(nosv_init());
-	nosv_task_t task, task_nested;
+	nosv_task_t main_task;
+	CHECK(nosv_attach(&main_task, NULL, "main", NOSV_ATTACH_NONE));
 
 	atomic_store(&thread_fini, 0);
 	pthread_t pthread;
