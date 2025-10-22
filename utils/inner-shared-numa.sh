@@ -3,7 +3,7 @@
 binary=$1
 
 # NOTE: This script is an 'inner' script invoked by a jobscript ('jobscript-shared-numa'), launched on a system with two sockets, each with 56 cores.
-# The jobscript launches this script on 8 tasks, each with 14 cores, and this inner script leverages the SLURM-defined variable 'SLURM_LOCALID' to 
+# The jobscript launches this script on 8 tasks, each with 14 cores, and this inner script leverages the SLURM-defined variable 'SLURM_LOCALID' to
 # override nOS-V's default settings depending on the task's id:
 # - Each NUMA node's CPUs (0-55, and 56-111) will be managed by a distinct nOS-V instance.
 # - This will result in a nOS-V instance managing CPUs 0 to 55 (nosv-numa0) and another managing 56 to 111 (nosv-numa1).
@@ -12,8 +12,8 @@ binary=$1
 
 rank=$SLURM_LOCALID
 if [ "$rank" -lt 4 ]; then
-    NOSV_CONFIG_OVERRIDE="shared_memory.name=nosv-numa0,topology.binding=0-55" $binary
+    NOSV_CONFIG_OVERRIDE="shared_memory.name=nosv-numa0,shared_memory.isolation_level=user,topology.binding=0-55" $binary
 else
-    NOSV_CONFIG_OVERRIDE="shared_memory.name=nosv-numa1,topology.binding=56-111" $binary
+    NOSV_CONFIG_OVERRIDE="shared_memory.name=nosv-numa1,shared_memory.isolation_level=user,topology.binding=56-111" $binary
 fi
 

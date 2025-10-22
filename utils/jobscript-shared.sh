@@ -16,13 +16,14 @@ sbatch << EOF
 #SBATCH --time=02:00:00
 
 # NOTE: This jobscript executes 'myapp.bin' on a system with two sockets, each with 56 cores. It overrides nOS-V's default settings:
-# - All processes will use the same name and binding for the nOS-V shared memory, resulting in a single instance.
-# - The only nOS-V instance will manage all the cores from the specified topology.
-# - Both processes will share resources, managed by the quantum of nOS-V's centralized scheduler.
+# - All processes will use the same topology binding for the nOS-V shared memory.
+# - The shared memory's name is unchanged ("nosv" by default) and the isolation_level is set to "user", resulting in a single nOS-V instance.
+# - The unique nOS-V instance will manage all the cores from the specified topology.
+# - All processes will share resources, managed by the quantum of nOS-V's centralized scheduler.
 # - Effectively, this is equivalent to using the 'shared-mpi' nOS-V preset instead of the 'NOSV_CONFIG_OVERRIDE' variable:
 #   (export NOSV_PRESET="shared-mpi")
 
-export NOSV_CONFIG_OVERRIDE="shared_memory.name=shared,topology.binding=0-111"
+export NOSV_CONFIG_OVERRIDE="shared_memory.isolation_level=user,topology.binding=0-111"
 srun $binary
 
 EOF
