@@ -66,7 +66,7 @@ static void *thread(void *arg)
 	return NULL;
 }
 
-void exec_proper_usage(void)
+void exec_proper_usage_attach(void)
 {
 	CHECK(nosv_init());
 	nosv_task_t task, task_nested;
@@ -86,10 +86,25 @@ void exec_proper_usage(void)
 
 	assert(atomic_load(&thread_fini) == 1);
 
+	CHECK(nosv_detach(NOSV_DETACH_NONE));
+
+	CHECK(nosv_detach(NOSV_DETACH_NONE));
+
+	CHECK(nosv_shutdown());
+	exit(0);
+}
+
+void exec_proper_usage_nosv_pthread(void)
+{
+	CHECK(nosv_init());
+	nosv_task_t task, task_nested;
+
 	atomic_store(&thread_fini, 0);
 	pthread_t pthread_nosv_attach, pthread_nosv_noattach;
-	CHECK(nosv_pthread_create(&pthread_nosv_attach, NULL, thread, (void *) (TH_ATTACH)));
+
 	CHECK(nosv_pthread_create(&pthread_nosv_noattach, NULL, thread, NULL));
+	// Nested attach in pthread works (with normal attach, no instr)
+	CHECK(nosv_pthread_create(&pthread_nosv_attach, NULL, thread, (void *) (TH_ATTACH)));
 
 	while (atomic_load(&thread_fini) != 2)
 		nosv_yield(NOSV_YIELD_NONE);
@@ -102,10 +117,6 @@ void exec_proper_usage(void)
 	while ((err = pthread_tryjoin_np(pthread_nosv_noattach, NULL)) == EBUSY)
 		nosv_yield(NOSV_YIELD_NONE);
 	CHECK(err);
-
-	CHECK(nosv_detach(NOSV_DETACH_NONE));
-
-	CHECK(nosv_detach(NOSV_DETACH_NONE));
 
 	CHECK(nosv_shutdown());
 	exit(0);
@@ -156,7 +167,7 @@ void exec_attach_instr_nested(void)
 int main()
 {
 	test_t test;
-	test_init(&test, 5);
+	test_init(&test, 6);
 
 	// Disable parallel testing for this
 	test_option(&test, TEST_OPTION_PARALLEL, 0);
@@ -199,8 +210,16 @@ int main()
 	fflush(stdout);
 	pid = fork();
 	if (pid == 0)
-		exec_proper_usage();
+		exec_proper_usage_attach();
 
 	waitpid(pid, &wstatus, 0);
-	test_check(&test, WIFEXITED(wstatus) && WEXITSTATUS(wstatus) == 0, "proper usage works");
+	test_check(&test, WIFEXITED(wstatus) && WEXITSTATUS(wstatus) == 0, "proper nosv_attach instr usage works");
+
+	fflush(stdout);
+	pid = fork();
+	if (pid == 0)
+		exec_proper_usage_nosv_pthread();
+
+	waitpid(pid, &wstatus, 0);
+	test_check(&test, WIFEXITED(wstatus) && WEXITSTATUS(wstatus) == 0, "proper nosv_pthread_create usage works");
 }
