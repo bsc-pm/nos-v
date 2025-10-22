@@ -43,6 +43,8 @@ int main()
 	CHECK(nosv_pthread_create(&thread, NULL, &thread_routine, &arg));
 
 	test_check_waitfor(&test, atomic_load(&result) == arg, 100, "ok");
+	// If we reached this point, the wrapper should detach and we can join the pthread
+	CHECK(pthread_join(thread, NULL));
 
 	// Shutdown nosv
 	CHECK(nosv_detach(NOSV_DETACH_NONE));

@@ -79,7 +79,11 @@ void exec_proper_usage(void)
 	pthread_t pthread;
 	CHECK(pthread_create(&pthread, NULL, thread, (void *) (TH_ATTACH | TH_INSTR_ATT | TH_INSTR_DET)));
 
-	CHECK(pthread_join(pthread, NULL));
+	int err = 0;
+	while ((err = pthread_tryjoin_np(pthread, NULL)) == EBUSY)
+		nosv_yield(NOSV_YIELD_NONE);
+	CHECK(err);
+
 	assert(atomic_load(&thread_fini) == 1);
 
 	atomic_store(&thread_fini, 0);
@@ -89,6 +93,15 @@ void exec_proper_usage(void)
 
 	while (atomic_load(&thread_fini) != 2)
 		nosv_yield(NOSV_YIELD_NONE);
+
+	// If we reached this point, the wrapper should detach and we can join the pthread
+	int err = 0;
+	while ((err = pthread_tryjoin_np(pthread_nosv_attach, NULL)) == EBUSY)
+		nosv_yield(NOSV_YIELD_NONE);
+	CHECK(err);
+	while ((err = pthread_tryjoin_np(pthread_nosv_noattach, NULL)) == EBUSY)
+		nosv_yield(NOSV_YIELD_NONE);
+	CHECK(err);
 
 	CHECK(nosv_detach(NOSV_DETACH_NONE));
 
