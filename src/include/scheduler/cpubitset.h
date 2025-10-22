@@ -154,14 +154,17 @@ failed:
 	return ret;
 }
 
-static inline void cpu_bitset_print_mask(cpu_bitset_t *set)
+static inline char *cpu_bitset_to_str(const cpu_bitset_t *set)
 {
 	assert(set);
-	char buffer[4096];
+	int maxsize = 1024;
+	char *str = malloc(maxsize);
+	assert(str);
 
 	int first_cpu, last_cpu;
 	first_cpu = last_cpu = -1;
-	char *curr = buffer;
+	int offset = 0;
+	// char *curr = buffer;
 
 	for (int i = 0; i < set->size; ++i) {
 		if (cpu_bitset_isset(set, i)) {
@@ -172,9 +175,9 @@ static inline void cpu_bitset_print_mask(cpu_bitset_t *set)
 			// End range
 			if (first_cpu != -1) {
 				if (first_cpu == last_cpu)
-					curr += sprintf(curr, "%d,", first_cpu);
+					snprintf_check(str, offset, maxsize, "%d,", first_cpu);
 				else
-					curr += sprintf(curr, "%d-%d,", first_cpu, last_cpu);
+					snprintf_check(str, offset, maxsize, "%d-%d,", first_cpu, last_cpu);
 			}
 
 			first_cpu = -1;
@@ -183,18 +186,26 @@ static inline void cpu_bitset_print_mask(cpu_bitset_t *set)
 
 	if (first_cpu != -1) {
 		if (first_cpu == last_cpu)
-			curr += sprintf(curr, "%d,", first_cpu);
+			snprintf_check(str, offset, maxsize, "%d,", first_cpu);
 		else
-			curr += sprintf(curr, "%d-%d,", first_cpu, last_cpu);
+			snprintf_check(str, offset, maxsize, "%d-%d,", first_cpu, last_cpu);
 	}
 
 	// IFF we have printed something (was not all zeros) remove trailing comma.
 	if (last_cpu != -1)
-		curr[-1] = '\0';
+		str[offset-1] = '\0';
 	else
-		buffer[0] = '\0';
+		str[0] = '\0';
 
-	nosv_warn("Effective binding: %s", buffer);
+	return str;
+}
+
+static inline char *cpu_set_to_str(const cpu_set_t *set)
+{
+	cpu_bitset_t cpu_bitset;
+	cpu_bitset_init(&cpu_bitset, NR_CPUS);
+	cpu_bitset_from_cpuset(&cpu_bitset, set);
+	return cpu_bitset_to_str(&cpu_bitset);
 }
 
 #define CPU_BITSET_FOREACH(bs, var) \

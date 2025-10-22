@@ -79,4 +79,18 @@ static inline int nosv_asprintf(char **restrict output, const char *restrict for
 	return 0;
 }
 
+// Snprintf with incorporated realloc
+#define snprintf_check(str, offset, maxsize, ...)                              \
+	do {                                                                       \
+		int ret = snprintf(str + offset, maxsize - offset, __VA_ARGS__);       \
+		if (ret >= maxsize - offset) {                                         \
+			do {                                                               \
+				maxsize *= 2;                                                  \
+			} while (ret >= maxsize - offset);                                 \
+			str = realloc(str, maxsize*sizeof(char));                          \
+			ret = snprintf(str + offset, maxsize - offset, __VA_ARGS__);       \
+		}                                                                      \
+		offset += ret;                                                         \
+	} while (0)
+
 #endif // COMMON_H
