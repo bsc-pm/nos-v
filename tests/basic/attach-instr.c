@@ -24,6 +24,7 @@ void exec_attach_instr_after_nosv_init(void)
 
 	// abort() here
 	CHECK(nosv_attach(&task, NULL, "main", NOSV_ATTACH_INSTRUMENT));
+	exit(1); // If we are here, the abort did not work, exit with error
 
 	CHECK(nosv_detach(NOSV_DETACH_NONE));
 	CHECK(nosv_shutdown());
@@ -39,6 +40,7 @@ void exec_detach_instr_after_nosv_init(void)
 
 	// abort() here
 	CHECK(nosv_detach(NOSV_DETACH_INSTRUMENT));
+	exit(1); // If we are here, the abort did not work, exit with error
 
 	CHECK(nosv_shutdown());
 	exit(0);
@@ -135,6 +137,8 @@ void exec_nosv_pthread_attach_instr(void)
 	CHECK(nosv_pthread_create(&pthread, NULL, thread, (void *) (TH_ATTACH | TH_INSTR_ATT)));
 	while (atomic_load(&thread_fini) != 1)
 		nosv_yield(NOSV_YIELD_NONE);
+	// We expect an abort on pthread, this should not be reachable
+	exit(1);
 
 	CHECK(nosv_detach(NOSV_DETACH_NONE));
 	CHECK(nosv_shutdown());
@@ -153,16 +157,8 @@ void exec_nosv_pthread_detach_instr(void)
 	while (atomic_load(&thread_fini) != 1)
 		nosv_yield(NOSV_YIELD_NONE);
 
-	CHECK(nosv_shutdown());
-	exit(0);
-}
-
-
-void exec_attach_instr_nested(void)
-{
-	CHECK(nosv_init());
-	nosv_task_t task;
-
+	// We expect an abort on pthread, this should not be reachable
+	exit(1);
 
 	CHECK(nosv_detach(NOSV_DETACH_NONE));
 	CHECK(nosv_shutdown());
