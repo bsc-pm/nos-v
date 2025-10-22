@@ -99,6 +99,7 @@ void test_cond(const char *pref, const char *label, const cond_test_flag_t flags
 	sprintf(msg, "%s-%s", pref, label);
 	atomic_store_explicit(&track_init, 0, memory_order_relaxed);
 	atomic_store_explicit(&track_completed, 0, memory_order_relaxed);
+	ready = 0;
 
 	for (int i = 0; i < NTASKS; i++)
 		atomic_store_explicit(&completed[i], 0, memory_order_relaxed);
@@ -133,7 +134,7 @@ void test_cond(const char *pref, const char *label, const cond_test_flag_t flags
 		CHECK(nosv_yield(NOSV_YIELD_NONE));
 
 	// Wait until all timed tasks finish
-	int completed;
+	int completed = 0;
 
 	if (flags & NOWAIT) {
 		test_ok(&test, "%s: not waiting for timedwait tasks", msg);
@@ -179,8 +180,10 @@ void test_cond(const char *pref, const char *label, const cond_test_flag_t flags
 	test_check_waitfor(&test, NTASKS == (completed = atomic_load_explicit(&track_completed, memory_order_relaxed)),
 					TEST_TIMEOUT, "%s: %d unlocked correctly, expected %d", msg, completed, NTASKS);
 
+	lock(flags);
 	if (ready)
 		test_error(&test, "%s: ready = %d, expected 0", msg, ready);
+	unlock(flags);
 
 	for (int i = 0; i < NTASKS; i++) {
 		CHECK(nosv_destroy(tasks[i], NOSV_DESTROY_NONE));
