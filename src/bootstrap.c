@@ -148,3 +148,8 @@ static void configure_fork_hooks(void)
 {
 	pthread_atfork(NULL, NULL, child_fork_hook);
 }
+
+int is_init_thread(void)
+{
+	return th_refcount != 0;
+}

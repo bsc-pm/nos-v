@@ -354,6 +354,12 @@ int nosv_rwlock_tryrdlock(
 int nosv_rwlock_unlock(
 	nosv_rwlock_t *rwlock);
 
+/* Wrapper around pthread create (instruments and attaches the thread) */
+int nosv_pthread_create(pthread_t *thread,
+	const pthread_attr_t *attr,
+	void *(*start_routine)(void *),
+	void *arg);
+
 #ifdef __cplusplus
 }
 #endif

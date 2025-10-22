@@ -26,6 +26,7 @@
 
 __internal task_type_manager_t *task_type_manager;
 __internal thread_local int32_t rt_attach_refcount = 0;
+__internal thread_local uint8_t rt_attach_instr = 0;
 
 // Start the taskid and typeid counters at 1 so we have the same
 // identifiers in Paraver. It is also used to check for overflows.
@@ -977,6 +978,23 @@ int nosv_attach(
 	const char * label,
 	nosv_flags_t flags)
 {
+	if (flags & ~NOSV_ATTACH_INSTRUMENT)
+		return NOSV_ERR_INVALID_PARAMETER;
+
+	if (flags & NOSV_ATTACH_INSTRUMENT) {
+		if (is_init_thread()) {
+			nosv_abort("cannot use flag NOSV_ATTACH_INSTRUMENT (instrumented by nosv_init)");
+		} else if (rt_attach_refcount) {
+			nosv_abort("cannot use flag NOSV_ATTACH_INSTRUMENT (we are a nested attach -> thread is already instrumented)");
+		} else if (instr_thread_isready()) {
+			nosv_abort("cannot use flag NOSV_ATTACH_INSTRUMENT (thread is already instrumented externally)");
+		} else {
+			instr_thread_init();
+			instr_thread_execute(-1, -1, 0);
+			rt_attach_instr = 1;
+		}
+	}
+
 	instr_attach_enter();
 
 	if (unlikely(!task)) {
@@ -1061,6 +1079,9 @@ int nosv_attach(
 int nosv_detach(
 	nosv_flags_t flags)
 {
+	if (flags & ~(NOSV_DETACH_NO_RESTORE_AFFINITY | NOSV_DETACH_INSTRUMENT))
+		return NOSV_ERR_INVALID_PARAMETER;
+
 	// First, make sure we are on a worker context
 	nosv_worker_t *worker = worker_current();
 	if (!worker || !worker->handle.task)
@@ -1071,8 +1092,11 @@ int nosv_detach(
 	worker_check_turbo();
 
 	// Mind nested nosv_attach and nosv_detach
-	if (--rt_attach_refcount)
+	if (--rt_attach_refcount) {
+		if (flags & NOSV_DETACH_INSTRUMENT)
+			nosv_abort("cannot use flag NOSV_DETACH_INSTRUMENT (nested detach)");
 		return NOSV_SUCCESS;
+	}
 
 	nosv_task_t task = worker->handle.task;
 
@@ -1123,6 +1147,16 @@ int nosv_detach(
 	worker_swap_idle(logic_pid, cpu, handle, WS_NOBLOCK);
 
 	instr_detach_exit();
+
+	if (flags & NOSV_DETACH_INSTRUMENT) {
+		if (rt_attach_instr) {
+			instr_thread_end();
+			rt_attach_instr = 0;
+		} else {
+			nosv_abort("cannot use flag NOSV_DETACH_INSTRUMENT (thread was not instrumented by nosv_attach)");
+		}
+	}
+
 	return NOSV_SUCCESS;
 }
 

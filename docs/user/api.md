@@ -154,6 +154,11 @@ When scheduled, the `nosv_attach` call will return and the caller thread will re
 
 This operation can be reversed using `nosv_detach`.
 
+The flags `NOSV_ATTACH_INSTRUMENT` and `NOSV_DETACH_INSTRUMENT` can be provided
+to `nosv_attach` and `nosv_detach` respectively to enable instrumentation of the
+attached thread. Wrong usage of these flags will result in program termination
+to avoid instrumentation errors.
+
 ### Getting the current nOS-V task
 ```c
 nosv_task_t nosv_self(void);
@@ -608,6 +613,18 @@ int nosv_rwlockattr_destroy(nosv_rwlockattr_t *attr);
 
 Defined for compatibility but currently unimplemented.
 Always return `0` when `attr` is valid.
+
+#### Thread creation
+
+Creates a pthread and performs and `nosv_attach` and `nosv_detach` operation
+around it. When instrumentation is enabled, it also instruments the thread.
+
+```c
+int nosv_pthread_create(pthread_t *thread,
+    const pthread_attr_t *attr,
+    void *(*start_routine)(void *),
+    void *arg);
+```
 
 ### Helper functions
 ```c

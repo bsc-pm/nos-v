@@ -23,6 +23,7 @@ basic_tests = basic-error-code.test \
 	basic-affinity-support.test \
 	basic-attach.test \
 	basic-attach-external.test \
+	basic-attach-instr.test \
 	basic-barrier.test \
 	basic-mutex.test \
 	basic-cond.test \
@@ -39,7 +40,8 @@ basic_tests = basic-error-code.test \
 	basic-submit-window.test \
 	basic-multi-pause.test \
 	basic-suspend.test \
-	basic-immediate.test
+	basic-immediate.test \
+	basic-pthread-create.test
 
 # Tests that won't work with AddressSanitizer
 if !USE_ASAN
@@ -112,6 +114,10 @@ basic_attach_external_test_SOURCES = basic/attach-external.c
 basic_attach_external_test_CFLAGS = $(AM_CFLAGS)
 basic_attach_external_test_LDFLAGS = $(AM_LDFLAGS)
 
+basic_attach_instr_test_SOURCES = basic/attach-instr.c
+basic_attach_instr_test_CFLAGS = $(AM_CFLAGS)
+basic_attach_instr_test_LDFLAGS = $(AM_LDFLAGS)
+
 basic_barrier_test_SOURCES = basic/barrier.c
 basic_barrier_test_CFLAGS = $(AM_CFLAGS)
 basic_barrier_test_LDFLAGS = $(AM_LDFLAGS)
@@ -179,6 +185,10 @@ basic_suspend_test_LDFLAGS = $(AM_LDFLAGS)
 basic_immediate_test_SOURCES = basic/immediate.c
 basic_immediate_test_CFLAGS = $(AM_CFLAGS)
 basic_immediate_test_LDFLAGS = $(AM_LDFLAGS)
+
+basic_pthread_create_test_SOURCES = basic/pthread_create.c
+basic_pthread_create_test_CFLAGS = $(AM_CFLAGS)
+basic_pthread_create_test_LDFLAGS = $(AM_LDFLAGS)
 
 regression_attach_is_test_SOURCES = regression/attach-is.c
 regression_attach_is_test_CFLAGS = $(AM_CFLAGS)
