@@ -74,7 +74,7 @@ void task_run(nosv_task_t task)
 
 		ready--;
 	} else {
-		while (!ready) {
+		while (ready <= 0) {
 			if (meta->flags & PTHREAD)
 				CHECK(nosv_cond_wait_pthread(&cond, &pthread_mutex));
 			else
