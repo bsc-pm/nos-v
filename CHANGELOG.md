@@ -3,6 +3,27 @@ All notable changes to this project will be documented in this file.
 
 The format of this file is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## Version [4.0.0], Tue Oct 28, 2025
+This version corresponds to the OmpSs-2 2025.11 release. It is a major release including breaking API changes, new features, and some fixes.
+
+### Added
+- Support emitting hardware counter events in ovni traces
+- String list options will now be printed when `debug.dump_config` is activated
+- Introduce `nosv_rwlock_t` and related calls, as a replacement for pthread read-write locks
+- When compiled with `--enable-debug`, `nosv_mutex_t` will now perform owner checks to aid debugging nOS-V programs
+- Added common utility scripts and sample job submission files for common nOS-V configurations, which will be installed in the nOS-V `share` directory
+- Added flags `NOSV_ATTACH_INSTRUMENT` and `NOSV_DETACH_INSTRUMENT` to `nosv_attach` and `nosv_detach`, which will instruct nOS-V to instrument attached threads through ovni
+- Added `nosv_pthread_create` as a drop-in replacement for `pthread_create`, which will create, attach and instrument new threads
+
+### Changed
+- **[Breaking Change]** Changed the API for pthread synchronization primitives alternatives (`nosv_cond_t`, `nosv_barrier_t` and `nosv_mutex_t`), which now returns POSIX-like error codes and has been adapted to be a drop-in substitution for pthread counterparts. Calls have been moved to a new header `nosv/compat.h`
+- **[Breaking Change]** The default `isolation_level` for nOS-V is now `process`, instead of `user`, which means that by default nOS-V programs will not share instances with other processes. Users should enable inter-process capabilities explicitely through the config file or using the `shared-mpi` preset
+
+### Fixed
+- Fixed detection of invalid or unusable cores given in `topology.binding`
+- Fixed detection of mismatching cpu bindings between runtimes sharing the same nOS-V instance
+- Fixed the `nosv_cond` test failing under certain conditions
+
 ## Version [3.2.0], Fri Jun 6, 2025
 This version corresponds to the OmpSs-2 2025.06 release. It is a minor release integrating fixes and improvements and some backward-compatible API extensions.
 
@@ -93,6 +114,7 @@ This version corresponds to the OmpSs-2 2023.11 release. It contains changes to 
 ### Fixed
 - Various bugfixes and corrections
 
+[4.0.0]: https://github.com/bsc-pm/nos-v/releases/tag/4.0.0
 [3.2.0]: https://github.com/bsc-pm/nos-v/releases/tag/3.2.0
 [3.1.0]: https://github.com/bsc-pm/nos-v/releases/tag/3.1.0
 [2.2.0]: https://github.com/bsc-pm/nos-v/releases/tag/2.2.0
