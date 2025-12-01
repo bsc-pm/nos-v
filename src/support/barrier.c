@@ -120,6 +120,9 @@ int nosv_barrier_wait(nosv_barrier_t *barrier)
 		// Second, wake up all waiting tasks.
 		if(!task_group_empty(&waiting_tasks))
 			scheduler_submit_group(&waiting_tasks);
+
+		instr_barrier_wait_exit();
+		return PTHREAD_BARRIER_SERIAL_THREAD;
 	}
 
 	instr_barrier_wait_exit();
