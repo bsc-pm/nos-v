@@ -29,7 +29,7 @@ typedef union nosv_mutex_ext {
 	uint64_t __align;
 } nosv_mutex_t;
 
-#define NOSV_MUTEX_INITIALIZER {0}
+#define NOSV_MUTEX_INITIALIZER {{0}}
 
 #define SIZEOF_NOSV_BARRIER 64
 
@@ -45,7 +45,7 @@ typedef union nosv_cond_ext {
 	uint64_t __align;
 } nosv_cond_t;
 
-#define NOSV_COND_INITIALIZER {0}
+#define NOSV_COND_INITIALIZER {{0}}
 
 #define SIZEOF_NOSV_RWLOCK 64
 
@@ -54,7 +54,7 @@ typedef union nosv_rwlock_ext {
 	uint64_t __align;
 } nosv_rwlock_t;
 
-#define NOSV_RWLOCK_INITIALIZER {0}
+#define NOSV_RWLOCK_INITIALIZER {{0}}
 
 #define SIZEOF_NOSV_MUTEXATTR 32
 
