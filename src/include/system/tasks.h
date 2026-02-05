@@ -26,11 +26,7 @@ static inline int32_t task_get_degree(nosv_task_t task)
 static inline int task_is_parallel(nosv_task_t task)
 {
 	assert(task);
-
-	int32_t degree = task_get_degree(task);
-	assert(degree != 0);
-
-	return degree != 1 && degree != -1;
+	return (task->flags & TASK_FLAG_CREATE_PARALLEL) != 0;
 }
 
 // A task execution handle contains all the needed context to execute a nos-v task body
