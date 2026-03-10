@@ -18,6 +18,10 @@
 	# will result in independent nOS-V instances. Note that both the name of the shared memory as well as the
 	# isolation level have to match for nOS-V instances to connect
 	name = "nosv"
+	# Allocation policy for the shared memory backing storage. Possible values are:
+	# "fallocate" - Reserve backing storage up front and fail early if /dev/shm is too small
+	# "ftruncate" - Keep the previous lazy allocation behaviour
+	allocation_policy = "fallocate"
 	# Isolation level of nOS-V. Possible values are:
 	# "process" - Each process has a separate nOS-V instance
 	# "user" - nOS-V instances are shared for the same user
