@@ -35,6 +35,7 @@
 #define SHM_START_ADDR ((void *) 0x0000200000000000)
 #define SHM_SIZE (1ULL << 31)
 #define SHM_NAME "nosv"
+#define SHM_ALLOCATION_POLICY "fallocate"
 #define SHM_ISOLATION_LEVEL "process"
 
 // SCHEDULER

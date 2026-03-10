@@ -53,6 +53,8 @@ static inline void config_init(rt_config_t *config)
 	// Use strdup for strings by default?
 	config->shm_name = strdup(SHM_NAME);
 	assert(config->shm_name);
+	config->shm_allocation_policy = strdup(SHM_ALLOCATION_POLICY);
+	assert(config->shm_allocation_policy);
 	config->shm_isolation_level = strdup(SHM_ISOLATION_LEVEL);
 	assert(config->shm_isolation_level);
 	config->shm_size = SHM_SIZE;
@@ -129,6 +131,8 @@ static inline int config_check(rt_config_t *config)
 	sanity_check(config->shm_name, "Shared memory name cannot be empty");
 	sanity_check(config->shm_size > (10 * 2 * 1024 * 1024), "Small shared memory sizes (less than 10 pages) are not supported");
 	sanity_check(((uintptr_t)config->shm_start) >= 4096, "Mapping shared memory at page 0 is not allowed");
+	sanity_check(config->shm_allocation_policy, "Shared memory allocation policy cannot be empty");
+	sanity_check_str(config->shm_allocation_policy, "Unknown value for shared memory allocation policy", "fallocate", "ftruncate");
 	sanity_check(config->shm_isolation_level, "Isolation level cannot be empty");
 	sanity_check_str(config->shm_isolation_level, "Unknown value for shared memory isolation", "process", "user", "group", "public");
 
