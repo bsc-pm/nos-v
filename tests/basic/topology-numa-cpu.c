@@ -111,7 +111,7 @@ int libnuma_get_numa_nodes_array(int *cpus_enabled, int size, int **out_numanode
 			(*out_numanodes)[idx++] = i;
 		}
 	}
-	assert(idx = numa_nodes_size);
+	assert(idx == numa_nodes_size);
 	numa_free_nodemask(node_bm);
 
 	return numa_nodes_size;
