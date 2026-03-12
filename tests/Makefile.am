@@ -13,6 +13,7 @@ unit_SOURCES = unit/main.c
 
 basic_tests = basic-error-code.test \
 	basic-init.test \
+	basic-shutdown-ownership.test \
 	basic-topology-numa-cpu.test \
 	basic-reinit.test \
 	basic-init-multicall.test \
@@ -69,6 +70,10 @@ basic_error_code_test_LDFLAGS = $(AM_LDFLAGS)
 basic_init_test_SOURCES = basic/init.c
 basic_init_test_CFLAGS = $(AM_CFLAGS)
 basic_init_test_LDFLAGS = $(AM_LDFLAGS)
+
+basic_shutdown_ownership_test_SOURCES = basic/shutdown-ownership.c
+basic_shutdown_ownership_test_CFLAGS = $(AM_CFLAGS)
+basic_shutdown_ownership_test_LDFLAGS = $(AM_LDFLAGS)
 
 basic_reinit_test_SOURCES = basic/reinit.c
 basic_reinit_test_CFLAGS = $(AM_CFLAGS)
