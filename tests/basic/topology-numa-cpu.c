@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2026 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
@@ -111,7 +111,7 @@ int libnuma_get_numa_nodes_array(int *cpus_enabled, int size, int **out_numanode
 			(*out_numanodes)[idx++] = i;
 		}
 	}
-	assert(idx = numa_nodes_size);
+	assert(idx == numa_nodes_size);
 	numa_free_nodemask(node_bm);
 
 	return numa_nodes_size;
