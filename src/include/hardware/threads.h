@@ -84,7 +84,8 @@ __internal void threadmanager_shutdown(thread_manager_t *threadmanager);
 
 __internal void worker_yield(void);
 __internal void worker_yield_to(task_execution_handle_t handle);
-__internal int worker_yield_if_needed(nosv_task_t current_task);
+__internal int worker_yield_yielding_task(nosv_task_t current_task);
+__internal int worker_yield_pausing_task(nosv_task_t current_task);
 __internal void worker_swap(nosv_worker_t *worker, cpu_t *cpu, long flags);
 __internal void worker_swap_idle(int pid, cpu_t *cpu, task_execution_handle_t handle, long flags);
 __internal void worker_add_to_idle_list(void);
