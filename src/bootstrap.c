@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2026 Barcelona Supercomputing Center (BSC)
 */
 
 #include <pthread.h>
@@ -69,6 +69,14 @@ static int nosv_shutdown_impl(void)
 	if (rt_refcount <= 0)
 		return NOSV_ERR_UNKNOWN;
 
+	// Each thread must match its own nosv_init()/nosv_shutdown() pairs.
+	// Do not touch the global runtime refcount if this thread never initialized nOS-V.
+	if (th_refcount <= 0)
+		return NOSV_ERR_UNKNOWN;
+
+	const int finalize_thread_instr = (th_refcount == 1 && !nosv_self());
+	th_refcount--;
+
 	// The last thread finalizes the runtime
 	if (--rt_refcount == 0) {
 		pidmanager_shutdown();
@@ -87,13 +95,12 @@ static int nosv_shutdown_impl(void)
 		affinity_support_shutdown();
 		config_free();
 
-		assert(th_refcount == 1);
-		th_refcount--;
+		assert(th_refcount == 0);
 		rt_initialized = false;
 
 		instr_thread_end();
 		instr_proc_fini();
-	} else if (--th_refcount == 0 && !nosv_self()) {
+	} else if (finalize_thread_instr) {
 		// Emit instrumentation if the current thread is the last thread
 		// calling nosv_shutdown and it is not attached.
 		instr_thread_end();
