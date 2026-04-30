@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2023-2025 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2023-2026 Barcelona Supercomputing Center (BSC)
 */
 
 #include <dlfcn.h>
@@ -423,7 +423,7 @@ int pthread_create(
 
 	if (needs_reset) {
 		// reset the user attr as it was before calling pthread_create
-		cpu_set_t tmp; // needed to silence -Wnonull warning
+		cpu_set_t tmp = { 0 }; // needed to silence -Wnonull warning
 		assert(new_attr_ptr == attr);
 		pthread_attr_setaffinity_np(new_attr_ptr, 0, &tmp);
 	}
