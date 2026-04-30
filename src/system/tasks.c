@@ -92,7 +92,9 @@ static inline nosv_affinity_t parse_affinity_from_config(void)
 void task_affinity_init(void)
 {
 	if (!strcmp(nosv_config.task_affinity_default, "all")) {
-		default_affinity.index = default_affinity.level = default_affinity.type = 0;
+		default_affinity.index = 0;
+		default_affinity.level = NOSV_AFFINITY_LEVEL_NONE;
+		default_affinity.type = 0;
 	} else {
 		default_affinity = parse_affinity_from_config();
 	}
