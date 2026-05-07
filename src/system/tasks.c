@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2025 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2026 Barcelona Supercomputing Center (BSC)
 */
 
 #include "generic/clock.h"
@@ -232,6 +232,9 @@ static inline nosv_flags_t task_get_internal_flags(nosv_flags_t flags)
 	if (flags & NOSV_CREATE_PARALLEL)
 		internal_flags |= TASK_FLAG_CREATE_PARALLEL;
 
+	if (flags & NOSV_CREATE_JOINABLE)
+		internal_flags |= TASK_FLAG_CREATE_JOINABLE;
+
 	return internal_flags;
 }
 
@@ -266,6 +269,7 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	atomic_init(&res->deadline_state, NOSV_DEADLINE_NONE);
 	res->yield = 0;
 	res->wakeup = NULL;
+	res->to_join = NULL;
 	res->taskid = atomic_fetch_add_explicit(&taskid_counter, 1, memory_order_relaxed);
 	res->counters = (task_hwcounters_t *) (((char *) res) + sizeof(struct nosv_task) + metadata_size);
 	res->stats = (task_stats_t *) (((char *) res) + sizeof(struct nosv_task) + metadata_size + hwcounters_get_task_size());
@@ -278,6 +282,8 @@ static inline int nosv_create_internal(nosv_task_t *task /* out */,
 	res->submit_window_maxsize = 1;
 
 	res->suspend_args = 0;
+	atomic_init(&res->resval, (uintptr_t)NULL);
+	nosv_spin_init(&res->join_lock);
 
 	// Initialize hardware counters and monitoring for the task
 	hwcounters_task_created(res, /* enabled */ 1);
@@ -392,6 +398,11 @@ int nosv_submit(
 	if (is_blocking && task_is_parallel(worker_current_task()))
 		return NOSV_ERR_INVALID_OPERATION;
 
+	// If the task was completed and resubmitted, reset to_join
+	if (task_is_joinable(task) && task->to_join == TASK_TO_JOIN_COMPLETED_TASK) {
+		task->to_join = NULL;
+	}
+
 	// If we're in a task context, update task counters now since we don't want
 	// the creation to be added to the counters of the task
 	nosv_task_t current_task = worker_current_task();
@@ -477,7 +488,7 @@ int nosv_submit(
 
 void task_pause(
 	nosv_task_t task,
-	int use_blocking_count)
+	int blocking_count)
 {
 	nosv_worker_t *worker = worker_current();
 
@@ -495,8 +506,8 @@ void task_pause(
 	instr_task_pause((uint32_t)task->taskid, bodyid);
 
 	int32_t count = 1;
-	if (use_blocking_count)
-		count = atomic_fetch_add_explicit(&task->blocking_count, 1, memory_order_relaxed) + 1;
+	if (blocking_count > 0)
+		count = atomic_fetch_add_explicit(&task->blocking_count, blocking_count, memory_order_relaxed) + blocking_count;
 
 	// If r < 1, we have already been unblocked
 	if (count > 0)
@@ -736,6 +747,9 @@ int nosv_destroy(
 	if (unlikely(!task))
 		return NOSV_ERR_INVALID_PARAMETER;
 
+	if (task_is_joinable(task) && (task == worker_current_task()))
+		return NOSV_ERR_INVALID_PARAMETER;
+
 	instr_destroy_enter();
 
 	sfree(task, sizeof(struct nosv_task) +
@@ -761,12 +775,30 @@ static inline void task_complete(nosv_task_t task)
 	atomic_store_explicit(&task->event_count, 1, memory_order_relaxed);
 	task->scheduled_count = 0;
 
+	int is_joinable = task_is_joinable(task);
+
 	if (task->type->completed_callback) {
 		atomic_thread_fence(memory_order_acquire);
 		task->type->completed_callback(task);
 		atomic_thread_fence(memory_order_release);
 	}
 	// From here, task may be freed!
+
+	if (is_joinable) {
+		nosv_spin_lock(&task->join_lock);
+		uint32_t timeout_join = task->flags & TASK_FLAG_JOIN_TIMEOUT;
+		nosv_task_t to_join = task->to_join;
+		assert(to_join != TASK_TO_JOIN_COMPLETED_TASK);
+		task->to_join = TASK_TO_JOIN_COMPLETED_TASK;
+		nosv_spin_unlock(&task->join_lock);
+
+		if (to_join) {
+			if (timeout_join)
+				nosv_submit(to_join, NOSV_SUBMIT_DEADLINE_WAKE);
+			else
+				nosv_submit(to_join, NOSV_SUBMIT_NONE);
+		}
+	}
 
 	if (wakeup)
 		nosv_submit(wakeup, NOSV_SUBMIT_UNLOCKED);
@@ -1279,6 +1311,263 @@ int nosv_suspend(void)
 		return NOSV_ERR_OUTSIDE_TASK;
 
 	current->flags |= TASK_FLAG_SUSPEND;
+
+	return NOSV_SUCCESS;
+}
+
+int wait_tasks(nosv_task_t *tasks, size_t ntasks, uint64_t timeout)
+{
+	nosv_task_t to_join = NULL;
+	nosv_task_t current_task = worker_current_task();
+	nosv_worker_t *worker = worker_current();
+
+	nosv_flush_submit_window();
+
+	if (timeout == 0) {
+		for (int i = 0; i < ntasks; i++) {
+			// Try wait
+			nosv_spin_lock(&tasks[i]->join_lock);
+			to_join = tasks[i]->to_join;
+			nosv_spin_unlock(&tasks[i]->join_lock);
+
+			if (to_join == NULL) {
+				return NOSV_ERR_TIMEOUT;
+			} else if (to_join != TASK_TO_JOIN_COMPLETED_TASK) {
+				return NOSV_ERR_INVALID_PARAMETER;
+			}
+		}
+	} else if (timeout == (uint64_t) -1) {
+		int waiting_for = 0;
+		for (int i = 0; i < ntasks; i++) {
+
+			nosv_spin_lock(&tasks[i]->join_lock);
+
+			to_join = tasks[i]->to_join;
+
+			if (to_join == NULL) {
+				tasks[i]->to_join = current_task;
+				tasks[i]->flags &= ~TASK_FLAG_JOIN_TIMEOUT;
+
+				nosv_spin_unlock(&tasks[i]->join_lock);
+
+				waiting_for++;
+			} else if (to_join != TASK_TO_JOIN_COMPLETED_TASK) {
+				nosv_spin_unlock(&tasks[i]->join_lock);
+				return NOSV_ERR_INVALID_PARAMETER;
+			}
+		}
+
+		if (waiting_for > 0)
+			task_pause(current_task, /* blocking_count */ waiting_for);
+
+	} else {
+		for (int i = 0; i < ntasks; i++) {
+			if (timeout > 0) {
+				const uint64_t start_ns = clock_ns();
+
+				nosv_spin_lock(&tasks[i]->join_lock);
+
+				to_join = tasks[i]->to_join;
+
+				if (to_join == NULL) {
+					tasks[i]->to_join = current_task;
+					tasks[i]->flags |= TASK_FLAG_JOIN_TIMEOUT;
+
+					nosv_spin_unlock(&tasks[i]->join_lock);
+
+					uint32_t bodyid = instr_get_bodyid(worker->handle);
+					instr_task_pause((uint32_t) current_task->taskid, bodyid);
+
+					int res = set_task_deadline(current_task, start_ns, timeout);
+
+					if (res) {
+						scheduler_submit_single(current_task);
+						worker_yield();
+					}
+					instr_task_resume((uint32_t) current_task->taskid, bodyid);
+
+					// Check if the task reached the deadline or was resubmitted
+					nosv_spin_lock(&tasks[i]->join_lock);
+
+					to_join = tasks[i]->to_join;
+
+					if (to_join == current_task) {
+						tasks[i]->to_join = NULL;
+						nosv_spin_unlock(&tasks[i]->join_lock);
+						return NOSV_ERR_TIMEOUT;
+					} else {
+						nosv_spin_unlock(&tasks[i]->join_lock);
+						uint64_t delay = clock_ns() - start_ns;
+						if (delay > timeout)
+							timeout = 0;
+						else
+							timeout -= delay;
+					}
+				} else {
+					nosv_spin_unlock(&tasks[i]->join_lock);
+					if (to_join != TASK_TO_JOIN_COMPLETED_TASK)
+						return NOSV_ERR_INVALID_PARAMETER;
+				}
+
+			} else {
+				// We exhausted the timeout (but the last task finished within the deadline), check the remaining tasks
+				nosv_spin_lock(&tasks[i]->join_lock);
+				to_join = tasks[i]->to_join;
+				nosv_spin_unlock(&tasks[i]->join_lock);
+
+				if (to_join == NULL) {
+					return NOSV_ERR_TIMEOUT;
+				} else if (to_join != TASK_TO_JOIN_COMPLETED_TASK) {
+					return NOSV_ERR_INVALID_PARAMETER;
+				}
+			}
+		}
+	}
+
+	return NOSV_SUCCESS;
+}
+
+int nosv_wait(nosv_task_t task, uint64_t timeout)
+{
+	int err = NOSV_SUCCESS;
+	nosv_task_t current_task = worker_current_task();
+	if (unlikely(!task))
+		return NOSV_ERR_INVALID_PARAMETER;
+
+	if (!current_task)
+		return NOSV_ERR_OUTSIDE_TASK;
+
+	if (task == current_task)
+		return NOSV_ERR_INVALID_PARAMETER;
+
+	if (!task_is_joinable(task))
+		return NOSV_ERR_INVALID_PARAMETER;
+
+	instr_wait_enter();
+
+	err = wait_tasks(&task, 1, timeout);
+
+	instr_wait_exit();
+
+	return err;
+}
+
+int nosv_wait_all(nosv_task_t *tasks, size_t ntasks, uint64_t timeout)
+{
+	int err = NOSV_SUCCESS;
+	nosv_task_t current_task = worker_current_task();
+
+	if (unlikely(!tasks))
+		return NOSV_ERR_INVALID_PARAMETER;
+
+	if (!current_task)
+		return NOSV_ERR_OUTSIDE_TASK;
+
+	for (int i = 0; i < ntasks; i++) {
+		if (unlikely(!tasks[i]))
+			return NOSV_ERR_INVALID_PARAMETER;
+
+		if (tasks[i] == current_task)
+			return NOSV_ERR_INVALID_PARAMETER;
+
+		if (!task_is_joinable(tasks[i]))
+			return NOSV_ERR_INVALID_PARAMETER;
+	}
+
+	instr_wait_all_enter();
+
+	err = wait_tasks(tasks, ntasks, timeout);
+
+	instr_wait_all_exit();
+
+	return err;
+}
+
+int nosv_join(nosv_task_t task, void **resval, uint64_t timeout)
+{
+	nosv_task_t current_task = worker_current_task();
+
+	if (unlikely(!task))
+		return NOSV_ERR_INVALID_PARAMETER;
+
+	if (!current_task)
+		return NOSV_ERR_OUTSIDE_TASK;
+
+	if (task == current_task)
+		return NOSV_ERR_INVALID_PARAMETER;
+
+	if (!task_is_joinable(task))
+		return NOSV_ERR_INVALID_PARAMETER;
+
+	instr_join_enter();
+
+	int res = wait_tasks(&task, 1, timeout);
+	if (res != NOSV_SUCCESS) {
+		instr_join_exit();
+		return res;
+	}
+
+	if (resval != NULL)
+		*resval = (void *) atomic_load_explicit(&task->resval, memory_order_relaxed);
+
+	nosv_destroy(task, NOSV_DESTROY_NONE);
+
+	instr_join_exit();
+
+	return NOSV_SUCCESS;
+}
+
+int nosv_join_all(nosv_task_t *tasks, void **resvals, size_t ntasks, uint64_t timeout)
+{
+	nosv_task_t current_task = worker_current_task();
+
+	if (unlikely(!tasks))
+		return NOSV_ERR_INVALID_PARAMETER;
+
+	if (!current_task)
+		return NOSV_ERR_OUTSIDE_TASK;
+
+	for (int i = 0; i < ntasks; i++) {
+		if (unlikely(!tasks[i]))
+			return NOSV_ERR_INVALID_PARAMETER;
+
+		if (tasks[i] == current_task)
+			return NOSV_ERR_INVALID_PARAMETER;
+
+		if (!task_is_joinable(tasks[i]))
+			return NOSV_ERR_INVALID_PARAMETER;
+	}
+
+	instr_join_all_enter();
+
+	int res = wait_tasks(tasks, ntasks, timeout);
+	if (res != NOSV_SUCCESS) {
+		instr_join_all_exit();
+		return res;
+	}
+
+	if (resvals != NULL) {
+		for (int i = 0; i < ntasks; i++) {
+			resvals[i] = (void *) atomic_load_explicit(&tasks[i]->resval, memory_order_relaxed);
+		}
+	}
+
+	for (int i = 0; i < ntasks; i++) {
+		nosv_destroy(tasks[i], NOSV_DESTROY_NONE);
+	}
+
+	instr_join_all_exit();
+
+	return NOSV_SUCCESS;
+}
+
+int nosv_set_result(void *resval)
+{
+	nosv_task_t current_task = worker_current_task();
+	if (!current_task)
+		return NOSV_ERR_OUTSIDE_TASK;
+
+	atomic_store_explicit(&current_task->resval, (uintptr_t) resval, memory_order_relaxed);
 
 	return NOSV_SUCCESS;
 }

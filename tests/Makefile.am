@@ -41,6 +41,7 @@ basic_tests = basic-error-code.test \
 	basic-submit-window.test \
 	basic-multi-pause.test \
 	basic-suspend.test \
+	basic-join.test \
 	basic-immediate.test \
 	basic-pthread-create.test
 
@@ -186,6 +187,10 @@ basic_multi_pause_test_LDFLAGS = $(AM_LDFLAGS)
 basic_suspend_test_SOURCES = basic/suspend.c
 basic_suspend_test_CFLAGS = $(AM_CFLAGS)
 basic_suspend_test_LDFLAGS = $(AM_LDFLAGS)
+
+basic_join_test_SOURCES = basic/join.c
+basic_join_test_CFLAGS = $(AM_CFLAGS)
+basic_join_test_LDFLAGS = $(AM_LDFLAGS)
 
 basic_immediate_test_SOURCES = basic/immediate.c
 basic_immediate_test_CFLAGS = $(AM_CFLAGS)

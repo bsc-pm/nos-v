@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2023 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2023-2026 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef NOSV_ERROR_H
@@ -24,8 +24,9 @@ typedef enum nosv_err {
 	NOSV_ERR_OUTSIDE_TASK = -7,
 	NOSV_ERR_UNKNOWN = -8,
 	NOSV_ERR_BUSY = -9,
+	NOSV_ERR_TIMEOUT = -10,
 	/* Only used by the runtime, keep at the end */
-	NOSV_ERR_MAX = -10,
+	NOSV_ERR_MAX = -11,
 } nosv_err_t;
 
 /* Returns the error string corresponding to the error code. If not recognized,

@@ -115,6 +115,8 @@ the call will fail.
 
 Users may use the `NOSV_CREATE_PARALLEL` flag to indicate the task to be created is a parallel task.
 
+Users may use the `NOSV_CREATE_JOINABLE` flag to indicate the task cannot destroy itself and can be waited/joined.
+
 Once a task descriptor has been destroyed through the `nosv_destroy` call, any later calls to the nOS-V API or references to
 the task's metadata are undefined behaviour.
 
@@ -676,4 +678,26 @@ int nosv_set_suspend_mode(
 	uint64_t args);
 
 int nosv_suspend(void);
+```
+
+### Join/Wait API
+
+This API allows waiting for a task completion. `nosv_join` and `nosv_join_all` will automatically destroy the tasks after a successful wait. Additionally, they will gather the result of the task, if previously set by `nosv_set_result`.
+A wait is considered successful if all tasks have completed; otherwise, it will return `NOSV_ERR_TIMEOUT`.
+Different behaviors depending on the timeout value: -1 will wait for an unlimited amount of time; 0 will only check if the tasks are completed; any other value will wait until the specified timeout in ns.
+
+Joinable tasks must be created with the `NOSV_CREATE_JOINABLE` flag. 
+Tasks can only be joined once and can have at most one concurrent task joining/waiting.
+
+
+```c
+// Wait + gather result + destroy task
+int nosv_join(nosv_task_t task, void **resval, uint64_t timeout);
+int nosv_join_all(nosv_task_t *tasks, void **resvals, size_t ntasks, uint64_t timeout);
+
+// Just wait
+int nosv_wait(nosv_task_t task, uint64_t timeout);
+int nosv_wait_all(nosv_task_t *tasks, size_t ntasks, uint64_t timeout);
+
+int nosv_set_result(void *resval);
 ```

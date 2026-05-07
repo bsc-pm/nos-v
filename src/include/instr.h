@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2025 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2026 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef INSTR_H
@@ -57,6 +57,10 @@ enum instr_bit {
 	INSTR_BIT_API_WAITFOR,
 	INSTR_BIT_API_SCHEDPOINT,
 	INSTR_BIT_API_ATTACH,
+	INSTR_BIT_API_JOIN,
+	INSTR_BIT_API_JOIN_ALL,
+	INSTR_BIT_API_WAIT,
+	INSTR_BIT_API_WAIT_ALL,
 	INSTR_BIT_TASK,
 	INSTR_BIT_KERNEL,
 	INSTR_BIT_BREAKDOWN,
@@ -91,6 +95,10 @@ _Static_assert (INSTR_BIT_MAX <= sizeof(instr_ovni_control) * 8,
 #define INSTR_FLAG_API_WAITFOR			BIT(INSTR_BIT_API_WAITFOR)
 #define INSTR_FLAG_API_SCHEDPOINT		BIT(INSTR_BIT_API_SCHEDPOINT)
 #define INSTR_FLAG_API_ATTACH			BIT(INSTR_BIT_API_ATTACH)
+#define INSTR_FLAG_API_JOIN				BIT(INSTR_BIT_API_JOIN)
+#define INSTR_FLAG_API_JOIN_ALL			BIT(INSTR_BIT_API_JOIN_ALL)
+#define INSTR_FLAG_API_WAIT				BIT(INSTR_BIT_API_WAIT)
+#define INSTR_FLAG_API_WAIT_ALL			BIT(INSTR_BIT_API_WAIT_ALL)
 #define INSTR_FLAG_TASK					BIT(INSTR_BIT_TASK)
 #define INSTR_FLAG_KERNEL				BIT(INSTR_BIT_KERNEL)
 #define INSTR_FLAG_BREAKDOWN			BIT(INSTR_BIT_BREAKDOWN)
@@ -123,6 +131,10 @@ _Static_assert (INSTR_BIT_MAX <= sizeof(instr_ovni_control) * 8,
 		| INSTR_FLAG_API_COND_WAIT \
 		| INSTR_FLAG_API_COND_SIGNAL \
 		| INSTR_FLAG_API_COND_BROADCAST \
+		| INSTR_FLAG_API_JOIN \
+		| INSTR_FLAG_API_JOIN_ALL \
+		| INSTR_FLAG_API_WAIT \
+		| INSTR_FLAG_API_WAIT_ALL \
 		| INSTR_FLAG_KERNEL \
 		| INSTR_FLAG_BREAKDOWN)
 
@@ -260,6 +272,15 @@ INSTR_0ARG(API_SCHEDPOINT, instr_schedpoint_enter, "VAc")
 INSTR_0ARG(API_SCHEDPOINT, instr_schedpoint_exit, "VAC")
 INSTR_0ARG(API_ATTACH, instr_attach_exit, "VAA")
 INSTR_0ARG(API_ATTACH, instr_detach_enter, "VAe")
+INSTR_0ARG(API_JOIN, instr_join_enter, "VAj")
+INSTR_0ARG(API_JOIN, instr_join_exit, "VAJ")
+INSTR_0ARG(API_JOIN_ALL, instr_join_all_enter, "VAm")
+INSTR_0ARG(API_JOIN_ALL, instr_join_all_exit, "VAM")
+INSTR_0ARG(API_WAIT, instr_wait_enter, "VAi")
+INSTR_0ARG(API_WAIT, instr_wait_exit, "VAI")
+INSTR_0ARG(API_WAIT_ALL, instr_wait_all_enter, "VAn")
+INSTR_0ARG(API_WAIT_ALL, instr_wait_all_exit, "VAN")
+// Free event letters:  F, H, Q, V, X, Z
 
 INSTR_2ARG(TASK, instr_task_create, "VTc", uint32_t, task_id, uint32_t, type_id)
 INSTR_2ARG(TASK, instr_task_create_par, "VTC", uint32_t, task_id, uint32_t, type_id)
@@ -546,7 +567,7 @@ static inline void instr_thread_require(void)
 
 	/* This nosv model version has no relation to libnosv.so version, it
 	 * just covers the events and the metadata in the trace. */
-	ovni_thread_require("nosv", "2.6.0");
+	ovni_thread_require("nosv", "2.7.0");
 
 	if (instr_ovni_control & INSTR_FLAG_KERNEL)
 		ovni_thread_require("kernel", "1.0.0");
