@@ -29,6 +29,12 @@ static inline int task_is_parallel(nosv_task_t task)
 	return (task->flags & TASK_FLAG_CREATE_PARALLEL) != 0;
 }
 
+static inline int task_is_joinable(nosv_task_t task)
+{
+	assert(task);
+	return (task->flags & TASK_FLAG_CREATE_JOINABLE) != 0;
+}
+
 // A task execution handle contains all the needed context to execute a nos-v task body
 // Most of the context is in the task itself, but since parallel tasks share the nosv_task_t structure,
 // they need additional context (the execution_id). From the point the task is returned for the

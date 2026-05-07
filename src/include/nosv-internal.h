@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2025 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2026 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef NOSV_INTERNAL_H
@@ -17,6 +17,9 @@
 #include "nosv/affinity.h"
 #include "nosv/compat.h"
 #include "nosv/hwinfo.h"
+#include "generic/spinlock.h"
+
+#define TASK_TO_JOIN_COMPLETED_TASK ((nosv_task_t)1)
 
 struct nosv_worker;
 typedef uint64_t deadline_t;
@@ -33,7 +36,7 @@ typedef struct task_stats task_stats_t;
 
 
 // Flags
-// Flags usage (64 bits): -------- -------- -------- -------- -------- -------- -------- ---sssSC
+// Flags usage (64 bits): -------- -------- -------- -------- -------- -------- -------- -jCsssSC
 
 #define TASK_FLAG_CREATE_PARALLEL      __BIT(0)
 // Indicates if the task has to suspend
@@ -43,8 +46,12 @@ typedef struct task_stats task_stats_t;
 #define TASK_FLAG_SUSPEND_MODE_TIMEOUT __BIT(3)
 #define TASK_FLAG_SUSPEND_MODE_EVENT   __BIT(4)
 
+#define TASK_FLAG_CREATE_JOINABLE      __BIT(5)
+#define TASK_FLAG_JOIN_TIMEOUT         __BIT(6)
+
 // Mask to select only the suspend mode
 #define TASK_FLAG_SUSPEND_MODE_MASK ( TASK_FLAG_SUSPEND_MODE_SUBMIT | TASK_FLAG_SUSPEND_MODE_TIMEOUT | TASK_FLAG_SUSPEND_MODE_EVENT )
+
 
 // event_count flag
 // Indicates if the task is waiting for events
@@ -102,6 +109,11 @@ struct nosv_task {
 	// Parallelism degree
 	atomic_int32_t degree;
 
+
+	// Task that has issued a nosv_join to this task
+	nosv_task_t to_join;
+	nosv_spinlock_t join_lock;
+
 	// Current scheduled count
 	uint32_t scheduled_count;
 	nosv_flags_t flags;
@@ -111,6 +123,9 @@ struct nosv_task {
 
 	// Monitoring statistics
 	task_stats_t *stats;
+
+	// Return value pointer
+	_Atomic uintptr_t resval;
 };
 
 static inline nosv_flags_t task_should_suspend(struct nosv_task *task)

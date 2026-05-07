@@ -584,6 +584,10 @@ name##_RB_REMOVE(struct name *head, struct type *elm)			\
 color:									\
 	if (color == RB_BLACK)						\
 		name##_RB_REMOVE_COLOR(head, parent, child);		\
+	RB_PARENT(old, field) = NULL;					\
+	RB_LEFT(old, field) = NULL;					\
+	RB_RIGHT(old, field) = NULL;					\
+	RB_COLOR(old, field) = 0;					\
 	return (old);							\
 }									\
 									\

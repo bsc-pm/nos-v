@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2025 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2026 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef NOSV_H
@@ -104,6 +104,8 @@ int nosv_type_destroy(
 #define NOSV_CREATE_NONE        __ZEROBITS
 /* Create a parallel task that can run multiple times */
 #define NOSV_CREATE_PARALLEL    __BIT(0)
+/* External tasks may call nosv_{join, wait, join_all, wait_all} on this task, it cannot call nosv_destroy of itself */
+#define NOSV_CREATE_JOINABLE    __BIT(1)
 
 /* May return -ENOMEM. 0 on success */
 /* Callable from everywhere */
@@ -245,6 +247,23 @@ int nosv_set_suspend_mode(nosv_suspend_mode_t suspend_mode, uint64_t args);
 /* Marks the task to suspend, the task will suspend, instead of complete, when returns from the body */
 /* Restriction: Can only be called from a task context */
 int nosv_suspend(void);
+
+/* Waits for the task completion, gathers the result and destroys the task after completion */
+/* Calling nosv_join from two different task has undefined behaviour */
+/* If timeout is -1 will wait for a unlimited amount of time*/
+/* If timeout is 0 will only check if the task is completed */
+/* If timeout is any other value will wait until the specified timeout in ns */
+int nosv_join(nosv_task_t task, void **resval, uint64_t timeout);
+int nosv_join_all(nosv_task_t *tasks, void **resvals, size_t ntasks, uint64_t timeout);
+
+/* Waits for the task completion */
+/* Same restrictions and behaviours as nosv_join */
+int nosv_wait(nosv_task_t task, uint64_t timeout);
+int nosv_wait_all(nosv_task_t *tasks, size_t ntasks, uint64_t timeout);
+
+/* Return a value from a task */
+/* The value can be gathered using any nosv_join operation */
+int nosv_set_result(void *resval);
 
 #ifdef __cplusplus
 }
