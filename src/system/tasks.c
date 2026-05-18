@@ -1351,9 +1351,10 @@ int wait_tasks(nosv_task_t *tasks, size_t ntasks, uint64_t timeout)
 				nosv_spin_unlock(&tasks[i]->join_lock);
 
 				waiting_for++;
-			} else if (to_join != TASK_TO_JOIN_COMPLETED_TASK) {
+			} else {
 				nosv_spin_unlock(&tasks[i]->join_lock);
-				return NOSV_ERR_INVALID_PARAMETER;
+				if (to_join != TASK_TO_JOIN_COMPLETED_TASK)
+					return NOSV_ERR_INVALID_PARAMETER;
 			}
 		}
 
