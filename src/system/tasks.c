@@ -590,11 +590,53 @@ static inline int set_task_deadline(nosv_task_t task, const uint64_t start_time,
 	return 1;
 }
 
+int task_waitfor(
+	nosv_task_t task,
+	uint64_t target_ns,
+	uint64_t *actual_ns /* out */)
+{
+	nosv_worker_t *worker = worker_current();
+
+	assert(task);
+	assert(task == worker_current_task());
+	assert(!task_is_parallel(task));
+
+	// Thread is gonna yield, read and accumulate hardware counters for the task
+	hwcounters_update_task_counters(task);
+	monitoring_task_changed_status(task, ready_status);
+
+	uint32_t bodyid = instr_get_bodyid(worker->handle);
+	instr_task_pause((uint32_t)task->taskid, bodyid);
+
+	const uint64_t start_ns = clock_ns();
+	int res = set_task_deadline(task, start_ns, target_ns);
+
+	if(res) {
+		// Submit the task to re-schedule when the deadline is done
+		// Forego the current
+		scheduler_submit_single(task);
+		// Block until the deadline expires
+		worker_yield();
+	}
+
+	// Thread has been resumed, read and accumulate hardware counters for the CPU
+	hwcounters_update_runtime_counters();
+	monitoring_task_changed_status(task, executing_status);
+
+	if (actual_ns)
+		*actual_ns = clock_ns() - start_ns;
+
+	instr_task_resume((uint32_t)task->taskid, bodyid);
+
+	return NOSV_SUCCESS;
+}
+
 /* Deadline tasks */
 int nosv_waitfor(
 	uint64_t target_ns,
 	uint64_t *actual_ns /* out */)
 {
+	int err;
 	// We have to be inside a worker
 	nosv_worker_t *worker = worker_current();
 	if (!worker || !worker->handle.task)
@@ -611,37 +653,11 @@ int nosv_waitfor(
 
 	nosv_flush_submit_window();
 
-	// Thread is gonna yield, read and accumulate hardware counters for the task
-	hwcounters_update_task_counters(task);
-	monitoring_task_changed_status(task, ready_status);
-
 	instr_waitfor_enter();
-	uint32_t bodyid = instr_get_bodyid(worker->handle);
-	instr_task_pause((uint32_t)task->taskid, bodyid);
-
-	const uint64_t start_ns = clock_ns();
-	int res = set_task_deadline(task, start_ns, target_ns);
-
-	if(res) {
-		// Submit the task to re-schedule when the deadline is done
-		// Forego the current
-		scheduler_submit_single(task);
-		// Block until the deadline expires
-		worker_yield();
-	}
-
-
-	if (actual_ns)
-		*actual_ns = clock_ns() - start_ns;
-
-	// Thread has been resumed, read and accumulate hardware counters for the CPU
-	hwcounters_update_runtime_counters();
-	monitoring_task_changed_status(task, executing_status);
-
-	instr_task_resume((uint32_t)task->taskid, bodyid);
+	err = task_waitfor(task, target_ns, actual_ns);
 	instr_waitfor_exit();
 
-	return NOSV_SUCCESS;
+	return err;
 }
 
 /* Yield operation */
@@ -1378,16 +1394,7 @@ int wait_tasks(nosv_task_t *tasks, size_t ntasks, uint64_t timeout)
 
 					nosv_spin_unlock(&tasks[i]->join_lock);
 
-					uint32_t bodyid = instr_get_bodyid(worker->handle);
-					instr_task_pause((uint32_t) current_task->taskid, bodyid);
-
-					int res = set_task_deadline(current_task, start_ns, timeout);
-
-					if (res) {
-						scheduler_submit_single(current_task);
-						worker_yield();
-					}
-					instr_task_resume((uint32_t) current_task->taskid, bodyid);
+					task_waitfor(current_task, timeout, NULL);
 
 					// Check if the task reached the deadline or was resubmitted
 					nosv_spin_lock(&tasks[i]->join_lock);
