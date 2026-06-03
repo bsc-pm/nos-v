@@ -1,7 +1,7 @@
 /*
 	This file is part of Nanos6 and nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2020-2024 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2020-2026 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef CONFIG_PARSE_H
@@ -67,6 +67,7 @@ static config_spec_t config_spec_list[] = {
 	DECLARE_CONFIG(TYPE_UINT64, "scheduler.in_queue_size", sched_in_queue_size),
 	DECLARE_CONFIG(TYPE_BOOL, "scheduler.immediate_successor", sched_immediate_successor),
 	DECLARE_CONFIG(TYPE_STR, "shared_memory.name", shm_name),
+	DECLARE_CONFIG(TYPE_BOOL, "shared_memory.preallocate", shm_preallocate),
 	DECLARE_CONFIG(TYPE_STR, "shared_memory.isolation_level", shm_isolation_level),
 	DECLARE_CONFIG(TYPE_PTR, "shared_memory.start", shm_start),
 	DECLARE_CONFIG(TYPE_SIZE, "shared_memory.size", shm_size),

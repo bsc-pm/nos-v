@@ -1,10 +1,11 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2026 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdatomic.h>
 #include <stdlib.h>
@@ -33,6 +34,44 @@
 
 static_smem_config_t st_config;
 static int pid_slot_config = -1;
+
+static inline void shm_reserve_space(int fd, size_t requested_size)
+{
+	if (fallocate(fd, 0, 0, (off_t) requested_size) == 0)
+		return;
+
+	int err = errno;
+
+	if (err == ENOSPC)
+		nosv_abort("Not enough /dev/shm space for nOS-V shared memory (requested %zu bytes). "
+			   "Increase available /dev/shm space or lower shared_memory.size.", requested_size);
+
+	if (err == EOPNOTSUPP || err == ENOSYS || err == EINVAL)
+		nosv_abort("Cannot reserve backing storage for shared memory: /dev/shm does not support fallocate()");
+
+	nosv_abort("Cannot reserve backing storage for shared memory: %s", strerror(err));
+}
+
+static inline void shm_truncate_space(int fd, size_t requested_size)
+{
+	int ret = ftruncate(fd, (off_t) requested_size);
+	if (!ret)
+		return;
+
+	if (errno == ENOSPC)
+		nosv_abort("Not enough /dev/shm space for nOS-V shared memory (requested %zu bytes). "
+			   "Increase available /dev/shm space or lower shared_memory.size.", requested_size);
+
+	nosv_abort("Cannot resize shared memory segment");
+}
+
+static inline void shm_initialize_space(int fd, size_t requested_size)
+{
+	if (nosv_config.shm_preallocate)
+		shm_reserve_space(fd, requested_size);
+	else
+		shm_truncate_space(fd, requested_size);
+}
 
 // Protect file locks with acquire-release semantics
 static inline int shm_lock(int fd)
@@ -227,7 +266,8 @@ static void segment_create(void)
 					smem_initialize_rest();
 				}
 			} else {
-				ftruncate(st_config.smem_fd, (off_t) nosv_config.shm_size);
+				shm_initialize_space(st_config.smem_fd, nosv_config.shm_size);
+
 				st_config.config = (smem_config_t *)mmap(nosv_config.shm_start, nosv_config.shm_size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_FIXED_NOREPLACE, st_config.smem_fd, 0);
 				if (st_config.config == MAP_FAILED)
 					nosv_abort("Cannot map shared memory");

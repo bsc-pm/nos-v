@@ -1,7 +1,7 @@
 /*
 	This file is part of Nanos6 and nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2020-2025 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2020-2026 Barcelona Supercomputing Center (BSC)
 */
 
 #include <assert.h>
@@ -53,6 +53,7 @@ static inline void config_init(rt_config_t *config)
 	// Use strdup for strings by default?
 	config->shm_name = strdup(SHM_NAME);
 	assert(config->shm_name);
+	config->shm_preallocate = SHM_PREALLOCATE;
 	config->shm_isolation_level = strdup(SHM_ISOLATION_LEVEL);
 	assert(config->shm_isolation_level);
 	config->shm_size = SHM_SIZE;

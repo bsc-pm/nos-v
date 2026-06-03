@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2025 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2026 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef DEFAULTS_H
@@ -35,6 +35,7 @@
 #define SHM_START_ADDR ((void *) 0x0000200000000000)
 #define SHM_SIZE (1ULL << 31)
 #define SHM_NAME "nosv"
+#define SHM_PREALLOCATE 0
 #define SHM_ISOLATION_LEVEL "process"
 
 // SCHEDULER

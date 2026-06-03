@@ -1,7 +1,7 @@
 /*
 	This file is part of Nanos6 and nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2020-2024 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2020-2026 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef CONFIG_H
@@ -45,6 +45,7 @@ typedef struct rt_config {
 
 	// Shared Memory
 	const char *shm_name;
+	int shm_preallocate;
 	const char *shm_isolation_level;
 	size_t shm_size;
 	void *shm_start;

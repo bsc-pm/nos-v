@@ -1,6 +1,6 @@
 # This file is part of nOS-V and is licensed under the terms contained in the COPYING file
 #
-# Copyright (C) 2021-2025 Barcelona Supercomputing Center (BSC)
+# Copyright (C) 2021-2026 Barcelona Supercomputing Center (BSC)
 
 # Default nOS-V configuration file.
 # Note that every process in the same nOS-V instance should load an identical configuration file,
@@ -18,6 +18,10 @@
 	# will result in independent nOS-V instances. Note that both the name of the shared memory as well as the
 	# isolation level have to match for nOS-V instances to connect
 	name = "nosv"
+	# Preallocate shared memory segment up front. Activating this option will make nOS-V fail early
+	# if there is not enough memory and will result in less page faults, but will increase
+	# nOS-V initialization time.
+	preallocate = false
 	# Isolation level of nOS-V. Possible values are:
 	# "process" - Each process has a separate nOS-V instance
 	# "user" - nOS-V instances are shared for the same user
