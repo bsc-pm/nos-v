@@ -45,7 +45,7 @@ typedef struct rt_config {
 
 	// Shared Memory
 	const char *shm_name;
-	const char *shm_allocation_policy;
+	int shm_preallocate;
 	const char *shm_isolation_level;
 	size_t shm_size;
 	void *shm_start;

@@ -67,13 +67,10 @@ static inline void shm_truncate_space(int fd, size_t requested_size)
 
 static inline void shm_initialize_space(int fd, size_t requested_size)
 {
-	if (!strcmp(nosv_config.shm_allocation_policy, "fallocate")) {
+	if (nosv_config.shm_preallocate)
 		shm_reserve_space(fd, requested_size);
-		return;
-	}
-
-	assert(!strcmp(nosv_config.shm_allocation_policy, "ftruncate"));
-	shm_truncate_space(fd, requested_size);
+	else
+		shm_truncate_space(fd, requested_size);
 }
 
 // Protect file locks with acquire-release semantics
