@@ -53,21 +53,21 @@ void task_type_manager_init(void)
 static inline nosv_affinity_t parse_affinity_from_config(void)
 {
 	nosv_affinity_t ret;
+	const char *affinity = nosv_config.task_affinity_default;
 
 	// Start by splitting the prefix and the index
-	char *sep = strchr(nosv_config.task_affinity_default, '-');
+	const char *sep = strchr(affinity, '-');
 
 	// Check if sep is NULL (not found)
 	if (!sep)
 		nosv_abort("Malformed default_affinity string");
 
-	char *index = sep + 1;
-	// NULL-terminate the string to parse it
-	*sep = '\0';
+	const char *index = sep + 1;
+	size_t prefix_len = sep - affinity;
 
-	if (!strcmp(nosv_config.task_affinity_default, "cpu"))
+	if (prefix_len == strlen("cpu") && !strncmp(affinity, "cpu", prefix_len))
 		ret.level = NOSV_AFFINITY_LEVEL_CPU;
-	else if (!strcmp(nosv_config.task_affinity_default, "numa"))
+	else if (prefix_len == strlen("numa") && !strncmp(affinity, "numa", prefix_len))
 		ret.level = NOSV_AFFINITY_LEVEL_NUMA;
 	else
 		nosv_abort("Unknown default affinity level");
@@ -92,7 +92,9 @@ static inline nosv_affinity_t parse_affinity_from_config(void)
 void task_affinity_init(void)
 {
 	if (!strcmp(nosv_config.task_affinity_default, "all")) {
-		default_affinity.index = default_affinity.level = default_affinity.type = 0;
+		default_affinity.index = 0;
+		default_affinity.level = NOSV_AFFINITY_LEVEL_NONE;
+		default_affinity.type = 0;
 	} else {
 		default_affinity = parse_affinity_from_config();
 	}

@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2026 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef CONDVAR_H
@@ -19,7 +19,7 @@ typedef struct condition_var {
 
 static inline void nosv_condvar_init(nosv_condvar_t *condvar)
 {
-	int res;
+	__maybe_unused int res;
 
 	assert(condvar);
 	res = sem_init(&condvar->sem, 1, 0);
@@ -28,7 +28,7 @@ static inline void nosv_condvar_init(nosv_condvar_t *condvar)
 
 static inline void nosv_condvar_destroy(nosv_condvar_t *condvar)
 {
-	int res;
+	__maybe_unused int res;
 
 	assert(condvar);
 	res = sem_destroy(&condvar->sem);
@@ -46,7 +46,7 @@ static inline void nosv_condvar_wait(nosv_condvar_t *condvar)
 
 static inline void nosv_condvar_signal(nosv_condvar_t *condvar)
 {
-	int res;
+	__maybe_unused int res;
 
 	assert(condvar);
 	assert(sem_getvalue(&condvar->sem, &res) || res == 0);

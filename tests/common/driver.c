@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2024 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2026 Barcelona Supercomputing Center (BSC)
 */
 
 #define _GNU_SOURCE
@@ -297,9 +297,15 @@ int reap_processes(int n, struct test_harness *result, struct test_proc_descript
 
 int monitor_procs(int n, struct test_harness *result, struct test_proc_descriptor *procs)
 {
+	if (n < 0 || n > PARALLEL_TESTS) {
+		errno = EINVAL;
+		report_error("Invalid number of processes");
+	}
+
 	struct pollfd descriptors[PARALLEL_TESTS];
 	memset(descriptors, 0, sizeof(descriptors));
 	char buffer[MAX_BUFF_SIZE];
+	nfds_t nfds = (nfds_t) n;
 
 	for (int i = 0; i < n; ++i) {
 		descriptors[i].fd = procs[i].readfd;
@@ -314,7 +320,7 @@ int monitor_procs(int n, struct test_harness *result, struct test_proc_descripto
 		// test forks, because children also inherit the open channel to the pipe write end, which maintains
 		// the pipe opened. If the parent crashes, the children may survive and keep that write end opened.
 		// This is why we cannot rely on simply reaping the processes when we receive POLLHUP events.
-		int ready = poll(descriptors, n, 100);
+		int ready = poll(descriptors, nfds, 100);
 		if (ready == -1)
 			report_error("Poll returned error");
 
