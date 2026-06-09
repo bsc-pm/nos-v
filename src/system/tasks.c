@@ -590,7 +590,7 @@ static inline int set_task_deadline(nosv_task_t task, const uint64_t start_time,
 	return 1;
 }
 
-int task_waitfor(
+static inline int task_waitfor(
 	nosv_task_t task,
 	uint64_t target_ns,
 	uint64_t *actual_ns /* out */)
@@ -611,7 +611,7 @@ int task_waitfor(
 	const uint64_t start_ns = clock_ns();
 	int res = set_task_deadline(task, start_ns, target_ns);
 
-	if(res) {
+	if (res) {
 		// Submit the task to re-schedule when the deadline is done
 		// Forego the current
 		scheduler_submit_single(task);
@@ -636,7 +636,6 @@ int nosv_waitfor(
 	uint64_t target_ns,
 	uint64_t *actual_ns /* out */)
 {
-	int err;
 	// We have to be inside a worker
 	nosv_worker_t *worker = worker_current();
 	if (!worker || !worker->handle.task)
@@ -651,10 +650,11 @@ int nosv_waitfor(
 	if (task_is_parallel(task))
 		return NOSV_ERR_INVALID_OPERATION;
 
+	instr_waitfor_enter();
+
 	nosv_flush_submit_window();
 
-	instr_waitfor_enter();
-	err = task_waitfor(task, target_ns, actual_ns);
+	int err = task_waitfor(task, target_ns, actual_ns);
 	instr_waitfor_exit();
 
 	return err;
@@ -1333,7 +1333,7 @@ int nosv_suspend(void)
 	return NOSV_SUCCESS;
 }
 
-int wait_tasks(nosv_task_t *tasks, size_t ntasks, uint64_t timeout)
+static inline int wait_tasks(nosv_task_t *tasks, size_t ntasks, uint64_t timeout)
 {
 	nosv_task_t to_join = NULL;
 	nosv_task_t current_task = worker_current_task();
