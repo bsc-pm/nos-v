@@ -1337,7 +1337,6 @@ static inline int wait_tasks(nosv_task_t *tasks, size_t ntasks, uint64_t timeout
 {
 	nosv_task_t to_join = NULL;
 	nosv_task_t current_task = worker_current_task();
-	nosv_worker_t *worker = worker_current();
 
 	nosv_flush_submit_window();
 
