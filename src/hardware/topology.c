@@ -279,8 +279,8 @@ static inline void topology_init_cores_cpus(cpu_bitset_t const *const valid_cpus
 		for (int j = 0; j < NR_CPUS; ++j)
 			thread_siblings[i][j] = -1;
 
-	int ncores = 0;
-	int ncpus = 0;
+	__maybe_unused int ncores = 0;
+	__maybe_unused int ncpus = 0;
 	int max_cpus_per_core = 1;
 
 	// Parse the cpu topology and populate thread siblings
