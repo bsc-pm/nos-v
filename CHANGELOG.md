@@ -3,6 +3,18 @@ All notable changes to this project will be documented in this file.
 
 The format of this file is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## Version [4.1.0], Fri Jun 19, 2026
+This version corresponds to the OmpSs-2 2026.06 release. It is a minor release which extends the API without breaking changes, adds new features, and some fixes.
+
+### Added
+- Extend the API with `join` and `wait` operations
+- Add a configuration variable which enables pre-allocating the shared memory to induce benign failures
+
+### Fixed
+- Fix topology NUMA test assertions
+- Improve PAPI m4 module for cross-compilation
+- Fix cross-thread shutdown ownership issues
+
 ## Version [4.0.0], Tue Oct 28, 2025
 This version corresponds to the OmpSs-2 2025.11 release. It is a major release including breaking API changes, new features, and some fixes.
 
