@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2024-2025 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2024-2026 Barcelona Supercomputing Center (BSC)
 */
 
 #include <nosv.h>
@@ -106,7 +106,7 @@ void test_cond(const char *pref, const char *label, const cond_test_flag_t flags
 
 	struct timespec deadline;
 	if (timed_tasks) {
-		clock_gettime(CLOCK_MONOTONIC, &deadline);
+		clock_gettime(CLOCK_REALTIME, &deadline);
 		deadline.tv_nsec += time_ms*1000000; // *1ms
 	}
 

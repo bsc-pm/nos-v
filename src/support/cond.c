@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2024-2025 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2024-2026 Barcelona Supercomputing Center (BSC)
 */
 
 #include <stdbool.h>
@@ -192,7 +192,7 @@ static inline int nosv_cond_timedwait_internal(
 	uint64_t wait_ns = 0;
 	if (abstime) {
 		const uint64_t abstime_ns = abstime->tv_nsec + abstime->tv_sec * 1000000000ULL;
-		const uint64_t now_ns = clock_ns();
+		const uint64_t now_ns = clock_realtime_ns();
 
 		// If time has expired, we return keeping nosv_mutex locked
 		if (now_ns > abstime_ns) {

@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2021-2022 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2021-2026 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef CLOCK_H
@@ -26,6 +26,13 @@ static inline uint64_t clock_fast_ns(void) {
 static inline uint64_t clock_ns(void) {
 	struct timespec tp;
 	clock_gettime(CLOCK_MONOTONIC, &tp);
+	return tp.tv_sec * 1000000000ULL + tp.tv_nsec;
+}
+
+static inline uint64_t clock_realtime_ns(void)
+{
+	struct timespec tp;
+	clock_gettime(CLOCK_REALTIME, &tp);
 	return tp.tv_sec * 1000000000ULL + tp.tv_nsec;
 }
 
