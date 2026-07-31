@@ -56,6 +56,13 @@ typedef union nosv_rwlock_ext {
 
 #define NOSV_RWLOCK_INITIALIZER {{0}}
 
+#define SIZEOF_NOSV_SEM 64
+
+typedef union nosv_sem_ext {
+	uint8_t __pad[SIZEOF_NOSV_SEM];
+	uint64_t __align;
+} nosv_sem_t;
+
 #define SIZEOF_NOSV_MUTEXATTR 32
 
 typedef union nosv_mutexattr_ext {
