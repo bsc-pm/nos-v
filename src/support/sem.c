@@ -70,6 +70,7 @@ int nosv_sem_post(nosv_sem_t *sem)
 {
 	struct nosv_sem *s = (struct nosv_sem *) sem;
 	nosv_task_t task_unlock = NULL;
+	int err = NOSV_SUCCESS;
 
 	if (!s) {
 		errno = EINVAL;
@@ -91,18 +92,21 @@ int nosv_sem_post(nosv_sem_t *sem)
 			s->value = 0;
 			nosv_spin_unlock(&s->lock);
 			task_unlock = list_elem(elem, struct nosv_task, list_hook_cond);
-			nosv_submit(task_unlock, NOSV_SUBMIT_UNLOCKED);
+			err = nosv_submit(task_unlock, NOSV_SUBMIT_UNLOCKED);
 		} else if ((elem = list_pop_front(&s->list_timed))) {
 			s->value = 0;
 			nosv_spin_unlock(&s->lock);
 			task_unlock = list_elem(elem, struct nosv_task, list_hook_cond);
-			nosv_submit(task_unlock, NOSV_SUBMIT_DEADLINE_WAKE);
+			err = nosv_submit(task_unlock, NOSV_SUBMIT_DEADLINE_WAKE);
 		} else {
 			nosv_spin_unlock(&s->lock);
 		}
 	} else {
 		nosv_spin_unlock(&s->lock);
 	}
+
+	if (unlikely(err != NOSV_SUCCESS))
+		nosv_abort("Failed to submit task: %s", nosv_get_error_string(err));
 
 	return 0;
 }

@@ -410,6 +410,69 @@ int nosv_rwlock_tryrdlock(
 int nosv_rwlock_unlock(
 	nosv_rwlock_t *rwlock);
 
+/* Initialize a nosv_sem_t object with the given value. Process-shared
+ * semaphores are not supported */
+/* May return:
+	- 0 (success)
+	- -1 and errno = EINVAL (sem is NULL or value exceeds SEM_VALUE_MAX)
+	- -1 and errno = ENOSYS (pshared is nonzero)
+*/
+int nosv_sem_init(
+	nosv_sem_t *sem,
+	int pshared,
+	unsigned int value);
+
+/* Destroy a semaphore object */
+/* May return:
+	- 0 (success)
+	- -1 and errno = EINVAL (sem is NULL)
+*/
+int nosv_sem_destroy(
+	nosv_sem_t *sem);
+
+/* Increment a semaphore and wake one waiting task, if any */
+/* May return:
+	- 0 (success)
+	- -1 and errno = EINVAL (sem is NULL)
+	- -1 and errno = EOVERFLOW (the semaphore value is SEM_VALUE_MAX)
+*/
+int nosv_sem_post(
+	nosv_sem_t *sem);
+
+/* Decrement a semaphore, blocking while its value is zero */
+/* Restriction: Can only be called from a non-parallel task context */
+/* May return:
+	- 0 (success)
+	- -1 and errno = EINVAL (sem is NULL or the calling task is parallel)
+	- -1 and errno = ESRCH (called outside a task context)
+*/
+int nosv_sem_wait(
+	nosv_sem_t *sem);
+
+/* Decrement a semaphore or return immediately if its value is zero */
+/* Restriction: Can only be called from a non-parallel task context */
+/* May return:
+	- 0 (success)
+	- -1 and errno = EINVAL (sem is NULL or the calling task is parallel)
+	- -1 and errno = ESRCH (called outside a task context)
+	- -1 and errno = EAGAIN (the semaphore value is zero)
+*/
+int nosv_sem_trywait(
+	nosv_sem_t *sem);
+
+/* Decrement a semaphore, blocking until its value is nonzero or the absolute
+ * deadline expires */
+/* Restriction: Can only be called from a non-parallel task context */
+/* May return:
+	- 0 (success)
+	- -1 and errno = EINVAL (sem is NULL or the calling task is parallel)
+	- -1 and errno = ESRCH (called outside a task context)
+	- -1 and errno = ETIMEDOUT (the deadline expired)
+*/
+int nosv_sem_timedwait(
+	nosv_sem_t *sem,
+	const struct timespec *restrict abs_timeout);
+
 /* Wrapper around pthread create (instruments and attaches the thread) */
 int nosv_pthread_create(pthread_t *thread,
 	const pthread_attr_t *attr,
