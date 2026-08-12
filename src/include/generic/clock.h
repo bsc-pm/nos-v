@@ -29,10 +29,10 @@ static inline uint64_t clock_ns(void) {
 	return tp.tv_sec * 1000000000ULL + tp.tv_nsec;
 }
 
-static inline uint64_t clock_realtime_ns(void)
+static inline uint64_t clock_ns_from_id(clockid_t clock_id)
 {
 	struct timespec tp;
-	clock_gettime(CLOCK_REALTIME, &tp);
+	clock_gettime(clock_id, &tp);
 	return tp.tv_sec * 1000000000ULL + tp.tv_nsec;
 }
 

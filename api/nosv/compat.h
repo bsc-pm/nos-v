@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2025 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2025-2026 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef NOSV_COMPAT_H
@@ -189,6 +189,15 @@ int nosv_barrier_wait(
 */
 int nosv_condattr_init(nosv_condattr_t *attr);
 int nosv_condattr_destroy(nosv_condattr_t *attr);
+
+/* Get/Set nOS-V condition variable clock_id attribute */
+/* May return:
+	- 0 (success)
+	- EINVAL (attr is NULL)
+	- EINVAL (clock_id is invalid)
+*/
+int nosv_condattr_getclock(const nosv_condattr_t *restrict attr, clockid_t *restrict clock_id);
+int nosv_condattr_setclock(nosv_condattr_t *attr, clockid_t clock_id);
 
 /* Initialize a nOS-V condition variable */
 /* May return:

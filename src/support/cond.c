@@ -24,8 +24,16 @@ struct nosv_cond {
 	// them when waking the tasks
 	list_head_t list_timed;
 	nosv_spinlock_t lock;
+	clockid_t clock_id;
 	int initialized;
 };
+
+struct nosv_condattr {
+	clockid_t clock_id;
+};
+
+static_assert(sizeof(struct nosv_condattr) <= SIZEOF_NOSV_CONDATTR,
+	"Exposed condattr struct should be at least the size of internal type. Increase exposed struct size accordingly");
 
 static_assert(sizeof(struct nosv_cond) <= SIZEOF_NOSV_COND,
 	"Exposed barrier struct sould be at least the size of internal type. Increase exposed struct size accordingly.");
@@ -34,6 +42,9 @@ int nosv_condattr_init(nosv_condattr_t *attr)
 {
 	if (!attr)
 		return EINVAL;
+
+	struct nosv_condattr *a = (struct nosv_condattr *) attr;
+	a->clock_id = CLOCK_REALTIME;
 
 	return 0;
 }
@@ -46,11 +57,34 @@ int nosv_condattr_destroy(nosv_condattr_t *attr)
 	return 0;
 }
 
+int nosv_condattr_getclock(const nosv_condattr_t *restrict attr, clockid_t *restrict clock_id)
+{
+	if (clock_id == NULL || attr == NULL)
+		return EINVAL;
+
+	struct nosv_condattr *a = (struct nosv_condattr *) attr;
+	*clock_id = a->clock_id;
+
+	return 0;
+}
+
+int nosv_condattr_setclock(nosv_condattr_t *attr, clockid_t clock_id)
+{
+	if (attr == NULL)
+		return EINVAL;
+
+	struct nosv_condattr *a = (struct nosv_condattr *) attr;
+	a->clock_id = clock_id;
+
+	return 0;
+}
+
 static inline void nosv_cond_init_internal(struct nosv_cond *c)
 {
 	list_init(&c->list);
 	list_init(&c->list_timed);
 	c->initialized = 1;
+	c->clock_id = CLOCK_REALTIME;
 }
 
 int nosv_cond_init(
@@ -65,6 +99,11 @@ int nosv_cond_init(
 	// Initialize cond object
 	nosv_cond_init_internal(c);
 	nosv_spin_init(&c->lock);
+
+	if (condattr != NULL) {
+		struct nosv_condattr *a = (struct nosv_condattr *) condattr;
+		c->clock_id = a->clock_id;
+	}
 
 	return 0;
 }
@@ -192,7 +231,7 @@ static inline int nosv_cond_timedwait_internal(
 	uint64_t wait_ns = 0;
 	if (abstime) {
 		const uint64_t abstime_ns = abstime->tv_nsec + abstime->tv_sec * 1000000000ULL;
-		const uint64_t now_ns = clock_realtime_ns();
+		const uint64_t now_ns = clock_ns_from_id(c->clock_id);
 
 		// If time has expired, we return keeping nosv_mutex locked
 		if (now_ns > abstime_ns) {
