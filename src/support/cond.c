@@ -218,6 +218,7 @@ static inline int nosv_cond_clockwait_internal(
 	const struct timespec *abstime)
 {
 	int err = 0;
+	int timedout = 0;
 	nosv_task_t current_task = worker_current_task();
 
 	if (!c || (nosv_mutex == NULL && pthread_mutex == NULL))
@@ -251,7 +252,7 @@ static inline int nosv_cond_clockwait_internal(
 			nosv_spin_unlock(&c->lock);
 			instr_cond_wait_exit();
 
-			return 0;
+			return ETIMEDOUT;
 		} else {
 			list_add_tail(&c->list_timed, &current_task->list_hook_cond);
 			wait_ns = abstime_ns - now_ns;
@@ -268,7 +269,7 @@ static inline int nosv_cond_clockwait_internal(
 	}
 
 	if (unlikely(err != 0)) {
-		nosv_abort("Failed to unlock nosv mutex");
+		nosv_abort("Failed to unlock mutex");
 	}
 
 	if (!abstime) { // nosv_cond_wait (not timed)
@@ -286,9 +287,11 @@ static inline int nosv_cond_clockwait_internal(
 		}
 
 		nosv_spin_lock(&c->lock);
-		// Remove from wait list (if we woke by ourselves)
-		if (list_node_is_inserted_in_any_list(&current_task->list_hook_cond))
+		if (list_node_is_inserted_in_any_list(&current_task->list_hook_cond)) {
+			// If we woke by ourselves iff we are still in the list, clean up
 			list_remove(&current_task->list_hook_cond);
+			timedout = 1;
+		}
 		nosv_spin_unlock(&c->lock);
 	}
 
@@ -298,8 +301,12 @@ static inline int nosv_cond_clockwait_internal(
 		err = nosv_mutex_lock(nosv_mutex);
 	}
 
+	if (unlikely(err != 0)) {
+		nosv_abort("Failed to lock mutex");
+	}
+
 	instr_cond_wait_exit();
-	return err;
+	return timedout ? ETIMEDOUT : 0;
 }
 
 int nosv_cond_timedwait(
