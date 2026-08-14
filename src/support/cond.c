@@ -73,6 +73,12 @@ int nosv_condattr_setclock(nosv_condattr_t *attr, clockid_t clock_id)
 	if (attr == NULL)
 		return EINVAL;
 
+	// Verify that clock_id is valid
+	uint64_t now_ns;
+	if (clock_ns_from_id(clock_id, &now_ns)) {
+		return EINVAL;
+	}
+
 	struct nosv_condattr *a = (struct nosv_condattr *) attr;
 	a->clock_id = clock_id;
 
@@ -230,7 +236,13 @@ static inline int nosv_cond_clockwait_internal(
 	uint64_t wait_ns = 0;
 	if (abstime) {
 		const uint64_t abstime_ns = abstime->tv_nsec + abstime->tv_sec * 1000000000ULL;
-		const uint64_t now_ns = clock_ns_from_id(clock_id);
+		uint64_t now_ns;
+		if (unlikely(clock_ns_from_id(clock_id, &now_ns))) {
+			// Invalid clock
+			nosv_spin_unlock(&c->lock);
+			instr_cond_wait_exit();
+			return EINVAL;
+		}
 
 		// If time has expired, we return keeping nosv_mutex locked
 		if (now_ns > abstime_ns) {

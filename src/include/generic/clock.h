@@ -29,11 +29,15 @@ static inline uint64_t clock_ns(void) {
 	return tp.tv_sec * 1000000000ULL + tp.tv_nsec;
 }
 
-static inline uint64_t clock_ns_from_id(clockid_t clock_id)
+static inline int clock_ns_from_id(clockid_t clock_id, uint64_t *time)
 {
 	struct timespec tp;
-	clock_gettime(clock_id, &tp);
-	return tp.tv_sec * 1000000000ULL + tp.tv_nsec;
+	if (clock_gettime(clock_id, &tp) != 0 || time == NULL) {
+		return -1;
+	}
+
+	*time = tp.tv_sec * 1000000000ULL + tp.tv_nsec;
+	return 0;
 }
 
 #endif // CLOCK_H
