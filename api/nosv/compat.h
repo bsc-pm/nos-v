@@ -258,6 +258,22 @@ int nosv_cond_timedwait(
 	nosv_mutex_t *mutex,
 	const struct timespec *abstime);
 
+/* Similar to pthread_cond_clockwait, block until signaled or the deadline
+ * expires, uses the provided clock_id instead of the one from condattr_setclock */
+/* Restriction: Can only be called with mutex locked */
+/* May return:
+	- 0 (success)
+	- EINVAL (cond or mutex is NULL)
+	- EINVAL (the calling task cannot be blocked)
+	- EINVAL (invalid clock_id)
+	- ESRCH (called from outside a task context)
+*/
+int nosv_cond_clockwait(
+	nosv_cond_t *cond,
+	nosv_mutex_t *mutex,
+	clockid_t clock_id,
+	const struct timespec *abstime);
+
 /* Same as the above nosv_cond_wait but using a pthread mutex internally */
 /* May return:
 	- 0 (success)
@@ -279,6 +295,20 @@ int nosv_cond_wait_pthread(
 int nosv_cond_timedwait_pthread(
 	nosv_cond_t *cond,
 	pthread_mutex_t *mutex,
+	const struct timespec *abstime);
+
+/* Same as the above nosv_cond_clockwait but using a pthread mutex internally */
+/* May return:
+	- 0 (success)
+	- EINVAL (cond or mutex is NULL)
+	- EINVAL (the calling task cannot be blocked)
+	- EINVAL (invalid clock_id)
+	- ESRCH (called from outside a task context)
+*/
+int nosv_cond_clockwait_pthread(
+	nosv_cond_t *cond,
+	pthread_mutex_t *mutex,
+	clockid_t clock_id,
 	const struct timespec *abstime);
 
 /* Initialize nOS-V read-write lock attributes */

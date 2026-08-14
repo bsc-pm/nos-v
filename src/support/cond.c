@@ -202,16 +202,15 @@ int nosv_cond_broadcast(nosv_cond_t *cond)
 	return 0;
 }
 
-static inline int nosv_cond_timedwait_internal(
-	nosv_cond_t *cond,
+static inline int nosv_cond_clockwait_internal(
+	struct nosv_cond *c,
 	nosv_mutex_t *nosv_mutex,
 	pthread_mutex_t *pthread_mutex,
-	const struct timespec *abstime
-)
+	clockid_t clock_id,
+	const struct timespec *abstime)
 {
 	int err = 0;
 	nosv_task_t current_task = worker_current_task();
-	struct nosv_cond *c = (struct nosv_cond *) cond;
 
 	if (!c || (nosv_mutex == NULL && pthread_mutex == NULL))
 		return EINVAL;
@@ -231,7 +230,7 @@ static inline int nosv_cond_timedwait_internal(
 	uint64_t wait_ns = 0;
 	if (abstime) {
 		const uint64_t abstime_ns = abstime->tv_nsec + abstime->tv_sec * 1000000000ULL;
-		const uint64_t now_ns = clock_ns_from_id(c->clock_id);
+		const uint64_t now_ns = clock_ns_from_id(clock_id);
 
 		// If time has expired, we return keeping nosv_mutex locked
 		if (now_ns > abstime_ns) {
@@ -294,7 +293,11 @@ int nosv_cond_timedwait(
 	nosv_mutex_t *mutex,
 	const struct timespec *abstime)
 {
-	return nosv_cond_timedwait_internal(cond, mutex, NULL, abstime);
+	if (cond == NULL)
+		return EINVAL;
+
+	struct nosv_cond *c = (struct nosv_cond *) cond;
+	return nosv_cond_clockwait_internal(c, mutex, NULL, c->clock_id, abstime);
 }
 
 int nosv_cond_timedwait_pthread(
@@ -302,7 +305,29 @@ int nosv_cond_timedwait_pthread(
 	pthread_mutex_t *mutex,
 	const struct timespec *abstime)
 {
-	return nosv_cond_timedwait_internal(cond, NULL, mutex, abstime);
+	if (cond == NULL)
+		return EINVAL;
+
+	struct nosv_cond *c = (struct nosv_cond *) cond;
+	return nosv_cond_clockwait_internal(c, NULL, mutex, c->clock_id, abstime);
+}
+
+int nosv_cond_clockwait(
+	nosv_cond_t *cond,
+	nosv_mutex_t *mutex,
+	clockid_t clock_id,
+	const struct timespec *abstime)
+{
+	return nosv_cond_clockwait_internal((struct nosv_cond *) cond, mutex, NULL, clock_id, abstime);
+}
+
+int nosv_cond_clockwait_pthread(
+	nosv_cond_t *cond,
+	pthread_mutex_t *mutex,
+	clockid_t clock_id,
+	const struct timespec *abstime)
+{
+	return nosv_cond_clockwait_internal((struct nosv_cond *) cond, NULL, mutex, clock_id, abstime);
 }
 
 inline int nosv_cond_wait(
