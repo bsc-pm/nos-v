@@ -34,7 +34,8 @@ nosv_task_t tasks[NTASKS];
 
 atomic_uint completed[NTASKS];
 atomic_uint track_init;
-atomic_uint track_completed;
+atomic_uint track_expired;
+atomic_uint track_signaled;
 
 int ready = 0;
 
@@ -46,6 +47,7 @@ struct metadata {
 	int tid;
 	struct timespec *deadline;
 	cond_test_flag_t flags;
+	int expired;
 };
 
 static inline void lock(const cond_test_flag_t flags) {
@@ -63,25 +65,31 @@ void task_run(nosv_task_t task)
 	atomic_fetch_add_explicit(&track_init, 1, memory_order_relaxed);
 	struct metadata *meta = nosv_get_task_metadata(task);
 	struct timespec *deadline = meta->deadline;
-	lock(meta->flags);
-	if (deadline) {
-		// If timedwait, we don't want to check for ready value, otherwise
-		// we cannot wait for the tasks to wake up on their own in the test.
-		if (meta->flags & PTHREAD)
-			CHECK(nosv_cond_timedwait_pthread(&cond, &pthread_mutex, deadline));
-		else
-			CHECK(nosv_cond_timedwait(&cond, &mutex, deadline));
+	meta->expired = 0;
 
-		ready--;
-	} else {
-		while (ready <= 0) {
+	lock(meta->flags);
+	while (ready <= 0) {
+		if (deadline) {
+			int err;
+			if (meta->flags & PTHREAD)
+				err = nosv_cond_timedwait_pthread(&cond, &pthread_mutex, deadline);
+			else
+				err = nosv_cond_timedwait(&cond, &mutex, deadline);
+
+			if (err == ETIMEDOUT) {
+				meta->expired = 1;
+				break;
+			} else {
+				CHECK(err);
+			}
+		} else {
 			if (meta->flags & PTHREAD)
 				CHECK(nosv_cond_wait_pthread(&cond, &pthread_mutex));
 			else
 				CHECK(nosv_cond_wait(&cond, &mutex));
 		}
-		ready--;
 	}
+	ready--;
 	unlock(meta->flags);
 }
 
@@ -89,8 +97,17 @@ void task_comp(nosv_task_t task)
 {
 	struct metadata *meta = nosv_get_task_metadata(task);
 	// Mark this task as finished
-	atomic_fetch_add_explicit(&track_completed, 1, memory_order_relaxed);
+	if (meta->expired) {
+		atomic_fetch_add_explicit(&track_expired, 1, memory_order_relaxed);
+	} else {
+		atomic_fetch_add_explicit(&track_signaled, 1, memory_order_relaxed);
+	}
 	atomic_fetch_add_explicit(&completed[meta->tid], 1, memory_order_relaxed);
+}
+
+static inline uint get_completed() // completed == signaled + expired
+{
+	return atomic_load_explicit(&track_signaled, memory_order_relaxed) + atomic_load_explicit(&track_expired, memory_order_relaxed);
 }
 
 void test_cond(const char *pref, const char *label, const cond_test_flag_t flags, const int timed_tasks, const long time_ms)
@@ -98,7 +115,8 @@ void test_cond(const char *pref, const char *label, const cond_test_flag_t flags
 	char msg[255];
 	sprintf(msg, "%s-%s", pref, label);
 	atomic_store_explicit(&track_init, 0, memory_order_relaxed);
-	atomic_store_explicit(&track_completed, 0, memory_order_relaxed);
+	atomic_store_explicit(&track_expired, 0, memory_order_relaxed);
+	atomic_store_explicit(&track_signaled, 0, memory_order_relaxed);
 	ready = 0;
 
 	for (int i = 0; i < NTASKS; i++)
@@ -134,18 +152,23 @@ void test_cond(const char *pref, const char *label, const cond_test_flag_t flags
 		CHECK(nosv_yield(NOSV_YIELD_NONE));
 
 	// Wait until all timed tasks finish
-	int completed = 0;
+	int expired = 0, signaled = 0;
 
 	if (flags & NOWAIT) {
 		test_ok(&test, "%s: not waiting for timedwait tasks", msg);
+		expired = atomic_load_explicit(&track_expired, memory_order_relaxed);
+		test_check(&test, expired <= timed_tasks, "%s: %d out of %d tasks returned ETIMEDOUT", msg, expired, timed_tasks);
 	} else {
 		test_check_waitfor(&test,
-						timed_tasks == (completed = atomic_load_explicit(&track_completed, memory_order_relaxed)),
-						TEST_TIMEOUT,
-						"%s: %d timed tasks finished, expected %d (%d remain, ready = %d)", msg, completed,
-						timed_tasks, NTASKS - timed_tasks, ready);
+			timed_tasks == (expired = atomic_load_explicit(&track_expired, memory_order_relaxed)),
+			TEST_TIMEOUT,
+			"%s: %d timed tasks finished, expected %d (%d remain, ready = %d)", msg, expired,
+			timed_tasks, NTASKS - timed_tasks, ready);
+		signaled = atomic_load_explicit(&track_signaled, memory_order_relaxed);
+		test_check(&test, 0 == signaled, "%s: %d tasks were signaled (expeteced none)", msg, signaled, timed_tasks);
 	}
 
+	uint completed;
 	if (flags & SIGNAL) {
 		// At this point, all tasks should have blocked into the scheduler
 		for (int i = 1; i <= NTASKS; i++) {
@@ -156,13 +179,13 @@ void test_cond(const char *pref, const char *label, const cond_test_flag_t flags
 			unlock(flags);
 
 			// Wait for that task to finish
-			while (i > atomic_load_explicit(&track_completed, memory_order_relaxed))
+			while (i > (completed = get_completed()))
 				CHECK(nosv_yield(NOSV_YIELD_NONE));
 
 			// Ensure that only one task finished
-			if (timed_tasks + i < atomic_load_explicit(&track_completed, memory_order_relaxed)) {
+			if (timed_tasks + i < completed) {
 				test_fail(&test, "%s: Tasks were not unblocked in order: expected <= %d but found %d\n",
-					  msg, i, atomic_load_explicit(&track_completed, memory_order_relaxed));
+					msg, i, completed);
 				exit(1);
 			}
 		}
@@ -173,12 +196,9 @@ void test_cond(const char *pref, const char *label, const cond_test_flag_t flags
 		unlock(flags);
 	}
 
-	while (NTASKS != atomic_load_explicit(&track_completed, memory_order_relaxed))
-		CHECK(nosv_yield(NOSV_YIELD_NONE));
-
 	// Wait until all tasks finish
-	test_check_waitfor(&test, NTASKS == (completed = atomic_load_explicit(&track_completed, memory_order_relaxed)),
-					TEST_TIMEOUT, "%s: %d unlocked correctly, expected %d", msg, completed, NTASKS);
+	test_check_waitfor(&test, NTASKS == (completed = get_completed()),
+		TEST_TIMEOUT, "%s: %d unlocked correctly, expected %d", msg, completed, NTASKS);
 
 	lock(flags);
 	if (ready)
@@ -210,7 +230,7 @@ int main()
 {
 	nosv_task_t task;
 
-	test_init(&test, 2*7*NVARIANTS);
+	test_init(&test, 3 * 7 * NVARIANTS);
 
 	// Init nosv
 	CHECK(nosv_init());
