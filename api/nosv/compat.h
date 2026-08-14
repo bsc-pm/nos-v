@@ -212,6 +212,7 @@ int nosv_cond_init(
 /* May return:
 	- 0 (success)
 	- EINVAL (cond is NULL)
+	- EBUSY (cond is still in use, ie. threads are still waiting on it)
 */
 int nosv_cond_destroy(
 	nosv_cond_t *cond);

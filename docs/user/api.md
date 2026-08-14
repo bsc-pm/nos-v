@@ -401,6 +401,7 @@ Destroys a condition variable. It can be re-initialized afterwards.
 **Return values**
 
 * `0`: success.
+* `EBUSY`: `cond` is in use.
 * `EINVAL`: `cond` is `NULL`.
 
 ---

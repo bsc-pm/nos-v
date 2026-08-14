@@ -120,8 +120,10 @@ int nosv_cond_destroy(nosv_cond_t *cond) {
 		return EINVAL;
 
 	nosv_spin_lock(&c->lock);
-	if (c->initialized && (!list_empty(&c->list) || !list_empty(&c->list_timed)))
-		nosv_warn("nosv_cond_destroy called with waiters remaining");
+	if (c->initialized && (!list_empty(&c->list) || !list_empty(&c->list_timed))) {
+		nosv_spin_unlock(&c->lock);
+		return EBUSY; // currently in use
+	}
 
 	c->initialized = 0;
 	nosv_spin_destroy(&c->lock);
