@@ -353,6 +353,8 @@ When all tasks have arrived, they are resumed.
 **Return values**
 
 * `0`: success.
+* `PTHREAD_BARRIER_SERIAL_THREAD`: returned to exactly *one* of the threads on
+success, the rest will receive `0`.
 * `EINVAL`: `barrier` is `NULL`.
 * `ESRCH`: called from outside a task context.
 
