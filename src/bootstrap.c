@@ -28,6 +28,8 @@ __internal thread_local int32_t th_refcount = 0;
 __internal bool rt_initialized = false;
 __internal pthread_mutex_t rt_mutex = PTHREAD_MUTEX_INITIALIZER;
 
+__internal extern thread_local nosv_worker_t *current_worker;
+
 static void configure_fork_hooks(void);
 
 //! \brief Perform the runtime initialization if required
@@ -145,6 +147,7 @@ static void child_fork_hook(void)
 		rt_initialized = false;
 		rt_refcount = 0;
 		th_refcount = 0;
+		current_worker = NULL;
 		task_attach_refcount_init();
 
 		munmap(nosv_config.shm_start, nosv_config.shm_size);
