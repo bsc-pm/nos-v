@@ -800,7 +800,7 @@ static inline void task_complete(nosv_task_t task)
 		task->type->completed_callback(task);
 		atomic_thread_fence(memory_order_release);
 	}
-	// From here, task may be freed!
+	// From here, task may be freed (unless joinable)!
 
 	if (is_joinable) {
 		nosv_spin_lock(&task->join_lock);
@@ -808,14 +808,14 @@ static inline void task_complete(nosv_task_t task)
 		nosv_task_t to_join = task->to_join;
 		assert(to_join != TASK_TO_JOIN_COMPLETED_TASK);
 		task->to_join = TASK_TO_JOIN_COMPLETED_TASK;
+
+		if (to_join && timeout_join)
+			nosv_submit(to_join, NOSV_SUBMIT_DEADLINE_WAKE);
+
 		nosv_spin_unlock(&task->join_lock);
 
-		if (to_join) {
-			if (timeout_join)
-				nosv_submit(to_join, NOSV_SUBMIT_DEADLINE_WAKE);
-			else
-				nosv_submit(to_join, NOSV_SUBMIT_NONE);
-		}
+		if (to_join && !timeout_join)
+			nosv_submit(to_join, NOSV_SUBMIT_NONE);
 	}
 
 	if (wakeup)
@@ -1333,105 +1333,121 @@ int nosv_suspend(void)
 	return NOSV_SUCCESS;
 }
 
-static inline int wait_tasks(nosv_task_t *tasks, size_t ntasks, uint64_t timeout)
+static inline int wait_single_task_timeout(
+	nosv_task_t task,
+	nosv_task_t current_task,
+	uint64_t *timeout)
 {
 	nosv_task_t to_join = NULL;
+	uint64_t actual_ns = 0;
+
+	nosv_spin_lock(&task->join_lock);
+	to_join = task->to_join;
+
+	// Already finished
+	if (to_join) {
+		nosv_spin_unlock(&task->join_lock);
+		if (to_join != TASK_TO_JOIN_COMPLETED_TASK)
+			return NOSV_ERR_INVALID_PARAMETER;
+		return NOSV_SUCCESS;
+	}
+
+	// Set ourselves up for waking up when the task finishes
+	task->to_join = current_task;
+	task->flags |= TASK_FLAG_JOIN_TIMEOUT;
+	nosv_spin_unlock(&task->join_lock);
+
+	int expired = 0;
+	while (!expired) {
+		// Waitfors can have spurious wakeups when leveraging deadline_wake, so always
+		// double check that actual_ns have elapsed if the condition has not happenned yet
+		task_waitfor(current_task, *timeout, &actual_ns);
+
+		if (actual_ns > *timeout)
+			*timeout = 0;
+		else
+			*timeout -= actual_ns;
+
+		// Check condition
+		nosv_spin_lock(&task->join_lock);
+		to_join = task->to_join;
+
+		if (to_join == current_task && *timeout > 0) {
+			// Spurious wakeup
+			nosv_spin_unlock(&task->join_lock);
+		} else {
+			expired = 1;
+		}
+	}
+
+	// Here either the timeout has expired or to_join is no longer our tasks
+	if (to_join == current_task) {
+		// Expired
+		task->to_join = NULL;
+		nosv_spin_unlock(&task->join_lock);
+		return NOSV_ERR_TIMEOUT;
+	}
+
+	// Completed (woken up)
+	assert(to_join == TASK_TO_JOIN_COMPLETED_TASK);
+	nosv_spin_unlock(&task->join_lock);
+
+	return NOSV_SUCCESS;
+}
+
+static inline int wait_single_task(
+	nosv_task_t task,
+	nosv_task_t current_task,
+	uint64_t *timeout,
+	int *waiting_for)
+{
+	nosv_task_t to_join = NULL;
+
+	if (*timeout == 0) {
+		// Try wait or check the remaining tasks after exhausting the timeout
+		nosv_spin_lock(&task->join_lock);
+		to_join = task->to_join;
+		nosv_spin_unlock(&task->join_lock);
+
+		if (to_join == NULL)
+			return NOSV_ERR_TIMEOUT;
+		if (to_join != TASK_TO_JOIN_COMPLETED_TASK)
+			return NOSV_ERR_INVALID_PARAMETER;
+	} else if (*timeout == (uint64_t) -1) {
+		nosv_spin_lock(&task->join_lock);
+		to_join = task->to_join;
+
+		if (to_join == NULL) {
+			task->to_join = current_task;
+			task->flags &= ~TASK_FLAG_JOIN_TIMEOUT;
+			(*waiting_for)++;
+		}
+
+		nosv_spin_unlock(&task->join_lock);
+
+		if (to_join != NULL && to_join != TASK_TO_JOIN_COMPLETED_TASK)
+			return NOSV_ERR_INVALID_PARAMETER;
+	} else
+		return wait_single_task_timeout(task, current_task, timeout);
+
+	return NOSV_SUCCESS;
+}
+
+static inline int wait_tasks(nosv_task_t *tasks, size_t ntasks, uint64_t timeout)
+{
 	nosv_task_t current_task = worker_current_task();
+	int waiting_for = 0;
 
 	nosv_flush_submit_window();
 
-	if (timeout == 0) {
-		for (int i = 0; i < ntasks; i++) {
-			// Try wait
-			nosv_spin_lock(&tasks[i]->join_lock);
-			to_join = tasks[i]->to_join;
-			nosv_spin_unlock(&tasks[i]->join_lock);
-
-			if (to_join == NULL) {
-				return NOSV_ERR_TIMEOUT;
-			} else if (to_join != TASK_TO_JOIN_COMPLETED_TASK) {
-				return NOSV_ERR_INVALID_PARAMETER;
-			}
-		}
-	} else if (timeout == (uint64_t) -1) {
-		int waiting_for = 0;
-		for (int i = 0; i < ntasks; i++) {
-
-			nosv_spin_lock(&tasks[i]->join_lock);
-
-			to_join = tasks[i]->to_join;
-
-			if (to_join == NULL) {
-				tasks[i]->to_join = current_task;
-				tasks[i]->flags &= ~TASK_FLAG_JOIN_TIMEOUT;
-
-				nosv_spin_unlock(&tasks[i]->join_lock);
-
-				waiting_for++;
-			} else {
-				nosv_spin_unlock(&tasks[i]->join_lock);
-				if (to_join != TASK_TO_JOIN_COMPLETED_TASK)
-					return NOSV_ERR_INVALID_PARAMETER;
-			}
-		}
-
-		if (waiting_for > 0)
-			task_pause(current_task, /* blocking_count */ waiting_for);
-
-	} else {
-		for (int i = 0; i < ntasks; i++) {
-			if (timeout > 0) {
-				const uint64_t start_ns = clock_ns();
-
-				nosv_spin_lock(&tasks[i]->join_lock);
-
-				to_join = tasks[i]->to_join;
-
-				if (to_join == NULL) {
-					tasks[i]->to_join = current_task;
-					tasks[i]->flags |= TASK_FLAG_JOIN_TIMEOUT;
-
-					nosv_spin_unlock(&tasks[i]->join_lock);
-
-					task_waitfor(current_task, timeout, NULL);
-
-					// Check if the task reached the deadline or was resubmitted
-					nosv_spin_lock(&tasks[i]->join_lock);
-
-					to_join = tasks[i]->to_join;
-
-					if (to_join == current_task) {
-						tasks[i]->to_join = NULL;
-						nosv_spin_unlock(&tasks[i]->join_lock);
-						return NOSV_ERR_TIMEOUT;
-					} else {
-						nosv_spin_unlock(&tasks[i]->join_lock);
-						uint64_t delay = clock_ns() - start_ns;
-						if (delay > timeout)
-							timeout = 0;
-						else
-							timeout -= delay;
-					}
-				} else {
-					nosv_spin_unlock(&tasks[i]->join_lock);
-					if (to_join != TASK_TO_JOIN_COMPLETED_TASK)
-						return NOSV_ERR_INVALID_PARAMETER;
-				}
-
-			} else {
-				// We exhausted the timeout (but the last task finished within the deadline), check the remaining tasks
-				nosv_spin_lock(&tasks[i]->join_lock);
-				to_join = tasks[i]->to_join;
-				nosv_spin_unlock(&tasks[i]->join_lock);
-
-				if (to_join == NULL) {
-					return NOSV_ERR_TIMEOUT;
-				} else if (to_join != TASK_TO_JOIN_COMPLETED_TASK) {
-					return NOSV_ERR_INVALID_PARAMETER;
-				}
-			}
-		}
+	for (int i = 0; i < ntasks; i++) {
+		int err = wait_single_task(tasks[i], current_task, &timeout, &waiting_for);
+		if (err != NOSV_SUCCESS)
+			return err;
 	}
+
+	if (waiting_for > 0)
+		task_pause(current_task, /* blocking_count */ waiting_for);
 
 	return NOSV_SUCCESS;
 }
