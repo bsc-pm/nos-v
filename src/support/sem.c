@@ -155,15 +155,30 @@ __internal int nosv_sem_wait_internal(nosv_sem_t *sem, bool try, const struct ti
 			list_add_tail(&s->list_timed, &current_task->list_hook_cond);
 			nosv_spin_unlock(&s->lock);
 
+			uint64_t actual_time_waited = 0;
 			uint64_t time_to_wait = abstime_ns - now_ns;
-			err = nosv_waitfor(time_to_wait, NULL);
+
+timedwait_retry:
+			err = nosv_waitfor(time_to_wait, &actual_time_waited);
 			if (unlikely(err != NOSV_SUCCESS)) {
 				nosv_abort("Failed to submit deadline task");
 			}
 
+			// Waitfor combined with deadline_wake may have spurious wakeups
+			// Calculate this just in case
+			if (actual_time_waited > time_to_wait)
+				time_to_wait = 0;
+			else
+				time_to_wait -= actual_time_waited;
+
 			nosv_spin_lock(&s->lock);
 			// Remove from wait list (if we woke by ourselves)
 			if (list_node_is_inserted_in_any_list(&current_task->list_hook_cond)) {
+				if (time_to_wait) {
+					// Woke up spuriously, otherwise we would not be in the list
+					nosv_spin_unlock(&s->lock);
+					goto timedwait_retry;
+				}
 				list_remove(&current_task->list_hook_cond);
 				nosv_spin_unlock(&s->lock);
 				errno = ETIMEDOUT;
