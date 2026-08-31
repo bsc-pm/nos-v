@@ -75,6 +75,14 @@ int nosv_barrier_destroy(nosv_barrier_t *barrier)
 	if (!b)
 		return EINVAL;
 
+	nosv_spin_lock(&b->lock);
+	if (b->towait != b->count) {
+		nosv_spin_unlock(&b->lock);
+		return EBUSY; // currently in use
+	}
+	nosv_spin_unlock(&b->lock);
+	nosv_spin_destroy(&b->lock);
+
 	return 0;
 }
 

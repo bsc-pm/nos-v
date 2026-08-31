@@ -336,6 +336,7 @@ Destroys a barrier object. It can be re-initialized afterwards.
 **Return values**
 
 * `0`: success.
+* `EBUSY`: `barrier` is in use.
 * `EINVAL`: `barrier` is `NULL`.
 
 ---

@@ -166,6 +166,7 @@ int nosv_barrier_init(
 /* Destroy the "barrier" object. It can be re-initialized afterwards */
 /* May return:
 	- 0 (success)
+	- EBUSY (barrier is in use)
 	- EINVAL (barrier is NULL)
 */
 int nosv_barrier_destroy(
