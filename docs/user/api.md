@@ -536,6 +536,7 @@ Destroys a read-write lock. It can be re-initialized afterwards.
 **Return values**
 
 * `0`: success.
+* `EBUSY`: `rwlock` is in use.
 * `EINVAL`: `rwlock` is `NULL`.
 
 ---

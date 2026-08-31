@@ -335,6 +335,7 @@ int nosv_rwlock_init(
 /* Destroys a nosv_rwlock_t object */
 /* May return:
 	- 0 (success)
+	- EBUSY (rwlock is in use)
 	- EINVAL (rwlock is NULL)
 */
 int nosv_rwlock_destroy(
