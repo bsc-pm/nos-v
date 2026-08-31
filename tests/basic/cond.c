@@ -110,6 +110,22 @@ static inline uint get_completed() // completed == signaled + expired
 	return atomic_load_explicit(&track_signaled, memory_order_relaxed) + atomic_load_explicit(&track_expired, memory_order_relaxed);
 }
 
+void add_ms(struct timespec *deadline, int64_t ms)
+{
+	deadline->tv_sec += ms / 1000; // ms -> s
+	ms %= 1000;
+
+	deadline->tv_nsec += ms * 1000000L; // ms -> ns
+
+	if (deadline->tv_nsec >= 1000000000L) {
+		deadline->tv_nsec -= 1000000000L;
+		deadline->tv_sec++;
+	} else if (deadline->tv_nsec < 0) {
+		deadline->tv_nsec += 1000000000L;
+		deadline->tv_sec--;
+	}
+}
+
 void test_cond(const char *pref, const char *label, const cond_test_flag_t flags, const int timed_tasks, const long time_ms)
 {
 	char msg[255];
@@ -125,7 +141,7 @@ void test_cond(const char *pref, const char *label, const cond_test_flag_t flags
 	struct timespec deadline;
 	if (timed_tasks) {
 		clock_gettime(CLOCK_REALTIME, &deadline);
-		deadline.tv_nsec += time_ms*1000000; // *1ms
+		add_ms(&deadline, time_ms);
 	}
 
 	for (int i = 0; i < NTASKS; i++) {
