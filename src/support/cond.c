@@ -124,8 +124,9 @@ int nosv_cond_destroy(nosv_cond_t *cond) {
 		nosv_spin_unlock(&c->lock);
 		return EBUSY; // currently in use
 	}
-
 	c->initialized = 0;
+	nosv_spin_unlock(&c->lock);
+
 	nosv_spin_destroy(&c->lock);
 
 	return 0;
