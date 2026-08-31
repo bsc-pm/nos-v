@@ -236,6 +236,7 @@ Destroys a mutex object. The object can be re-initialized afterwards.
 **Return values**
 
 * `0`: success.
+* `EBUSY`: `mutex` is in use.
 * `EINVAL`: `mutex` is `NULL`.
 
 ---

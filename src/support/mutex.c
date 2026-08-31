@@ -74,6 +74,15 @@ int nosv_mutex_destroy(nosv_mutex_t *mutex)
 	struct nosv_mutex *m = (struct nosv_mutex *) mutex;
 	if (!m)
 		return EINVAL;
+
+	nosv_spin_lock(&m->lock);
+	if (m->taken) {
+		nosv_spin_unlock(&m->lock);
+		return EBUSY; // currently in use
+	}
+	nosv_spin_unlock(&m->lock);
+	nosv_spin_destroy(&m->lock);
+
 	return 0;
 }
 

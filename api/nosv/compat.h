@@ -105,6 +105,7 @@ int nosv_mutex_init(
 /* Destroys a nosv_mutex_t object */
 /* May return:
 	- 0 (success)
+	- EBUSY (mutex is in use)
 	- EINVAL (mutex is NULL)
 */
 int nosv_mutex_destroy(
