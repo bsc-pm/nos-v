@@ -33,8 +33,11 @@ nosv_task_type_t task_type;
 nosv_task_t tasks[NTASKS];
 
 atomic_uint track_init;
-atomic_uint track_expired;
-atomic_uint track_signaled;
+
+// the lower 16 bits are used to count expirations (timed-out), upper 16 bits
+// count the total completions
+atomic_uint_fast32_t track_completion_status;
+static_assert(NTASKS < UINT16_MAX, "Number of tasks cannot exceed 2^16");
 
 int ready = 0;
 
@@ -96,16 +99,21 @@ void task_comp(nosv_task_t task)
 {
 	struct metadata *meta = nosv_get_task_metadata(task);
 	// Mark this task as finished
-	if (meta->expired) {
-		atomic_fetch_add_explicit(&track_expired, 1, memory_order_relaxed);
-	} else {
-		atomic_fetch_add_explicit(&track_signaled, 1, memory_order_relaxed);
-	}
+	atomic_fetch_add_explicit(&track_completion_status, 1 << 16 | !!(meta->expired), memory_order_relaxed);
 }
 
-static inline uint get_completed() // completed == signaled + expired
+typedef struct {
+	uint16_t total, expired;
+} completion_pair_t;
+
+
+static inline completion_pair_t fetch_completion_vars()
 {
-	return atomic_load_explicit(&track_signaled, memory_order_relaxed) + atomic_load_explicit(&track_expired, memory_order_relaxed);
+	completion_pair_t res;
+	uint_least64_t completed_bits = atomic_load_explicit(&track_completion_status, memory_order_relaxed);
+	res.total = completed_bits >> 16;
+	res.expired = completed_bits & 0xFFFF;
+	return res;
 }
 
 void add_ms(struct timespec *deadline, int64_t ms)
@@ -129,8 +137,7 @@ void test_cond(const char *pref, const char *label, const cond_test_flag_t flags
 	char msg[255];
 	sprintf(msg, "%s-%s", pref, label);
 	atomic_store_explicit(&track_init, 0, memory_order_relaxed);
-	atomic_store_explicit(&track_expired, 0, memory_order_relaxed);
-	atomic_store_explicit(&track_signaled, 0, memory_order_relaxed);
+	atomic_store_explicit(&track_completion_status, 0, memory_order_relaxed);
 	ready = 0;
 
 	struct timespec deadline;
@@ -163,23 +170,23 @@ void test_cond(const char *pref, const char *label, const cond_test_flag_t flags
 		CHECK(nosv_yield(NOSV_YIELD_NONE));
 
 	// Wait until all timed tasks finish
-	int expired = 0, signaled = 0;
+	completion_pair_t completion_counters = {0, 0};
 
 	if (flags & NOWAIT) {
 		test_ok(&test, "%s: not waiting for timedwait tasks", msg);
-		expired = atomic_load_explicit(&track_expired, memory_order_relaxed);
-		test_check(&test, expired <= timed_tasks, "%s: %d out of %d tasks returned ETIMEDOUT", msg, expired, timed_tasks);
+		completion_counters = fetch_completion_vars();
+		test_check(&test, completion_counters.expired <= timed_tasks && completion_counters.total == completion_counters.expired, "%s: %d out of %d tasks returned ETIMEDOUT and no tasks have been signaled", msg, completion_counters.expired, timed_tasks);
 	} else {
 		test_check_waitfor(&test,
-			timed_tasks == (expired = atomic_load_explicit(&track_expired, memory_order_relaxed)),
+			timed_tasks == (completion_counters = fetch_completion_vars()).expired,
 			TEST_TIMEOUT,
-			"%s: %d timed tasks finished, expected %d (%d remain, ready = %d)", msg, expired,
+			"%s: %d timed tasks finished, expected %d (%d remain, ready = %d)", msg, completion_counters.expired,
 			timed_tasks, NTASKS - timed_tasks, ready);
-		signaled = atomic_load_explicit(&track_signaled, memory_order_relaxed);
+
+		uint signaled = completion_counters.total - completion_counters.expired;
 		test_check(&test, 0 == signaled, "%s: %d tasks were signaled (expeteced none)", msg, signaled, timed_tasks);
 	}
 
-	uint completed;
 	if (flags & SIGNAL) {
 		// At this point, all tasks should have blocked into the scheduler
 		for (int i = 1; i <= NTASKS; i++) {
@@ -189,14 +196,15 @@ void test_cond(const char *pref, const char *label, const cond_test_flag_t flags
 			CHECK(nosv_cond_signal(&cond));
 			unlock(flags);
 
+			uint expired;
 			// Wait for that task to finish
-			while (i > (completed = get_completed()))
+			while (i > (completion_counters = fetch_completion_vars()).total)
 				CHECK(nosv_yield(NOSV_YIELD_NONE));
 
 			// Ensure that only one task finished
-			if (timed_tasks + i < completed) {
+			if (timed_tasks + i < completion_counters.total) {
 				test_fail(&test, "%s: Tasks were not unblocked in order: expected <= %d but found %d\n",
-					msg, i, completed);
+					msg, i, completion_counters.total);
 				exit(1);
 			}
 		}
@@ -208,8 +216,8 @@ void test_cond(const char *pref, const char *label, const cond_test_flag_t flags
 	}
 
 	// Wait until all tasks finish
-	test_check_waitfor(&test, NTASKS == (completed = get_completed()),
-		TEST_TIMEOUT, "%s: %d unlocked correctly, expected %d", msg, completed, NTASKS);
+	test_check_waitfor(&test, NTASKS == (completion_counters = fetch_completion_vars()).total,
+		TEST_TIMEOUT, "%s: %d unlocked correctly, expected %d (timedout %d)", msg, completion_counters.total, NTASKS, completion_counters.expired);
 
 	lock(flags);
 	if (ready)
