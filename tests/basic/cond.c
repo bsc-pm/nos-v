@@ -242,21 +242,127 @@ void free_objs() {
 
 #define NVARIANTS 4
 
+void test_condattr(void)
+{
+	nosv_cond_t cond;
+	nosv_condattr_t attr;
+
+	CHECK(nosv_condattr_init(&attr));
+
+	clockid_t clock_id;
+	CHECK(nosv_condattr_getclock(&attr, &clock_id));
+
+	test_check(&test, clock_id == CLOCK_REALTIME, "condattr: default clock_id is CLOCK_REALTIME");
+	test_check(&test, nosv_condattr_setclock(&attr, 1337) == EINVAL, "condattr: returns EINVAL on invalid clock");
+
+	CHECK(nosv_condattr_setclock(&attr, CLOCK_MONOTONIC));
+	CHECK(nosv_condattr_getclock(&attr, &clock_id));
+	test_check(&test, clock_id == CLOCK_MONOTONIC, "condattr: getclock returns CLOCK_MONOTONIC after setclock");
+
+	CHECK(nosv_condattr_destroy(&attr));
+}
+
+void timespec_diff(struct timespec *start, struct timespec *end, struct timespec *result)
+{
+	if ((end->tv_nsec - start->tv_nsec) < 0) {
+		result->tv_sec = end->tv_sec - start->tv_sec - 1;
+		result->tv_nsec = end->tv_nsec - start->tv_nsec + 1000000000ULL;
+	} else {
+		result->tv_sec = end->tv_sec - start->tv_sec;
+		result->tv_nsec = end->tv_nsec - start->tv_nsec;
+	}
+}
+
+void test_clock_timing(const char *msg, clockid_t clock_id, uint64_t time_ms)
+{
+	nosv_condattr_t attr;
+	CHECK(nosv_condattr_init(&attr));
+	CHECK(nosv_condattr_setclock(&attr, clock_id));
+
+	nosv_cond_t cond;
+	CHECK(nosv_cond_init(&cond, &attr));
+
+	struct timespec deadline;
+	CHECK(clock_gettime(clock_id, &deadline));
+	add_ms(&deadline, time_ms);
+
+	nosv_mutex_t m = NOSV_MUTEX_INITIALIZER;
+	CHECK(nosv_mutex_lock(&m));
+
+	// wait until timeout
+	int err;
+	while (!(err = nosv_cond_timedwait(&cond, &m, &deadline)))
+		;
+	if (err != ETIMEDOUT)
+		CHECK(err);
+
+	CHECK(nosv_mutex_unlock(&m));
+
+	struct timespec now;
+	CHECK(clock_gettime(clock_id, &now));
+
+	if (now.tv_sec < deadline.tv_sec || (now.tv_sec == deadline.tv_sec && now.tv_nsec < deadline.tv_nsec)) {
+		test_fail(&test, "%s: woke up before deadline", msg);
+	} else {
+		test_ok(&test, "%s: timing ok", msg);
+	}
+
+	CHECK(nosv_condattr_destroy(&attr));
+	CHECK(nosv_cond_destroy(&cond));
+}
+
+void test_clock_timing_clockwait(const char *msg, clockid_t clock_id, uint64_t time_ms)
+{
+	nosv_cond_t cond = NOSV_COND_INITIALIZER;
+	nosv_mutex_t m = NOSV_MUTEX_INITIALIZER;
+
+	struct timespec deadline;
+	CHECK(clock_gettime(clock_id, &deadline));
+	add_ms(&deadline, time_ms);
+
+	CHECK(nosv_mutex_lock(&m));
+
+	// wait until timeout
+	int err;
+	while (!(err = nosv_cond_clockwait(&cond, &m, clock_id, &deadline)))
+		;
+	if (err != ETIMEDOUT)
+		CHECK(err);
+
+	CHECK(nosv_mutex_unlock(&m));
+
+	struct timespec now;
+	CHECK(clock_gettime(clock_id, &now));
+
+	if (now.tv_sec < deadline.tv_sec || (now.tv_sec == deadline.tv_sec && now.tv_nsec < deadline.tv_nsec)) {
+		test_fail(&test, "%s: woke up before deadline", msg);
+	} else {
+		test_ok(&test, "%s: timing ok", msg);
+	}
+}
+
 int main()
 {
 	nosv_task_t task;
+	const int timeout_ms = 250;
 
-	test_init(&test, 3 * 7 * NVARIANTS);
+	test_init(&test, 3 + 4 + 3 * 7 * NVARIANTS);
 
 	// Init nosv
 	CHECK(nosv_init());
 	CHECK(nosv_attach(&task, NULL, "main", NOSV_ATTACH_NONE));
 	CHECK(nosv_type_init(&task_type, task_run, NULL, task_comp, "task", NULL, NULL, NOSV_TYPE_INIT_NONE));
 
+	test_condattr();
+
+	test_clock_timing("timedwait-REALTIME", CLOCK_REALTIME, timeout_ms);
+	test_clock_timing("timedwait-MONOTONIC", CLOCK_MONOTONIC, timeout_ms);
+
+	test_clock_timing_clockwait("clockwait-REALTIME", CLOCK_REALTIME, timeout_ms);
+	test_clock_timing_clockwait("clockwait-MONOTONIC", CLOCK_MONOTONIC, timeout_ms);
+
 	cond_test_flag_t variants[NVARIANTS] = {BROADCAST, SIGNAL, BROADCAST | PTHREAD, SIGNAL | PTHREAD};
 	char *labels[NVARIANTS] = {"broadcast", "signal", "broadcast-pthread", "signal-pthread"};
-
-	const int timeout_ms = 250;
 
 	for (int i = 0; i < NVARIANTS; ++i) {
 		// The first iteration will use static initializers
