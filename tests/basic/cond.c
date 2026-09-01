@@ -32,7 +32,6 @@ test_t test;
 nosv_task_type_t task_type;
 nosv_task_t tasks[NTASKS];
 
-atomic_uint completed[NTASKS];
 atomic_uint track_init;
 atomic_uint track_expired;
 atomic_uint track_signaled;
@@ -102,7 +101,6 @@ void task_comp(nosv_task_t task)
 	} else {
 		atomic_fetch_add_explicit(&track_signaled, 1, memory_order_relaxed);
 	}
-	atomic_fetch_add_explicit(&completed[meta->tid], 1, memory_order_relaxed);
 }
 
 static inline uint get_completed() // completed == signaled + expired
@@ -134,9 +132,6 @@ void test_cond(const char *pref, const char *label, const cond_test_flag_t flags
 	atomic_store_explicit(&track_expired, 0, memory_order_relaxed);
 	atomic_store_explicit(&track_signaled, 0, memory_order_relaxed);
 	ready = 0;
-
-	for (int i = 0; i < NTASKS; i++)
-		atomic_store_explicit(&completed[i], 0, memory_order_relaxed);
 
 	struct timespec deadline;
 	if (timed_tasks) {
