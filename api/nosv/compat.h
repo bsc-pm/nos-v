@@ -255,6 +255,7 @@ int nosv_cond_wait(
 	- EINVAL (cond or mutex is NULL)
 	- EINVAL (the calling task cannot be blocked)
 	- ESRCH (called from outside a task context)
+	- ETIMEDOUT (deadline expired before receiving a wakeup signal)
 */
 int nosv_cond_timedwait(
 	nosv_cond_t *cond,
@@ -270,6 +271,7 @@ int nosv_cond_timedwait(
 	- EINVAL (the calling task cannot be blocked)
 	- EINVAL (invalid clock_id)
 	- ESRCH (called from outside a task context)
+	- ETIMEDOUT (deadline expired before receiving a wakeup signal)
 */
 int nosv_cond_clockwait(
 	nosv_cond_t *cond,
@@ -283,6 +285,7 @@ int nosv_cond_clockwait(
 	- EINVAL (cond or mutex is NULL)
 	- EINVAL (the calling task cannot be blocked)
 	- ESRCH (called from outside a task context)
+	- ETIMEDOUT (deadline expired before receiving a wakeup signal)
 */
 int nosv_cond_wait_pthread(
 	nosv_cond_t *cond,
@@ -294,6 +297,7 @@ int nosv_cond_wait_pthread(
 	- EINVAL (cond or mutex is NULL)
 	- EINVAL (the calling task cannot be blocked)
 	- ESRCH (called from outside a task context)
+	- ETIMEDOUT (deadline expired before receiving a wakeup signal)
 */
 int nosv_cond_timedwait_pthread(
 	nosv_cond_t *cond,
@@ -307,6 +311,7 @@ int nosv_cond_timedwait_pthread(
 	- EINVAL (the calling task cannot be blocked)
 	- EINVAL (invalid clock_id)
 	- ESRCH (called from outside a task context)
+	- ETIMEDOUT (deadline expired before receiving a wakeup signal)
 */
 int nosv_cond_clockwait_pthread(
 	nosv_cond_t *cond,
