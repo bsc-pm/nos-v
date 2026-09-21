@@ -248,12 +248,11 @@ static inline int nosv_cond_clockwait_internal(
 			return EINVAL;
 		}
 
-		// If time has expired, we return keeping nosv_mutex locked
-		if (now_ns > abstime_ns) {
-			nosv_spin_unlock(&c->lock);
-			instr_cond_wait_exit();
-
-			return ETIMEDOUT;
+		// Skip list_timed addition if deadline is expired
+		if (now_ns >= abstime_ns) {
+			timedout = 1;
+			// We cannot return here, since pthread semantics require releasing
+			// and re-acquiring the mutex even when timedout
 		} else {
 			list_add_tail(&c->list_timed, &current_task->list_hook_cond);
 			wait_ns = abstime_ns - now_ns;
@@ -279,7 +278,7 @@ static inline int nosv_cond_clockwait_internal(
 			instr_cond_wait_exit();
 			nosv_abort("Unexpected internal error when pausing the task");
 		}
-	} else { // timed wait
+	} else if (!timedout) { // timed wait (non-expired)
 		assert(wait_ns);
 
 		err = nosv_waitfor(wait_ns, NULL);
