@@ -122,6 +122,14 @@ int nosv_cond_destroy(nosv_cond_t *cond) {
 	nosv_spin_lock(&c->lock);
 	if (c->initialized && (!list_empty(&c->list) || !list_empty(&c->list_timed))) {
 		nosv_spin_unlock(&c->lock);
+
+		// NOTE: this check is best-effort, timed tasks will check list_timed upon
+		// waking. If a timed task may slip through, (list_timed empty but the task
+		// did not reach the list_timed check before this destroy).
+		// Right now, it's not a problem, since the memory is still valid, and
+		// the list_node_is_inserted_in_any_list check will return false in this
+		// scenario.
+
 		return EBUSY; // currently in use
 	}
 	c->initialized = 0;
