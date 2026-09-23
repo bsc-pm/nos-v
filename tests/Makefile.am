@@ -16,6 +16,7 @@ basic_tests = basic-error-code.test \
 	basic-shutdown-ownership.test \
 	basic-topology-numa-cpu.test \
 	basic-reinit.test \
+	basic-self-null-after-fork.test \
 	basic-init-multicall.test \
 	basic-mix.test \
 	basic-crash.test \
@@ -80,6 +81,10 @@ basic_shutdown_ownership_test_LDFLAGS = $(AM_LDFLAGS)
 basic_reinit_test_SOURCES = basic/reinit.c
 basic_reinit_test_CFLAGS = $(AM_CFLAGS)
 basic_reinit_test_LDFLAGS = $(AM_LDFLAGS)
+
+basic_self_null_after_fork_test_SOURCES = basic/self-null-after-fork.c
+basic_self_null_after_fork_test_CFLAGS = $(AM_CFLAGS)
+basic_self_null_after_fork_test_LDFLAGS = $(AM_LDFLAGS)
 
 basic_init_multicall_test_SOURCES = basic/init-multicall.c
 basic_init_multicall_test_CFLAGS = $(AM_CFLAGS)
