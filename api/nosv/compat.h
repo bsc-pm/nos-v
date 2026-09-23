@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2025 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2025-2026 Barcelona Supercomputing Center (BSC)
 */
 
 #ifndef NOSV_COMPAT_H
@@ -105,6 +105,7 @@ int nosv_mutex_init(
 /* Destroys a nosv_mutex_t object */
 /* May return:
 	- 0 (success)
+	- EBUSY (mutex is in use)
 	- EINVAL (mutex is NULL)
 */
 int nosv_mutex_destroy(
@@ -166,6 +167,7 @@ int nosv_barrier_init(
 /* Destroy the "barrier" object. It can be re-initialized afterwards */
 /* May return:
 	- 0 (success)
+	- EBUSY (barrier is in use)
 	- EINVAL (barrier is NULL)
 */
 int nosv_barrier_destroy(
@@ -190,6 +192,15 @@ int nosv_barrier_wait(
 int nosv_condattr_init(nosv_condattr_t *attr);
 int nosv_condattr_destroy(nosv_condattr_t *attr);
 
+/* Get/Set nOS-V condition variable clock_id attribute */
+/* May return:
+	- 0 (success)
+	- EINVAL (attr is NULL)
+	- EINVAL (clock_id is invalid)
+*/
+int nosv_condattr_getclock(const nosv_condattr_t *restrict attr, clockid_t *restrict clock_id);
+int nosv_condattr_setclock(nosv_condattr_t *attr, clockid_t clock_id);
+
 /* Initialize a nOS-V condition variable */
 /* May return:
 	- 0 (success)
@@ -203,6 +214,7 @@ int nosv_cond_init(
 /* May return:
 	- 0 (success)
 	- EINVAL (cond is NULL)
+	- EBUSY (cond is still in use, ie. threads are still waiting on it)
 */
 int nosv_cond_destroy(
 	nosv_cond_t *cond);
@@ -243,10 +255,28 @@ int nosv_cond_wait(
 	- EINVAL (cond or mutex is NULL)
 	- EINVAL (the calling task cannot be blocked)
 	- ESRCH (called from outside a task context)
+	- ETIMEDOUT (deadline expired before receiving a wakeup signal)
 */
 int nosv_cond_timedwait(
 	nosv_cond_t *cond,
 	nosv_mutex_t *mutex,
+	const struct timespec *abstime);
+
+/* Similar to pthread_cond_clockwait, block until signaled or the deadline
+ * expires, uses the provided clock_id instead of the one from condattr_setclock */
+/* Restriction: Can only be called with mutex locked */
+/* May return:
+	- 0 (success)
+	- EINVAL (cond or mutex is NULL)
+	- EINVAL (the calling task cannot be blocked)
+	- EINVAL (invalid clock_id)
+	- ESRCH (called from outside a task context)
+	- ETIMEDOUT (deadline expired before receiving a wakeup signal)
+*/
+int nosv_cond_clockwait(
+	nosv_cond_t *cond,
+	nosv_mutex_t *mutex,
+	clockid_t clock_id,
 	const struct timespec *abstime);
 
 /* Same as the above nosv_cond_wait but using a pthread mutex internally */
@@ -255,6 +285,7 @@ int nosv_cond_timedwait(
 	- EINVAL (cond or mutex is NULL)
 	- EINVAL (the calling task cannot be blocked)
 	- ESRCH (called from outside a task context)
+	- ETIMEDOUT (deadline expired before receiving a wakeup signal)
 */
 int nosv_cond_wait_pthread(
 	nosv_cond_t *cond,
@@ -266,10 +297,26 @@ int nosv_cond_wait_pthread(
 	- EINVAL (cond or mutex is NULL)
 	- EINVAL (the calling task cannot be blocked)
 	- ESRCH (called from outside a task context)
+	- ETIMEDOUT (deadline expired before receiving a wakeup signal)
 */
 int nosv_cond_timedwait_pthread(
 	nosv_cond_t *cond,
 	pthread_mutex_t *mutex,
+	const struct timespec *abstime);
+
+/* Same as the above nosv_cond_clockwait but using a pthread mutex internally */
+/* May return:
+	- 0 (success)
+	- EINVAL (cond or mutex is NULL)
+	- EINVAL (the calling task cannot be blocked)
+	- EINVAL (invalid clock_id)
+	- ESRCH (called from outside a task context)
+	- ETIMEDOUT (deadline expired before receiving a wakeup signal)
+*/
+int nosv_cond_clockwait_pthread(
+	nosv_cond_t *cond,
+	pthread_mutex_t *mutex,
+	clockid_t clock_id,
 	const struct timespec *abstime);
 
 /* Initialize nOS-V read-write lock attributes */
@@ -293,6 +340,7 @@ int nosv_rwlock_init(
 /* Destroys a nosv_rwlock_t object */
 /* May return:
 	- 0 (success)
+	- EBUSY (rwlock is in use)
 	- EINVAL (rwlock is NULL)
 */
 int nosv_rwlock_destroy(

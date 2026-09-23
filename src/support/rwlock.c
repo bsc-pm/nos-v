@@ -70,6 +70,15 @@ int nosv_rwlock_destroy(nosv_rwlock_t *rwlock)
 	if (!rwlock)
 		return EINVAL;
 
+	struct nosv_rwlock *rwl = (struct nosv_rwlock *) rwlock;
+	nosv_spin_lock(&rwl->lock);
+	if (rwl->wrtaken || rwl->rdtaken_count != 0) {
+		nosv_spin_unlock(&rwl->lock);
+		return EBUSY; // currently in use
+	}
+	nosv_spin_unlock(&rwl->lock);
+	nosv_spin_destroy(&rwl->lock);
+
 	return 0;
 }
 

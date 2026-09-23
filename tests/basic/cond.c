@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2024-2025 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2024-2026 Barcelona Supercomputing Center (BSC)
 */
 
 #include <nosv.h>
@@ -32,9 +32,12 @@ test_t test;
 nosv_task_type_t task_type;
 nosv_task_t tasks[NTASKS];
 
-atomic_uint completed[NTASKS];
 atomic_uint track_init;
-atomic_uint track_completed;
+
+// the lower 16 bits are used to count expirations (timed-out), upper 16 bits
+// count the total completions
+atomic_uint_fast32_t track_completion_status;
+static_assert(NTASKS < UINT16_MAX, "Number of tasks cannot exceed 2^16");
 
 int ready = 0;
 
@@ -46,6 +49,7 @@ struct metadata {
 	int tid;
 	struct timespec *deadline;
 	cond_test_flag_t flags;
+	int expired;
 };
 
 static inline void lock(const cond_test_flag_t flags) {
@@ -63,25 +67,31 @@ void task_run(nosv_task_t task)
 	atomic_fetch_add_explicit(&track_init, 1, memory_order_relaxed);
 	struct metadata *meta = nosv_get_task_metadata(task);
 	struct timespec *deadline = meta->deadline;
-	lock(meta->flags);
-	if (deadline) {
-		// If timedwait, we don't want to check for ready value, otherwise
-		// we cannot wait for the tasks to wake up on their own in the test.
-		if (meta->flags & PTHREAD)
-			CHECK(nosv_cond_timedwait_pthread(&cond, &pthread_mutex, deadline));
-		else
-			CHECK(nosv_cond_timedwait(&cond, &mutex, deadline));
+	meta->expired = 0;
 
-		ready--;
-	} else {
-		while (ready <= 0) {
+	lock(meta->flags);
+	while (ready <= 0) {
+		if (deadline) {
+			int err;
+			if (meta->flags & PTHREAD)
+				err = nosv_cond_timedwait_pthread(&cond, &pthread_mutex, deadline);
+			else
+				err = nosv_cond_timedwait(&cond, &mutex, deadline);
+
+			if (err == ETIMEDOUT) {
+				meta->expired = 1;
+				break;
+			} else {
+				CHECK(err);
+			}
+		} else {
 			if (meta->flags & PTHREAD)
 				CHECK(nosv_cond_wait_pthread(&cond, &pthread_mutex));
 			else
 				CHECK(nosv_cond_wait(&cond, &mutex));
 		}
-		ready--;
 	}
+	ready--;
 	unlock(meta->flags);
 }
 
@@ -89,8 +99,37 @@ void task_comp(nosv_task_t task)
 {
 	struct metadata *meta = nosv_get_task_metadata(task);
 	// Mark this task as finished
-	atomic_fetch_add_explicit(&track_completed, 1, memory_order_relaxed);
-	atomic_fetch_add_explicit(&completed[meta->tid], 1, memory_order_relaxed);
+	atomic_fetch_add_explicit(&track_completion_status, 1 << 16 | !!(meta->expired), memory_order_relaxed);
+}
+
+typedef struct {
+	uint16_t total, expired;
+} completion_pair_t;
+
+
+static inline completion_pair_t fetch_completion_vars()
+{
+	completion_pair_t res;
+	uint_least64_t completed_bits = atomic_load_explicit(&track_completion_status, memory_order_relaxed);
+	res.total = completed_bits >> 16;
+	res.expired = completed_bits & 0xFFFF;
+	return res;
+}
+
+void add_ms(struct timespec *deadline, int64_t ms)
+{
+	deadline->tv_sec += ms / 1000; // ms -> s
+	ms %= 1000;
+
+	deadline->tv_nsec += ms * 1000000L; // ms -> ns
+
+	if (deadline->tv_nsec >= 1000000000L) {
+		deadline->tv_nsec -= 1000000000L;
+		deadline->tv_sec++;
+	} else if (deadline->tv_nsec < 0) {
+		deadline->tv_nsec += 1000000000L;
+		deadline->tv_sec--;
+	}
 }
 
 void test_cond(const char *pref, const char *label, const cond_test_flag_t flags, const int timed_tasks, const long time_ms)
@@ -98,16 +137,13 @@ void test_cond(const char *pref, const char *label, const cond_test_flag_t flags
 	char msg[255];
 	sprintf(msg, "%s-%s", pref, label);
 	atomic_store_explicit(&track_init, 0, memory_order_relaxed);
-	atomic_store_explicit(&track_completed, 0, memory_order_relaxed);
+	atomic_store_explicit(&track_completion_status, 0, memory_order_relaxed);
 	ready = 0;
-
-	for (int i = 0; i < NTASKS; i++)
-		atomic_store_explicit(&completed[i], 0, memory_order_relaxed);
 
 	struct timespec deadline;
 	if (timed_tasks) {
-		clock_gettime(CLOCK_MONOTONIC, &deadline);
-		deadline.tv_nsec += time_ms*1000000; // *1ms
+		clock_gettime(CLOCK_REALTIME, &deadline);
+		add_ms(&deadline, time_ms);
 	}
 
 	for (int i = 0; i < NTASKS; i++) {
@@ -134,16 +170,21 @@ void test_cond(const char *pref, const char *label, const cond_test_flag_t flags
 		CHECK(nosv_yield(NOSV_YIELD_NONE));
 
 	// Wait until all timed tasks finish
-	int completed = 0;
+	completion_pair_t completion_counters = {0, 0};
 
 	if (flags & NOWAIT) {
 		test_ok(&test, "%s: not waiting for timedwait tasks", msg);
+		completion_counters = fetch_completion_vars();
+		test_check(&test, completion_counters.expired <= timed_tasks && completion_counters.total == completion_counters.expired, "%s: %d out of %d tasks returned ETIMEDOUT and no tasks have been signaled", msg, completion_counters.expired, timed_tasks);
 	} else {
 		test_check_waitfor(&test,
-						timed_tasks == (completed = atomic_load_explicit(&track_completed, memory_order_relaxed)),
-						TEST_TIMEOUT,
-						"%s: %d timed tasks finished, expected %d (%d remain, ready = %d)", msg, completed,
-						timed_tasks, NTASKS - timed_tasks, ready);
+			timed_tasks == (completion_counters = fetch_completion_vars()).expired,
+			TEST_TIMEOUT,
+			"%s: %d timed tasks finished, expected %d (%d remain, ready = %d)", msg, completion_counters.expired,
+			timed_tasks, NTASKS - timed_tasks, ready);
+
+		uint signaled = completion_counters.total - completion_counters.expired;
+		test_check(&test, 0 == signaled, "%s: %d tasks were signaled (expeteced none)", msg, signaled, timed_tasks);
 	}
 
 	if (flags & SIGNAL) {
@@ -155,14 +196,15 @@ void test_cond(const char *pref, const char *label, const cond_test_flag_t flags
 			CHECK(nosv_cond_signal(&cond));
 			unlock(flags);
 
+			uint expired;
 			// Wait for that task to finish
-			while (i > atomic_load_explicit(&track_completed, memory_order_relaxed))
+			while (i > (completion_counters = fetch_completion_vars()).total)
 				CHECK(nosv_yield(NOSV_YIELD_NONE));
 
 			// Ensure that only one task finished
-			if (timed_tasks + i < atomic_load_explicit(&track_completed, memory_order_relaxed)) {
+			if (timed_tasks + i < completion_counters.total) {
 				test_fail(&test, "%s: Tasks were not unblocked in order: expected <= %d but found %d\n",
-					  msg, i, atomic_load_explicit(&track_completed, memory_order_relaxed));
+					msg, i, completion_counters.total);
 				exit(1);
 			}
 		}
@@ -173,12 +215,9 @@ void test_cond(const char *pref, const char *label, const cond_test_flag_t flags
 		unlock(flags);
 	}
 
-	while (NTASKS != atomic_load_explicit(&track_completed, memory_order_relaxed))
-		CHECK(nosv_yield(NOSV_YIELD_NONE));
-
 	// Wait until all tasks finish
-	test_check_waitfor(&test, NTASKS == (completed = atomic_load_explicit(&track_completed, memory_order_relaxed)),
-					TEST_TIMEOUT, "%s: %d unlocked correctly, expected %d", msg, completed, NTASKS);
+	test_check_waitfor(&test, NTASKS == (completion_counters = fetch_completion_vars()).total,
+		TEST_TIMEOUT, "%s: %d unlocked correctly, expected %d (timedout %d)", msg, completion_counters.total, NTASKS, completion_counters.expired);
 
 	lock(flags);
 	if (ready)
@@ -206,21 +245,127 @@ void free_objs() {
 
 #define NVARIANTS 4
 
+void test_condattr(void)
+{
+	nosv_cond_t cond;
+	nosv_condattr_t attr;
+
+	CHECK(nosv_condattr_init(&attr));
+
+	clockid_t clock_id;
+	CHECK(nosv_condattr_getclock(&attr, &clock_id));
+
+	test_check(&test, clock_id == CLOCK_REALTIME, "condattr: default clock_id is CLOCK_REALTIME");
+	test_check(&test, nosv_condattr_setclock(&attr, 1337) == EINVAL, "condattr: returns EINVAL on invalid clock");
+
+	CHECK(nosv_condattr_setclock(&attr, CLOCK_MONOTONIC));
+	CHECK(nosv_condattr_getclock(&attr, &clock_id));
+	test_check(&test, clock_id == CLOCK_MONOTONIC, "condattr: getclock returns CLOCK_MONOTONIC after setclock");
+
+	CHECK(nosv_condattr_destroy(&attr));
+}
+
+void timespec_diff(struct timespec *start, struct timespec *end, struct timespec *result)
+{
+	if ((end->tv_nsec - start->tv_nsec) < 0) {
+		result->tv_sec = end->tv_sec - start->tv_sec - 1;
+		result->tv_nsec = end->tv_nsec - start->tv_nsec + 1000000000ULL;
+	} else {
+		result->tv_sec = end->tv_sec - start->tv_sec;
+		result->tv_nsec = end->tv_nsec - start->tv_nsec;
+	}
+}
+
+void test_clock_timing(const char *msg, clockid_t clock_id, uint64_t time_ms)
+{
+	nosv_condattr_t attr;
+	CHECK(nosv_condattr_init(&attr));
+	CHECK(nosv_condattr_setclock(&attr, clock_id));
+
+	nosv_cond_t cond;
+	CHECK(nosv_cond_init(&cond, &attr));
+
+	struct timespec deadline;
+	CHECK(clock_gettime(clock_id, &deadline));
+	add_ms(&deadline, time_ms);
+
+	nosv_mutex_t m = NOSV_MUTEX_INITIALIZER;
+	CHECK(nosv_mutex_lock(&m));
+
+	// wait until timeout
+	int err;
+	while (!(err = nosv_cond_timedwait(&cond, &m, &deadline)))
+		;
+	if (err != ETIMEDOUT)
+		CHECK(err);
+
+	CHECK(nosv_mutex_unlock(&m));
+
+	struct timespec now;
+	CHECK(clock_gettime(clock_id, &now));
+
+	if (now.tv_sec < deadline.tv_sec || (now.tv_sec == deadline.tv_sec && now.tv_nsec < deadline.tv_nsec)) {
+		test_fail(&test, "%s: woke up before deadline", msg);
+	} else {
+		test_ok(&test, "%s: timing ok", msg);
+	}
+
+	CHECK(nosv_condattr_destroy(&attr));
+	CHECK(nosv_cond_destroy(&cond));
+}
+
+void test_clock_timing_clockwait(const char *msg, clockid_t clock_id, uint64_t time_ms)
+{
+	nosv_cond_t cond = NOSV_COND_INITIALIZER;
+	nosv_mutex_t m = NOSV_MUTEX_INITIALIZER;
+
+	struct timespec deadline;
+	CHECK(clock_gettime(clock_id, &deadline));
+	add_ms(&deadline, time_ms);
+
+	CHECK(nosv_mutex_lock(&m));
+
+	// wait until timeout
+	int err;
+	while (!(err = nosv_cond_clockwait(&cond, &m, clock_id, &deadline)))
+		;
+	if (err != ETIMEDOUT)
+		CHECK(err);
+
+	CHECK(nosv_mutex_unlock(&m));
+
+	struct timespec now;
+	CHECK(clock_gettime(clock_id, &now));
+
+	if (now.tv_sec < deadline.tv_sec || (now.tv_sec == deadline.tv_sec && now.tv_nsec < deadline.tv_nsec)) {
+		test_fail(&test, "%s: woke up before deadline", msg);
+	} else {
+		test_ok(&test, "%s: timing ok", msg);
+	}
+}
+
 int main()
 {
 	nosv_task_t task;
+	const int timeout_ms = 250;
 
-	test_init(&test, 2*7*NVARIANTS);
+	test_init(&test, 3 + 4 + 3 * 7 * NVARIANTS);
 
 	// Init nosv
 	CHECK(nosv_init());
 	CHECK(nosv_attach(&task, NULL, "main", NOSV_ATTACH_NONE));
 	CHECK(nosv_type_init(&task_type, task_run, NULL, task_comp, "task", NULL, NULL, NOSV_TYPE_INIT_NONE));
 
+	test_condattr();
+
+	test_clock_timing("timedwait-REALTIME", CLOCK_REALTIME, timeout_ms);
+	test_clock_timing("timedwait-MONOTONIC", CLOCK_MONOTONIC, timeout_ms);
+
+	test_clock_timing_clockwait("clockwait-REALTIME", CLOCK_REALTIME, timeout_ms);
+	test_clock_timing_clockwait("clockwait-MONOTONIC", CLOCK_MONOTONIC, timeout_ms);
+
 	cond_test_flag_t variants[NVARIANTS] = {BROADCAST, SIGNAL, BROADCAST | PTHREAD, SIGNAL | PTHREAD};
 	char *labels[NVARIANTS] = {"broadcast", "signal", "broadcast-pthread", "signal-pthread"};
-
-	const int timeout_ms = 250;
 
 	for (int i = 0; i < NVARIANTS; ++i) {
 		// The first iteration will use static initializers

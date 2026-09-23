@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2024-2025 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2024-2026 Barcelona Supercomputing Center (BSC)
 */
 
 #include <stdbool.h>
@@ -24,8 +24,16 @@ struct nosv_cond {
 	// them when waking the tasks
 	list_head_t list_timed;
 	nosv_spinlock_t lock;
+	clockid_t clock_id;
 	int initialized;
 };
+
+struct nosv_condattr {
+	clockid_t clock_id;
+};
+
+static_assert(sizeof(struct nosv_condattr) <= SIZEOF_NOSV_CONDATTR,
+	"Exposed condattr struct should be at least the size of internal type. Increase exposed struct size accordingly");
 
 static_assert(sizeof(struct nosv_cond) <= SIZEOF_NOSV_COND,
 	"Exposed barrier struct sould be at least the size of internal type. Increase exposed struct size accordingly.");
@@ -34,6 +42,9 @@ int nosv_condattr_init(nosv_condattr_t *attr)
 {
 	if (!attr)
 		return EINVAL;
+
+	struct nosv_condattr *a = (struct nosv_condattr *) attr;
+	a->clock_id = CLOCK_REALTIME;
 
 	return 0;
 }
@@ -46,11 +57,40 @@ int nosv_condattr_destroy(nosv_condattr_t *attr)
 	return 0;
 }
 
+int nosv_condattr_getclock(const nosv_condattr_t *restrict attr, clockid_t *restrict clock_id)
+{
+	if (clock_id == NULL || attr == NULL)
+		return EINVAL;
+
+	struct nosv_condattr *a = (struct nosv_condattr *) attr;
+	*clock_id = a->clock_id;
+
+	return 0;
+}
+
+int nosv_condattr_setclock(nosv_condattr_t *attr, clockid_t clock_id)
+{
+	if (attr == NULL)
+		return EINVAL;
+
+	// Verify that clock_id is valid
+	uint64_t now_ns;
+	if (clock_ns_from_id(clock_id, &now_ns)) {
+		return EINVAL;
+	}
+
+	struct nosv_condattr *a = (struct nosv_condattr *) attr;
+	a->clock_id = clock_id;
+
+	return 0;
+}
+
 static inline void nosv_cond_init_internal(struct nosv_cond *c)
 {
 	list_init(&c->list);
 	list_init(&c->list_timed);
 	c->initialized = 1;
+	c->clock_id = CLOCK_REALTIME;
 }
 
 int nosv_cond_init(
@@ -66,6 +106,11 @@ int nosv_cond_init(
 	nosv_cond_init_internal(c);
 	nosv_spin_init(&c->lock);
 
+	if (condattr != NULL) {
+		struct nosv_condattr *a = (struct nosv_condattr *) condattr;
+		c->clock_id = a->clock_id;
+	}
+
 	return 0;
 }
 
@@ -75,10 +120,21 @@ int nosv_cond_destroy(nosv_cond_t *cond) {
 		return EINVAL;
 
 	nosv_spin_lock(&c->lock);
-	if (c->initialized && (!list_empty(&c->list) || !list_empty(&c->list_timed)))
-		nosv_warn("nosv_cond_destroy called with waiters remaining");
+	if (c->initialized && (!list_empty(&c->list) || !list_empty(&c->list_timed))) {
+		nosv_spin_unlock(&c->lock);
 
+		// NOTE: this check is best-effort, timed tasks will check list_timed upon
+		// waking. If a timed task may slip through, (list_timed empty but the task
+		// did not reach the list_timed check before this destroy).
+		// Right now, it's not a problem, since the memory is still valid, and
+		// the list_node_is_inserted_in_any_list check will return false in this
+		// scenario.
+
+		return EBUSY; // currently in use
+	}
 	c->initialized = 0;
+	nosv_spin_unlock(&c->lock);
+
 	nosv_spin_destroy(&c->lock);
 
 	return 0;
@@ -163,16 +219,16 @@ int nosv_cond_broadcast(nosv_cond_t *cond)
 	return 0;
 }
 
-static inline int nosv_cond_timedwait_internal(
-	nosv_cond_t *cond,
+static inline int nosv_cond_clockwait_internal(
+	struct nosv_cond *c,
 	nosv_mutex_t *nosv_mutex,
 	pthread_mutex_t *pthread_mutex,
-	const struct timespec *abstime
-)
+	clockid_t clock_id,
+	const struct timespec *abstime)
 {
 	int err = 0;
+	int timedout = 0;
 	nosv_task_t current_task = worker_current_task();
-	struct nosv_cond *c = (struct nosv_cond *) cond;
 
 	if (!c || (nosv_mutex == NULL && pthread_mutex == NULL))
 		return EINVAL;
@@ -192,14 +248,19 @@ static inline int nosv_cond_timedwait_internal(
 	uint64_t wait_ns = 0;
 	if (abstime) {
 		const uint64_t abstime_ns = abstime->tv_nsec + abstime->tv_sec * 1000000000ULL;
-		const uint64_t now_ns = clock_ns();
-
-		// If time has expired, we return keeping nosv_mutex locked
-		if (now_ns > abstime_ns) {
+		uint64_t now_ns;
+		if (unlikely(clock_ns_from_id(clock_id, &now_ns))) {
+			// Invalid clock
 			nosv_spin_unlock(&c->lock);
 			instr_cond_wait_exit();
+			return EINVAL;
+		}
 
-			return 0;
+		// Skip list_timed addition if deadline is expired
+		if (now_ns >= abstime_ns) {
+			timedout = 1;
+			// We cannot return here, since pthread semantics require releasing
+			// and re-acquiring the mutex even when timedout
 		} else {
 			list_add_tail(&c->list_timed, &current_task->list_hook_cond);
 			wait_ns = abstime_ns - now_ns;
@@ -216,7 +277,7 @@ static inline int nosv_cond_timedwait_internal(
 	}
 
 	if (unlikely(err != 0)) {
-		nosv_abort("Failed to unlock nosv mutex");
+		nosv_abort("Failed to unlock mutex");
 	}
 
 	if (!abstime) { // nosv_cond_wait (not timed)
@@ -225,7 +286,7 @@ static inline int nosv_cond_timedwait_internal(
 			instr_cond_wait_exit();
 			nosv_abort("Unexpected internal error when pausing the task");
 		}
-	} else { // timed wait
+	} else if (!timedout) { // timed wait (non-expired)
 		assert(wait_ns);
 
 		err = nosv_waitfor(wait_ns, NULL);
@@ -234,9 +295,11 @@ static inline int nosv_cond_timedwait_internal(
 		}
 
 		nosv_spin_lock(&c->lock);
-		// Remove from wait list (if we woke by ourselves)
-		if (list_node_is_inserted_in_any_list(&current_task->list_hook_cond))
+		if (list_node_is_inserted_in_any_list(&current_task->list_hook_cond)) {
+			// If we woke by ourselves iff we are still in the list, clean up
 			list_remove(&current_task->list_hook_cond);
+			timedout = 1;
+		}
 		nosv_spin_unlock(&c->lock);
 	}
 
@@ -246,8 +309,12 @@ static inline int nosv_cond_timedwait_internal(
 		err = nosv_mutex_lock(nosv_mutex);
 	}
 
+	if (unlikely(err != 0)) {
+		nosv_abort("Failed to lock mutex");
+	}
+
 	instr_cond_wait_exit();
-	return err;
+	return timedout ? ETIMEDOUT : 0;
 }
 
 int nosv_cond_timedwait(
@@ -255,7 +322,11 @@ int nosv_cond_timedwait(
 	nosv_mutex_t *mutex,
 	const struct timespec *abstime)
 {
-	return nosv_cond_timedwait_internal(cond, mutex, NULL, abstime);
+	if (cond == NULL)
+		return EINVAL;
+
+	struct nosv_cond *c = (struct nosv_cond *) cond;
+	return nosv_cond_clockwait_internal(c, mutex, NULL, c->clock_id, abstime);
 }
 
 int nosv_cond_timedwait_pthread(
@@ -263,7 +334,29 @@ int nosv_cond_timedwait_pthread(
 	pthread_mutex_t *mutex,
 	const struct timespec *abstime)
 {
-	return nosv_cond_timedwait_internal(cond, NULL, mutex, abstime);
+	if (cond == NULL)
+		return EINVAL;
+
+	struct nosv_cond *c = (struct nosv_cond *) cond;
+	return nosv_cond_clockwait_internal(c, NULL, mutex, c->clock_id, abstime);
+}
+
+int nosv_cond_clockwait(
+	nosv_cond_t *cond,
+	nosv_mutex_t *mutex,
+	clockid_t clock_id,
+	const struct timespec *abstime)
+{
+	return nosv_cond_clockwait_internal((struct nosv_cond *) cond, mutex, NULL, clock_id, abstime);
+}
+
+int nosv_cond_clockwait_pthread(
+	nosv_cond_t *cond,
+	pthread_mutex_t *mutex,
+	clockid_t clock_id,
+	const struct timespec *abstime)
+{
+	return nosv_cond_clockwait_internal((struct nosv_cond *) cond, NULL, mutex, clock_id, abstime);
 }
 
 inline int nosv_cond_wait(

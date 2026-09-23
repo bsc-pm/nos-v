@@ -236,6 +236,7 @@ Destroys a mutex object. The object can be re-initialized afterwards.
 **Return values**
 
 * `0`: success.
+* `EBUSY`: `mutex` is in use.
 * `EINVAL`: `mutex` is `NULL`.
 
 ---
@@ -336,6 +337,7 @@ Destroys a barrier object. It can be re-initialized afterwards.
 **Return values**
 
 * `0`: success.
+* `EBUSY`: `barrier` is in use.
 * `EINVAL`: `barrier` is `NULL`.
 
 ---
@@ -382,7 +384,7 @@ Condition variables allow tasks to wait for specific conditions to be signaled.
 **Parameters**
 
 * `cond`: pointer to a condition variable to initialize.
-* `attr`: optional condition attributes (currently unimplemented; must be `NULL`).
+* `attr`: optional condition attributes.
 
 **Return values**
 
@@ -401,6 +403,7 @@ Destroys a condition variable. It can be re-initialized afterwards.
 **Return values**
 
 * `0`: success.
+* `EBUSY`: `cond` is in use.
 * `EINVAL`: `cond` is `NULL`.
 
 ---
@@ -463,6 +466,28 @@ Same as `nosv_cond_wait`, but unblocks if the specified absolute timeout expires
 * `0`: success.
 * `EINVAL`: `cond` or `mutex` is `NULL`, or the task cannot be blocked.
 * `ESRCH`: called from outside a task context.
+* `ETIMEDOUT`: deadline expired before receiving a wakeup signal.
+
+---
+
+```c
+int nosv_cond_clockwait(
+	nosv_cond_t *cond,
+	nosv_mutex_t *mutex,
+	clockid_t clock_id,
+	const struct timespec *abstime);
+```
+
+Same as `nosv_cond_wait`, but unblocks if the specified absolute timeout expires.
+
+**Return values**
+
+* `0`: success.
+* `EINVAL`: `cond` or `mutex` is `NULL`, the `clock_id` is not valid, or the
+  task cannot be blocked.
+* `ESRCH`: called from outside a task context.
+* `ETIMEDOUT`: deadline expired before receiving a wakeup signal.
+
 
 ---
 
@@ -475,6 +500,12 @@ int nosv_cond_timedwait_pthread(
     nosv_cond_t *cond,
     pthread_mutex_t *mutex,
     const struct timespec *abstime);
+
+int nosv_cond_clockwait_pthread(
+	nosv_cond_t *cond,
+	pthread_mutex_t *mutex,
+	clockid_t clock_id,
+	const struct timespec *abstime);
 ```
 
 Equivalent to the above functions but using a pthread mutex.
@@ -483,20 +514,53 @@ These are intended for compatibility with existing pthread-based code.
 **Return values**
 
 * `0`: success.
-* `EINVAL`: `cond` or `mutex` is `NULL`, or the task cannot be blocked.
+* `EINVAL`: `cond` or `mutex` is `NULL`, the `clock_id` is not valid, or the
+  task cannot be blocked.
 * `ESRCH`: called from outside a task context.
+* `ETIMEDOUT`: deadline expired before receiving a wakeup signal.
 
 ---
 
-##### Condition Attributes (unimplemented)
+##### Condition Attributes
 
 ```c
 int nosv_condattr_init(nosv_condattr_t *attr);
 int nosv_condattr_destroy(nosv_condattr_t *attr);
 ```
 
-Defined for compatibility but currently unimplemented.
-Always return `0` when `attr` is valid.
+Initializes/destroys the condition variable attribute object.
+By default, conditional variables will use `CLOCK_REALTIME`.
+
+**Return values**
+
+* `0`: success
+* `EINVAL`: `attr` is `NULL`
+
+---
+
+```c
+int nosv_condattr_setclock(nosv_condattr_t *attr, clockid_t clock_id);
+```
+
+Set the `clock_id` of the nOS-V condition variable attributes.
+
+**Return values**
+
+* `0`: success
+* `EINVAL`: `attr` is `NULL`, or the clock specified by `clock_id` is invalid.
+
+---
+
+```c
+int nosv_condattr_getclock(const nosv_condattr_t *restrict attr, clockid_t *restrict clock_id);
+```
+
+Get the `clock_id` of the nOS-V condition variable attributes.
+
+**Return values**
+
+* `0`: success
+* `EINVAL`: `attr`, or `clock_id` is `NULL`
 
 ---
 
@@ -533,6 +597,7 @@ Destroys a read-write lock. It can be re-initialized afterwards.
 **Return values**
 
 * `0`: success.
+* `EBUSY`: `rwlock` is in use.
 * `EINVAL`: `rwlock` is `NULL`.
 
 ---
