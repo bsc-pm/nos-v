@@ -434,7 +434,7 @@ static inline void *worker_start_routine(void *arg)
 
 #ifndef NDEBUG
 	char thread_name[256];
-	sprintf(thread_name, "nOS-V Worker [%d]", current_worker->tid);
+	sprintf(thread_name, "nOSV-W[%d]", current_worker->tid);
 	pthread_setname_np(pthread_self(), thread_name);
 #endif
 
