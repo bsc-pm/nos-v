@@ -40,6 +40,10 @@ static inline void *delegate_routine(void *args)
 	instr_delegate_enter();
 	instr_kernel_init(&kinstr);
 
+#ifndef NDEBUG
+	pthread_setname_np(pthread_self(), "nOS-V Delegate");
+#endif
+
 	event_queue_t *queue = &threadmanager->thread_creation_queue;
 	creation_event_t event;
 
@@ -430,7 +434,7 @@ static inline void *worker_start_routine(void *arg)
 
 #ifndef NDEBUG
 	char thread_name[256];
-	sprintf(thread_name, "W [%d]", current_worker->tid);
+	sprintf(thread_name, "nOSV-W[%d]", current_worker->tid);
 	pthread_setname_np(pthread_self(), thread_name);
 #endif
 

@@ -10,6 +10,7 @@
 #include <pthread.h>
 #include <stdatomic.h>
 
+#include "compat.h"
 #include "generic/arch.h"
 
 
@@ -29,7 +30,12 @@ static inline void nosv_spin_destroy(nosv_spinlock_t *spinlock)
 static inline void nosv_spin_lock(nosv_spinlock_t *spinlock)
 {
 	int expected = 0;
+
+#ifndef NDEBUG
+	int desired = gettid();
+#else
 	int desired = 1;
+#endif
 
 	if (atomic_compare_exchange_weak_explicit(spinlock, &expected, desired, memory_order_acquire, memory_order_relaxed))
 		return;
