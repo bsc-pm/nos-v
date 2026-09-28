@@ -54,6 +54,7 @@ basic_tests += \
 endif
 
 regression_tests = regression-attach-is.test \
+	regression-join-timeout-wakeup.test \
 	regression-parallel-tasks-cross-process.test \
 	regression-parallel-tasks-yield.test \
 	regression-parallel-tasks-submission.test
@@ -213,6 +214,10 @@ basic_compat_test_LDFLAGS = $(AM_LDFLAGS)
 regression_attach_is_test_SOURCES = regression/attach-is.c
 regression_attach_is_test_CFLAGS = $(AM_CFLAGS)
 regression_attach_is_test_LDFLAGS = $(AM_LDFLAGS)
+
+regression_join_timeout_wakeup_test_SOURCES = regression/join-timeout-wakeup.c
+regression_join_timeout_wakeup_test_CFLAGS = $(AM_CFLAGS)
+regression_join_timeout_wakeup_test_LDFLAGS = $(AM_LDFLAGS) -ldl
 
 regression_parallel_tasks_submission_test_SOURCES = regression/parallel-tasks-submission.c
 regression_parallel_tasks_submission_test_CFLAGS = $(AM_CFLAGS)
