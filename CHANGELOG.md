@@ -3,6 +3,11 @@ All notable changes to this project will be documented in this file.
 
 The format of this file is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Fixed
+- Fixed `nosv_barrier_wait` to match `pthread_barrier_wait`, now exactly one (unspecified) thread receives `PTHREAD_BARRIER_SERIAL_THREAD` on success. Existing code that relies on the previous behavior should be updated.
+
 ## Version [4.1.0], Fri Jun 19, 2026
 This version corresponds to the OmpSs-2 2026.06 release. It is a minor release which extends the API without breaking changes, adds new features, and some fixes.
 

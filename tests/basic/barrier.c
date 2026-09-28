@@ -21,7 +21,11 @@ test_t test;
 nosv_task_type_t task_type;
 nosv_task_t tasks[NTASKS];
 atomic_uint track_init;
-atomic_uint track_mid;
+
+// Upper bits track PTHREAD_BARRIER_SERIAL_THREAD returns, lower bits track tasks
+// returning from the barrier
+atomic_uint_fast32_t track_barrier_return;
+
 atomic_uint track_completed;
 nosv_barrier_t barrier;
 
@@ -29,9 +33,15 @@ nosv_barrier_t barrier;
 void task_run(nosv_task_t task)
 {
 	atomic_fetch_add_explicit(&track_init, 1, memory_order_relaxed);
-	CHECK(nosv_barrier_wait(&barrier));
 
-	atomic_fetch_add_explicit(&track_mid, 1, memory_order_relaxed);
+	int ret = nosv_barrier_wait(&barrier);
+	if (ret == PTHREAD_BARRIER_SERIAL_THREAD) {
+		atomic_fetch_add_explicit(&track_barrier_return, (1 << 16) | 1, memory_order_relaxed);
+	} else {
+		CHECK(ret);
+		atomic_fetch_add_explicit(&track_barrier_return, 1, memory_order_relaxed);
+	}
+
 	CHECK(nosv_pause(NOSV_PAUSE_NONE));
 }
 
@@ -44,7 +54,7 @@ void task_comp(nosv_task_t task)
 void test_barrier(const char *msg)
 {
 	atomic_store_explicit(&track_init, 0, memory_order_relaxed);
-	atomic_store_explicit(&track_mid, 0, memory_order_relaxed);
+	atomic_store_explicit(&track_barrier_return, 0, memory_order_relaxed);
 	atomic_store_explicit(&track_completed, 0, memory_order_relaxed);
 
 	for (int i = 0; i < NTASKS; i++)
@@ -59,17 +69,26 @@ void test_barrier(const char *msg)
 		CHECK(nosv_yield(NOSV_YIELD_NONE));
 
 	// Ensure that no task has finished yet
-	if (atomic_load_explicit(&track_mid, memory_order_relaxed)) {
-		test_error(&test, "%s: %d tasks crossed barrier (expected 0)", msg, atomic_load_explicit(&track_mid, memory_order_relaxed));
+	if (atomic_load_explicit(&track_barrier_return, memory_order_relaxed)) {
+		test_error(&test, "%s: %d tasks crossed barrier (expected 0)", msg, atomic_load_explicit(&track_barrier_return, memory_order_relaxed));
 		exit(1);
 	}
 
-	// Block until all task reach the barrier
-	CHECK(nosv_barrier_wait(&barrier));
+	// Block until all tasks reach the barrier
+	int ret = nosv_barrier_wait(&barrier);
+	if (ret == PTHREAD_BARRIER_SERIAL_THREAD) {
+		atomic_fetch_add_explicit(&track_barrier_return, 1 << 16, memory_order_relaxed);
+	} else {
+		CHECK(ret);
+	}
 
 	// Wait until all tasks finish first barrier
-	test_check_waitfor(&test, atomic_load_explicit(&track_mid, memory_order_relaxed) == NTASKS, 10000,
-			"%s: All tasks were unlocked correctly from barrier", msg);
+	test_check_waitfor(&test, (atomic_load_explicit(&track_barrier_return, memory_order_relaxed) & 0xFFFF) == NTASKS, 10000,
+		"%s: All tasks were unlocked correctly from barrier", msg);
+
+	// Ensure that PTHREAD_BARRIER_SERIAL_THREAD was returned in exactly one of the barrier calls
+	test_check(&test, (track_barrier_return >> 16) == 1, "%s: Exactly one barrier returned PTHREAD_BARRIER_SERIAL_THREAD", msg);
+
 
 	// Ensure that no task has finished yet
 	if (atomic_load_explicit(&track_completed, memory_order_relaxed)) {
@@ -93,7 +112,7 @@ int main()
 {
 	nosv_task_t task;
 
-	test_init(&test, 4);
+	test_init(&test, 6);
 
 	// Init nosv
 	CHECK(nosv_init());

@@ -178,6 +178,7 @@ int nosv_barrier_destroy(
 /* Restriction: Can only be called from a task context */
 /* May return:
 	- 0 (success)
+	- PTHREAD_BARRIER_SERIAL_THREAD (returned to exactly *one* of the threads on success, the rest will receive 0)
 	- EINVAL (barrier is NULL)
 	- ESRCH (called from outside a task context)
 */
