@@ -63,6 +63,14 @@ int nosv_sem_destroy(nosv_sem_t *sem)
 		return -1;
 	}
 
+	nosv_spin_lock(&s->lock);
+	if (!list_empty(&s->list) || !list_empty(&s->list_timed)) {
+		nosv_spin_unlock(&s->lock);
+		errno = EBUSY;
+		return -1;
+	}
+	nosv_spin_unlock(&s->lock);
+
 	return 0;
 }
 

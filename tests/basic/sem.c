@@ -152,6 +152,8 @@ static void test_blocking_waiters(void)
 		"All blocking waiters started");
 	test_check(&test, atomic_load(&completed) == 0,
 		"No blocking waiter completes before a post");
+	test_check_waitfor(&test, nosv_sem_destroy(&sem) == -1 && errno == EBUSY,
+			TEST_TIMEOUT, "Destroy rejects a semaphore with blocking waiters");
 
 	for (int i = 1; i <= NTASKS; i++) {
 		CHECK(nosv_sem_post(&sem));
@@ -225,6 +227,8 @@ static void test_timed_waiters(void)
 	submit_tasks(NTASKS);
 	test_check_waitfor(&test, atomic_load(&started) == NTASKS, TEST_TIMEOUT,
 		"All posted timed waiters started");
+	test_check_waitfor(&test, nosv_sem_destroy(&sem) == -1 && errno == EBUSY,
+			TEST_TIMEOUT, "Destroy rejects a semaphore with timed waiters");
 
 	for (int i = 0; i < NTASKS; i++)
 		CHECK(nosv_sem_post(&sem));
@@ -299,7 +303,7 @@ int main(void)
 	nosv_task_t main_task;
 	struct timespec deadline = deadline_after_ms(1000);
 
-	test_init(&test, 56);
+	test_init(&test, 58);
 
 	check_error(nosv_sem_init(NULL, 0, 0), EINVAL, "Init rejects a NULL semaphore");
 	if ((unsigned long long) SEM_VALUE_MAX < UINT_MAX)

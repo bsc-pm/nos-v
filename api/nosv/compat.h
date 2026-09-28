@@ -426,6 +426,7 @@ int nosv_sem_init(
 /* May return:
 	- 0 (success)
 	- -1 and errno = EINVAL (sem is NULL)
+	- -1 and errno = EBUSY (tasks are waiting on the semaphore)
 */
 int nosv_sem_destroy(
 	nosv_sem_t *sem);
