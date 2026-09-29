@@ -199,7 +199,7 @@ int nosv_condattr_destroy(nosv_condattr_t *attr);
 	- EINVAL (attr is NULL)
 	- EINVAL (clock_id is invalid)
 */
-int nosv_condattr_getclock(const nosv_condattr_t *restrict attr, clockid_t *restrict clock_id);
+int nosv_condattr_getclock(const nosv_condattr_t *__restrict attr, clockid_t *__restrict clock_id);
 int nosv_condattr_setclock(nosv_condattr_t *attr, clockid_t clock_id);
 
 /* Initialize a nOS-V condition variable */
