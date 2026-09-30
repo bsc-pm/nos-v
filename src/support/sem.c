@@ -70,6 +70,7 @@ int nosv_sem_destroy(nosv_sem_t *sem)
 		return -1;
 	}
 	nosv_spin_unlock(&s->lock);
+	nosv_spin_destroy(&s->lock);
 
 	return 0;
 }
@@ -186,7 +187,7 @@ __internal int nosv_sem_wait_internal(nosv_sem_t *sem, bool try, const struct ti
 	uint64_t actual_time_waited = 0;
 	uint64_t time_to_wait = abstime_ns - now_ns;
 
-	while(time_to_wait) {
+	while (time_to_wait) {
 		err = nosv_waitfor(time_to_wait, &actual_time_waited);
 		if (unlikely(err != NOSV_SUCCESS)) {
 			nosv_abort("Failed to submit deadline task");
