@@ -720,6 +720,19 @@ Destroys a semaphore object. It can be re-initialized afterwards.
 ---
 
 ```c
+int nosv_sem_getvalue(nosv_sem_t *sem, int *sval);
+```
+
+Stores a snapshot of the semaphore value in `*sval`. The reported value is zero when tasks are waiting. This function may be called outside task context. The value may change immediately after the call.
+
+**Return values**
+
+* `0`: success.
+* `-1`, `EINVAL`: `sem` or `sval` is `NULL`.
+
+---
+
+```c
 int nosv_sem_post(nosv_sem_t *sem);
 ```
 

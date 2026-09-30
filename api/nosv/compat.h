@@ -431,6 +431,16 @@ int nosv_sem_init(
 int nosv_sem_destroy(
 	nosv_sem_t *sem);
 
+/* Store a snapshot of the semaphore value in sval. Returns zero while tasks
+ * are waiting. May be called outside task context. */
+/* May return:
+	- 0 (success)
+	- -1 and errno = EINVAL (sem or sval is NULL)
+*/
+int nosv_sem_getvalue(
+	nosv_sem_t *sem,
+	int *sval);
+
 /* Increment a semaphore and wake one waiting task, if any */
 /* May return:
 	- 0 (success)

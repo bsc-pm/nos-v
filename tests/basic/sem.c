@@ -119,12 +119,19 @@ static int count_results(int ntasks, int result, int error)
 
 static void test_counting(void)
 {
+	int value = -1;
 	CHECK(nosv_sem_init(&sem, 0, 2));
 
+	test_check(&test, nosv_sem_getvalue(&sem, &value) == 0 && value == 2,
+		"Getvalue reports the initial token count");
 	test_check(&test, nosv_sem_trywait(&sem) == 0, "Trywait consumes the first initial token");
 	test_check(&test, nosv_sem_trywait(&sem) == 0, "Trywait consumes the second initial token");
+	test_check(&test, nosv_sem_getvalue(&sem, &value) == 0 && value == 0,
+		"Getvalue reports zero after tokens are consumed");
 	check_error(nosv_sem_trywait(&sem), EAGAIN, "Trywait fails when the semaphore is empty");
 	test_check(&test, nosv_sem_post(&sem) == 0, "Post increments an empty semaphore");
+	test_check(&test, nosv_sem_getvalue(&sem, &value) == 0 && value == 1,
+		"Getvalue reports a posted token");
 	test_check(&test, nosv_sem_trywait(&sem) == 0, "Trywait consumes a posted token");
 	check_error(nosv_sem_trywait(&sem), EAGAIN, "The posted token was consumed exactly once");
 
@@ -154,6 +161,9 @@ static void test_blocking_waiters(void)
 		"No blocking waiter completes before a post");
 	test_check_waitfor(&test, nosv_sem_destroy(&sem) == -1 && errno == EBUSY,
 			TEST_TIMEOUT, "Destroy rejects a semaphore with blocking waiters");
+	int value = -1;
+	test_check(&test, nosv_sem_getvalue(&sem, &value) == 0 && value == 0,
+		"Getvalue reports zero with blocking waiters");
 
 	for (int i = 1; i <= NTASKS; i++) {
 		CHECK(nosv_sem_post(&sem));
@@ -229,6 +239,9 @@ static void test_timed_waiters(void)
 		"All posted timed waiters started");
 	test_check_waitfor(&test, nosv_sem_destroy(&sem) == -1 && errno == EBUSY,
 			TEST_TIMEOUT, "Destroy rejects a semaphore with timed waiters");
+	int value = -1;
+	test_check(&test, nosv_sem_getvalue(&sem, &value) == 0 && value == 0,
+		"Getvalue reports zero with timed waiters");
 
 	for (int i = 0; i < NTASKS; i++)
 		CHECK(nosv_sem_post(&sem));
@@ -302,8 +315,9 @@ int main(void)
 {
 	nosv_task_t main_task;
 	struct timespec deadline = deadline_after_ms(1000);
+	int value = -1;
 
-	test_init(&test, 58);
+	test_init(&test, 66);
 
 	check_error(nosv_sem_init(NULL, 0, 0), EINVAL, "Init rejects a NULL semaphore");
 	if ((unsigned long long) SEM_VALUE_MAX < UINT_MAX)
@@ -316,12 +330,16 @@ int main(void)
 		"Init rejects process-shared semaphores");
 
 	CHECK(nosv_sem_init(&sem, 0, SEM_VALUE_MAX));
+	test_check(&test, nosv_sem_getvalue(&sem, &value) == 0 && value == SEM_VALUE_MAX,
+		"Getvalue works outside task context and reports SEM_VALUE_MAX");
 	check_error(nosv_sem_post(&sem), EOVERFLOW,
 		"Post rejects incrementing SEM_VALUE_MAX");
 	CHECK(nosv_sem_destroy(&sem));
 
 	CHECK(nosv_sem_init(&sem, 0, 0));
 	check_error(nosv_sem_destroy(NULL), EINVAL, "Destroy rejects a NULL semaphore");
+	check_error(nosv_sem_getvalue(NULL, &value), EINVAL, "Getvalue rejects a NULL semaphore");
+	check_error(nosv_sem_getvalue(&sem, NULL), EINVAL, "Getvalue rejects a NULL output pointer");
 	check_error(nosv_sem_post(NULL), EINVAL, "Post rejects a NULL semaphore");
 	check_error(nosv_sem_wait(NULL), EINVAL, "Wait rejects a NULL semaphore");
 	check_error(nosv_sem_trywait(NULL), EINVAL, "Trywait rejects a NULL semaphore");

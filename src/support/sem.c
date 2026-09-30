@@ -75,6 +75,22 @@ int nosv_sem_destroy(nosv_sem_t *sem)
 	return 0;
 }
 
+int nosv_sem_getvalue(nosv_sem_t *sem, int *sval)
+{
+	struct nosv_sem *s = (struct nosv_sem *) sem;
+
+	if (!s || !sval) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	nosv_spin_lock(&s->lock);
+	*sval = (int) s->value;
+	nosv_spin_unlock(&s->lock);
+
+	return 0;
+}
+
 int nosv_sem_post(nosv_sem_t *sem)
 {
 	struct nosv_sem *s = (struct nosv_sem *) sem;
