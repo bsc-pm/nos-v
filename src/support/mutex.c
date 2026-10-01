@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2024-2025 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2024-2026 Barcelona Supercomputing Center (BSC)
 */
 
 #include <stdbool.h>
@@ -9,7 +9,9 @@
 
 #include "common.h"
 #include "hardware/topology.h"
+#include "hwcounters/hwcounters.h"
 #include "instr.h"
+#include "monitoring/monitoring.h"
 #include "nosv.h"
 #include "nosv/compat.h"
 #include "nosv-internal.h"
@@ -215,11 +217,19 @@ __internal int nosv_mutex_unlock_internal(nosv_mutex_t *mutex, char yield_allowe
 			// Since the task is affine, yield the current core to the unblocked task to speed things up
 			// and forego the scheduler
 
+			// Thread is gonna yield, read and accumulate hardware counters for the task
+			hwcounters_update_task_counters(current_task);
+			monitoring_task_changed_status(current_task, ready_status);
+
 			task_execution_handle_t handle = {
 				.task = task,
 				.execution_id = 1 // Doesn't really matter, since task is blocked
 			};
 			worker_yield_to(handle);
+
+			// Thread has been resumed, read and accumulate hardware counters for the CPU
+			hwcounters_update_runtime_counters();
+			monitoring_task_changed_status(current_task, executing_status);
 		} else {
 			// The task was not affine, so we only submit it and
 			// expect that someone else will run it.
