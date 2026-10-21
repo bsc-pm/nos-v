@@ -4,6 +4,7 @@
 	Copyright (C) 2026 Barcelona Supercomputing Center (BSC)
 */
 
+#include <limits.h>
 #include <semaphore.h>
 #include <stdbool.h>
 #include <stdlib.h>
