@@ -132,6 +132,10 @@ static void test_counting(void)
 	test_check(&test, nosv_sem_post(&sem) == 0, "Post increments an empty semaphore");
 	test_check(&test, nosv_sem_getvalue(&sem, &value) == 0 && value == 1,
 		"Getvalue reports a posted token");
+	test_check(&test, nosv_sem_post(&sem) == 0, "Post increments a non-empty semaphore");
+	test_check(&test, nosv_sem_getvalue(&sem, &value) == 0 && value == 2,
+		"Getvalue reports a posted token");
+	test_check(&test, nosv_sem_trywait(&sem) == 0, "Trywait consumes a posted token");
 	test_check(&test, nosv_sem_trywait(&sem) == 0, "Trywait consumes a posted token");
 	check_error(nosv_sem_trywait(&sem), EAGAIN, "The posted token was consumed exactly once");
 
@@ -317,7 +321,7 @@ int main(void)
 	struct timespec deadline = deadline_after_ms(1000);
 	int value = -1;
 
-	test_init(&test, 66);
+	test_init(&test, 69);
 
 	check_error(nosv_sem_init(NULL, 0, 0), EINVAL, "Init rejects a NULL semaphore");
 	if ((unsigned long long) SEM_VALUE_MAX < UINT_MAX)
