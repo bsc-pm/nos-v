@@ -17,15 +17,24 @@
 #define CLK_SRC_FAST CLOCK_MONOTONIC
 #endif
 
-static inline uint64_t clock_fast_ns(void) {
+static inline uint64_t clock_fast_ns(void)
+{
 	struct timespec tp;
 	clock_gettime(CLK_SRC_FAST, &tp);
 	return tp.tv_sec * 1000000000ULL + tp.tv_nsec;
 }
 
-static inline uint64_t clock_ns(void) {
+static inline uint64_t clock_ns(void)
+{
 	struct timespec tp;
 	clock_gettime(CLOCK_MONOTONIC, &tp);
+	return tp.tv_sec * 1000000000ULL + tp.tv_nsec;
+}
+
+static inline uint64_t clock_ns_abs(void)
+{
+	struct timespec tp;
+	clock_gettime(CLOCK_REALTIME, &tp);
 	return tp.tv_sec * 1000000000ULL + tp.tv_nsec;
 }
 

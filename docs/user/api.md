@@ -196,9 +196,9 @@ int nosv_decrease_event_counter(
 
 ### Synchronization API
 
-The nOS-V synchronization primitives provide pthread-compatible interfaces for mutexes, barriers, condition variables, and read-write locks.
+The nOS-V synchronization primitives provide pthread-compatible interfaces for mutexes, barriers, condition variables, read-write locks, and semaphores.
 They behave similarly to their pthread counterparts but with different contention handling: instead of blocking the underlying worker thread, a contended call causes the current task to pause, allowing other tasks to be scheduled on the same core.
-All functions return POSIX error codes on failure.
+Failures use POSIX error codes. Semaphore functions follow the POSIX convention of returning `-1` and setting `errno`; the other compatibility functions return the error code directly.
 To use the pthread-compatible interface users must include the `nosv/compat.h` header.
 
 ---
@@ -682,6 +682,115 @@ int nosv_rwlockattr_destroy(nosv_rwlockattr_t *attr);
 
 Defined for compatibility but currently unimplemented.
 Always return `0` when `attr` is valid.
+
+---
+
+#### Semaphores
+
+Semaphore functions follow the POSIX semaphore return convention: they return `0` on success, or `-1` on failure and set `errno`.
+
+```c
+int nosv_sem_init(
+    nosv_sem_t *sem,
+    int pshared,
+    unsigned int value);
+```
+
+Initializes a semaphore with the specified value. Process-shared semaphores are not supported, so `pshared` must be zero.
+
+**Return values**
+
+* `0`: success.
+* `-1`, `EINVAL`: `sem` is `NULL` or `value` exceeds `SEM_VALUE_MAX`.
+* `-1`, `ENOSYS`: `pshared` is nonzero.
+
+---
+
+```c
+int nosv_sem_destroy(nosv_sem_t *sem);
+```
+
+Destroys a semaphore object. It can be re-initialized afterwards.
+
+**Return values**
+
+* `0`: success.
+* `-1`, `EINVAL`: `sem` is `NULL`.
+
+---
+
+```c
+int nosv_sem_getvalue(nosv_sem_t *sem, int *sval);
+```
+
+Stores a snapshot of the semaphore value in `*sval`. The reported value is zero when tasks are waiting. This function may be called outside task context. The value may change immediately after the call.
+
+**Return values**
+
+* `0`: success.
+* `-1`, `EINVAL`: `sem` or `sval` is `NULL`.
+
+---
+
+```c
+int nosv_sem_post(nosv_sem_t *sem);
+```
+
+Increments the semaphore value and wakes one waiting task, if any. This function may be called outside task context.
+
+**Return values**
+
+* `0`: success.
+* `-1`, `EINVAL`: `sem` is `NULL`.
+* `-1`, `EOVERFLOW`: the semaphore value is already `SEM_VALUE_MAX`.
+
+---
+
+```c
+int nosv_sem_wait(nosv_sem_t *sem);
+```
+
+Decrements the semaphore value. If it is zero, the current task is paused until another caller posts the semaphore. Must be called from a non-parallel task context.
+
+**Return values**
+
+* `0`: success.
+* `-1`, `EINVAL`: `sem` is `NULL` or the calling task is parallel.
+* `-1`, `ESRCH`: called outside a task context.
+
+---
+
+```c
+int nosv_sem_trywait(nosv_sem_t *sem);
+```
+
+Attempts to decrement the semaphore without blocking.
+
+**Return values**
+
+* `0`: success.
+* `-1`, `EINVAL`: `sem` is `NULL` or the calling task is parallel.
+* `-1`, `ESRCH`: called outside a task context.
+* `-1`, `EAGAIN`: the semaphore value is zero.
+
+---
+
+```c
+int nosv_sem_timedwait(
+    nosv_sem_t *sem,
+    const struct timespec *restrict abs_timeout);
+```
+
+Decrements the semaphore value, pausing the current task if necessary until the absolute `CLOCK_REALTIME` deadline expires. Must be called from a non-parallel task context.
+
+**Return values**
+
+* `0`: success.
+* `-1`, `EINVAL`: `sem` is `NULL` or the calling task is parallel.
+* `-1`, `ESRCH`: called outside a task context.
+* `-1`, `ETIMEDOUT`: the deadline expired before the semaphore was posted.
+
+---
 
 #### Thread creation
 

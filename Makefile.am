@@ -65,9 +65,10 @@ libnosv_la_SOURCES = \
 	src/scheduler/scheduler.c \
 	src/support/affinity.c \
 	src/support/barrier.c \
-	src/support/mutex.c \
 	src/support/cond.c \
+	src/support/mutex.c \
 	src/support/rwlock.c \
+	src/support/sem.c \
 	src/support/pthread_create.c \
 	src/system/tasks.c
 

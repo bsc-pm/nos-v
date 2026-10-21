@@ -56,6 +56,13 @@ typedef union nosv_rwlock_ext {
 
 #define NOSV_RWLOCK_INITIALIZER {{0}}
 
+#define SIZEOF_NOSV_SEM 64
+
+typedef union nosv_sem_ext {
+	uint8_t __pad[SIZEOF_NOSV_SEM];
+	uint64_t __align;
+} nosv_sem_t;
+
 #define SIZEOF_NOSV_MUTEXATTR 32
 
 typedef union nosv_mutexattr_ext {
@@ -402,6 +409,80 @@ int nosv_rwlock_tryrdlock(
 */
 int nosv_rwlock_unlock(
 	nosv_rwlock_t *rwlock);
+
+/* Initialize a nosv_sem_t object with the given value. Process-shared
+ * semaphores are not supported */
+/* May return:
+	- 0 (success)
+	- -1 and errno = EINVAL (sem is NULL or value exceeds SEM_VALUE_MAX)
+	- -1 and errno = ENOSYS (pshared is nonzero)
+*/
+int nosv_sem_init(
+	nosv_sem_t *sem,
+	int pshared,
+	unsigned int value);
+
+/* Destroy a semaphore object */
+/* May return:
+	- 0 (success)
+	- -1 and errno = EINVAL (sem is NULL)
+	- -1 and errno = EBUSY (tasks are waiting on the semaphore)
+*/
+int nosv_sem_destroy(
+	nosv_sem_t *sem);
+
+/* Store a snapshot of the semaphore value in sval. Returns zero while tasks
+ * are waiting. May be called outside task context. */
+/* May return:
+	- 0 (success)
+	- -1 and errno = EINVAL (sem or sval is NULL)
+*/
+int nosv_sem_getvalue(
+	nosv_sem_t *sem,
+	int *sval);
+
+/* Increment a semaphore and wake one waiting task, if any */
+/* May return:
+	- 0 (success)
+	- -1 and errno = EINVAL (sem is NULL)
+	- -1 and errno = EOVERFLOW (the semaphore value is SEM_VALUE_MAX)
+*/
+int nosv_sem_post(
+	nosv_sem_t *sem);
+
+/* Decrement a semaphore, blocking while its value is zero */
+/* Restriction: Can only be called from a non-parallel task context */
+/* May return:
+	- 0 (success)
+	- -1 and errno = EINVAL (sem is NULL or the calling task is parallel)
+	- -1 and errno = ESRCH (called outside a task context)
+*/
+int nosv_sem_wait(
+	nosv_sem_t *sem);
+
+/* Decrement a semaphore or return immediately if its value is zero */
+/* Restriction: Can only be called from a non-parallel task context */
+/* May return:
+	- 0 (success)
+	- -1 and errno = EINVAL (sem is NULL or the calling task is parallel)
+	- -1 and errno = ESRCH (called outside a task context)
+	- -1 and errno = EAGAIN (the semaphore value is zero)
+*/
+int nosv_sem_trywait(
+	nosv_sem_t *sem);
+
+/* Decrement a semaphore, blocking until its value is nonzero or the absolute
+ * deadline expires */
+/* Restriction: Can only be called from a non-parallel task context */
+/* May return:
+	- 0 (success)
+	- -1 and errno = EINVAL (sem is NULL or the calling task is parallel)
+	- -1 and errno = ESRCH (called outside a task context)
+	- -1 and errno = ETIMEDOUT (the deadline expired)
+*/
+int nosv_sem_timedwait(
+	nosv_sem_t *sem,
+	const struct timespec *restrict abs_timeout);
 
 /* Wrapper around pthread create (instruments and attaches the thread) */
 int nosv_pthread_create(pthread_t *thread,
