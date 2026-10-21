@@ -23,8 +23,12 @@ libnosv_la_LDFLAGS=$(PTHREAD_CFLAGS) $(PTHREAD_LIBS) $(libnuma_LIBS) $(ovni_LIBS
 
 include $(top_srcdir)/aminclude_static.am
 
-# TOML and INSTR macros do not play well with lcov
-CODE_COVERAGE_LCOV_OPTIONS = --exclude */config.c --exclude */instr.h --exclude */xmmintrin.h
+# TOML and INSTR macros do not play well with lcov, leaving inconsistent line counts
+# Line number consistency only matters when doing exclusion by function names in
+# lcov flags, so we don't care.
+# We do exclude toml.c since it's a vendored dependency
+CODE_COVERAGE_LCOV_OPTIONS = --ignore-errors inconsistent --exclude src/config/toml.c
+CODE_COVERAGE_BRANCH_COVERAGE=1
 CODE_COVERAGE_DIRECTORY = $(abs_top_builddir)
 CODE_COVERAGE_OUTPUT_DIRECTORY = coverage-report
 
