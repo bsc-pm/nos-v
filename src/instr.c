@@ -1,7 +1,7 @@
 /*
 	This file is part of nOS-V and is licensed under the terms contained in the COPYING file.
 
-	Copyright (C) 2023-2025 Barcelona Supercomputing Center (BSC)
+	Copyright (C) 2023-2026 Barcelona Supercomputing Center (BSC)
 */
 
 #include "config.h"
@@ -45,6 +45,10 @@ static const uint64_t control_flags_mask[] = {
 	[INSTR_BIT_API_WAITFOR]         = INSTR_FLAG_API_WAITFOR,
 	[INSTR_BIT_API_SCHEDPOINT]      = INSTR_FLAG_API_SCHEDPOINT,
 	[INSTR_BIT_API_ATTACH]          = INSTR_FLAG_API_ATTACH,
+	[INSTR_BIT_API_JOIN]            = INSTR_FLAG_API_JOIN,
+	[INSTR_BIT_API_JOIN_ALL]        = INSTR_FLAG_API_JOIN_ALL,
+	[INSTR_BIT_API_WAIT]            = INSTR_FLAG_API_WAIT,
+	[INSTR_BIT_API_WAIT_ALL]        = INSTR_FLAG_API_WAIT_ALL,
 	[INSTR_BIT_TASK]                = INSTR_FLAG_TASK,
 	[INSTR_BIT_KERNEL]              = INSTR_FLAG_KERNEL,
 	[INSTR_BIT_BREAKDOWN]           = INSTR_FLAG_BREAKDOWN,
@@ -75,6 +79,10 @@ static const char *control_flags[] = {
 	[INSTR_BIT_API_WAITFOR]         = "api_waitfor",
 	[INSTR_BIT_API_SCHEDPOINT]      = "api_schedpoint",
 	[INSTR_BIT_API_ATTACH]          = "api_attach",
+	[INSTR_BIT_API_JOIN]            = "api_join",
+	[INSTR_BIT_API_JOIN_ALL]        = "api_join_all",
+	[INSTR_BIT_API_WAIT]            = "api_wait",
+	[INSTR_BIT_API_WAIT_ALL]        = "api_wait_all",
 	[INSTR_BIT_TASK]                = "task",
 	[INSTR_BIT_KERNEL]              = "kernel",
 	[INSTR_BIT_BREAKDOWN]           = "breakdown",
