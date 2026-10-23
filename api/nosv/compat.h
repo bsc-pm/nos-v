@@ -482,7 +482,7 @@ int nosv_sem_trywait(
 */
 int nosv_sem_timedwait(
 	nosv_sem_t *sem,
-	const struct timespec *restrict abs_timeout);
+	const struct timespec *__restrict abs_timeout);
 
 /* Wrapper around pthread create (instruments and attaches the thread) */
 int nosv_pthread_create(pthread_t *thread,
