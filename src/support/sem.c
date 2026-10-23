@@ -251,7 +251,7 @@ int nosv_sem_trywait(nosv_sem_t *sem)
 	return nosv_sem_wait_internal(sem, true, NULL);
 }
 
-int nosv_sem_timedwait(nosv_sem_t *sem, const struct timespec *restrict abs_timeout)
+int nosv_sem_timedwait(nosv_sem_t *sem, const struct timespec *__restrict abs_timeout)
 {
 	return nosv_sem_wait_internal(sem, false, abs_timeout);
 }
