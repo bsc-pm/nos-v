@@ -7,7 +7,7 @@
 
 # nOS-V Version and Copyright
 
-m4_define([nosv_version], [4.1.0])
+m4_define([nosv_version], [4.2.0])
 m4_define([nosv_license], ["GPL3"])
 m4_define([nosv_copyright], ["2021-2026 Barcelona Supercomputing Center (BSC)"])
 

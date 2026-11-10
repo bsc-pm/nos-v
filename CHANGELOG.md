@@ -3,10 +3,26 @@ All notable changes to this project will be documented in this file.
 
 The format of this file is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
-## Unreleased
+## Version [4.2.0], Tue Nov 10, 2026
+This version corresponds to the OmpSs-2 2026.11 release. It is a minor release which extends the API without breaking changes, improves parity of the pthread compatibility API with POSIX, and includes some fixes.
+
+### Added
+- Introduce `nosv_sem_t` and related calls, as a replacement for POSIX semaphores
+- Add `nosv_condattr_t` with `nosv_condattr_setclock` and `nosv_condattr_getclock`, and introduce `nosv_cond_clockwait`
+- Improve thread naming for nOS-V workers and the delegate thread to ease debugging
+- Enable branch coverage tracking
+
+### Changed
+- `nosv_cond_timedwait` now uses `CLOCK_REALTIME` by default, matching `pthread_cond_timedwait`, and returns `ETIMEDOUT` on timeout
+- `nosv_mutex_destroy`, `nosv_cond_destroy`, `nosv_barrier_destroy` and `nosv_rwlock_destroy` now return `EBUSY` when the object is in use
 
 ### Fixed
-- Fixed `nosv_barrier_wait` to match `pthread_barrier_wait`, now exactly one (unspecified) thread receives `PTHREAD_BARRIER_SERIAL_THREAD` on success. Existing code that relies on the previous behavior should be updated.
+- Fixed `nosv_barrier_wait` to match `pthread_barrier_wait`, now exactly one (unspecified) thread receives `PTHREAD_BARRIER_SERIAL_THREAD` on success. Existing code that relies on the previous behavior should be updated
+- Fixed spurious wakeups in `nosv_join_all`
+- Fixed reuse of statically initialized condition variables after being destroyed
+- Fixed hardware counters not being properly updated when yielding to another task in `nosv_mutex_unlock`
+- Added missing instrumentation flags for the join API
+- Fixed the compat header when used from C++
 
 ## Version [4.1.0], Fri Jun 19, 2026
 This version corresponds to the OmpSs-2 2026.06 release. It is a minor release which extends the API without breaking changes, adds new features, and some fixes.
@@ -131,6 +147,8 @@ This version corresponds to the OmpSs-2 2023.11 release. It contains changes to 
 ### Fixed
 - Various bugfixes and corrections
 
+[4.2.0]: https://github.com/bsc-pm/nos-v/releases/tag/4.2.0
+[4.1.0]: https://github.com/bsc-pm/nos-v/releases/tag/4.1.0
 [4.0.0]: https://github.com/bsc-pm/nos-v/releases/tag/4.0.0
 [3.2.0]: https://github.com/bsc-pm/nos-v/releases/tag/3.2.0
 [3.1.0]: https://github.com/bsc-pm/nos-v/releases/tag/3.1.0
