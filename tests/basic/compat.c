@@ -224,6 +224,8 @@ nosv_mutex_t global_mutex = NOSV_MUTEX_INITIALIZER;
 
 int waiting = 0;
 
+atomic_int worker_done = 0;
+
 void worker_callback(nosv_task_t task)
 {
 	CHECK(nosv_mutex_lock(&global_mutex));
@@ -237,6 +239,7 @@ void worker_callback(nosv_task_t task)
 void worker_complete(nosv_task_t task)
 {
 	CHECK(nosv_destroy(task, NOSV_DESTROY_NONE));
+	atomic_store(&worker_done, 1);
 }
 
 void test_compat_with_worker(void)
@@ -266,6 +269,10 @@ void test_compat_with_worker(void)
 
 	// we should be able to destroy it immediately after signaling
 	test_check(&test, nosv_cond_destroy(&global_cond) == 0, "cond_destroy: success after signal");
+
+	// Wait for worker to finish
+	while (!atomic_load(&worker_done))
+		CHECK(nosv_yield(NOSV_YIELD_NONE));
 }
 
 int main()
